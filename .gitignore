@@ -28,9 +28,9 @@ apps/desktop/out/
 apps/desktop/release/
 
 # Claude Code — keep shared config, ignore local/transient state
-.claude/settings.local.json
-.claude/*.lock
-.claude/cache/
+**/.claude/settings.local.json
+**/.claude/*.lock
+**/.claude/cache/
 .claude/worktrees/
 
 # Editor directories and files
@@ -49,5 +49,11 @@ Thumbs.db
 *.pem
 *.key
 
+# Private / confidential — never commit (legal grants, side letters, etc.)
+private/
+
 *storybook.log
 storybook-static
+
+# Astro (docs)
+apps/docs/.astro/
