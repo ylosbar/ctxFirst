@@ -1,3 +1,5 @@
+[![CI](https://github.com/ylosbar/ctxFirst/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ylosbar/ctxFirst/actions/workflows/ci.yml)
+
 ## Quick start
 
 Prerequisites: Node + yarn, `claude` CLI installed and authenticated (the app spawns `claude -p --output-format stream-json`).
