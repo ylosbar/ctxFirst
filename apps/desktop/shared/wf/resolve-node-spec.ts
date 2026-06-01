@@ -106,13 +106,23 @@ const readCases = (v: unknown): ReadonlyArray<string> | null => {
  */
 export type ResolveNodeSpecContext = {
   variables?: ReadonlyArray<TemplateVariableView>;
+  /**
+   * Interface variables of referenced sub-templates, keyed by canonical ref
+   * (`id@version`). Lets `workflow.call` derive its ports from the child's
+   * `input`/`output` interface — mirrors the engine runner's `resolveSpec`
+   * (`plugins/workflow-call.ts`), which the kind-keyed `listNodeSpecs()`
+   * catalog cannot express (the base spec has no child context). Without it
+   * the editor renders a `workflow.call` node as a portless passthrough and
+   * the boundary edges touching it cannot be drawn.
+   */
+  subTemplates?: ReadonlyMap<string, ReadonlyArray<TemplateVariableView>>;
 };
 
 export const resolveNodeSpec = (
   kind: string,
   config: Readonly<Record<string, unknown>>,
   base: NodeSpecView,
-  _ctx: ResolveNodeSpecContext = {},
+  ctx: ResolveNodeSpecContext = {},
 ): NodeSpecView => {
   switch (kind) {
     case "user.input": {
@@ -288,6 +298,28 @@ export const resolveNodeSpec = (
         ...base,
         inputs: [{ name: "json", kinds: ["*"], primary: true }],
         outputs: ports,
+      };
+    }
+    case "workflow.call": {
+      // Mirrors `createWorkflowCallRunner.resolveSpec` (plugins/workflow-call.ts):
+      // ports are derived from the referenced sub-template's interface variables
+      // — one input per `input` role, one output per `output` role. The child's
+      // variables come from `ctx.subTemplates` (the editor supplies them from
+      // its loaded template list); without them we fall back to the portless
+      // base spec, exactly like the runner when the snapshot misses the child.
+      const id = readStr(config.templateId);
+      const version = readStr(config.templateVersion);
+      if (!id || !version) return base;
+      const vars = ctx.subTemplates?.get(`${id}@${version}`);
+      if (!vars) return base;
+      return {
+        ...base,
+        inputs: vars
+          .filter((v) => v.role === "input")
+          .map((v) => ({ name: v.name, kinds: [v.kind] })),
+        outputs: vars
+          .filter((v) => v.role === "output")
+          .map((v) => ({ name: v.name, kind: v.kind })),
       };
     }
     default:

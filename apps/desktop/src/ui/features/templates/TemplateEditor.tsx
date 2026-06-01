@@ -59,6 +59,7 @@ import {
   menuPopupClass,
 } from "../explorer/menus/menu-styles";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
+import type { TemplateVariableView } from "@shared/wf/types";
 import { transitionTypable } from "@shared/wf/port-accepts";
 import type {
   GroupLayout,
@@ -107,6 +108,7 @@ import VariableEditorModal from "./VariableEditorModal";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import useSkills from "../../hooks/useSkills";
 import useArtifactSchemas from "../../hooks/useArtifactSchemas";
+import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
 import {
   setTemplateEditorGridSnap,
@@ -614,10 +616,14 @@ const resolveStepSpec = (
   step: TemplateStepDraft,
   byKind: ByKind,
   variables?: ReadonlyArray<TemplateVariableDraft>,
+  subTemplates?: ReadonlyMap<string, ReadonlyArray<TemplateVariableView>>,
 ): NodeSpecView | null => {
   const base = byKind.get(step.kind);
   if (!base) return null;
-  return resolveNodeSpec(step.kind, step.config, base, { variables });
+  return resolveNodeSpec(step.kind, step.config, base, {
+    variables,
+    subTemplates,
+  });
 };
 
 type PendingConnect = {
@@ -814,6 +820,28 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   // re-mounting this editor.
   const { skills: availableSkills } = useSkills();
   const { types: availableArtifactSchemas } = useArtifactSchemas();
+  // `workflow.call` ports are derived from the referenced sub-template's
+  // interface variables, so feed `resolveNodeSpec` a ref→variables map built
+  // from the cached template list. Used by `resolveStepSpec` for canvas
+  // handles, `isValidConnection`, and save-time port validation alike — without
+  // it a `workflow.call` reads as portless (`[∅]`) and its edges are rejected.
+  const { templates: availableTemplates } = useWorkflowTemplates();
+  const subTemplates = useMemo(() => {
+    const map = new Map<string, ReadonlyArray<TemplateVariableView>>();
+    for (const tpl of availableTemplates) {
+      map.set(
+        `${tpl.id}@${tpl.version}`,
+        tpl.variables.map((v) => ({
+          name: v.name,
+          kind: v.kind,
+          role: v.role,
+          description: v.description,
+          defaultValue: v.defaultValue,
+        })),
+      );
+    }
+    return map;
+  }, [availableTemplates]);
   const availableSkillRefs = useMemo(
     () => new Set(availableSkills.map((s) => s.ref)),
     [availableSkills],
@@ -1076,7 +1104,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       if (n.type !== "step") continue;
       const step = n.data as unknown as TemplateStepDraft;
       const stepWidth = n.measured?.width ?? 200;
-      const spec = byKind ? resolveStepSpec(step, byKind, variables) : null;
+      const spec = byKind ? resolveStepSpec(step, byKind, variables, subTemplates) : null;
       const stepAbs = absPosOf(n, nodesById);
 
       const writes = step.writesTo ? Object.entries(step.writesTo) : [];
@@ -1170,7 +1198,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       });
     }
     return { nodes: vNodes, edges: vEdges };
-  }, [nodes, variableByName, byKind, variables]);
+  }, [nodes, variableByName, byKind, variables, subTemplates]);
 
   const displayNodes = useMemo<Node[]>(() => {
     const nodesWithOverlay: Node[] = runOverlay
@@ -1801,9 +1829,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const launchSeedKind = useMemo<ArtifactKind | null>(() => {
     if (!launchEntryStep || !byKind) return null;
-    const spec = resolveStepSpec(launchEntryStep, byKind, variables);
+    const spec = resolveStepSpec(launchEntryStep, byKind, variables, subTemplates);
     return (spec?.outputs[0]?.kind as ArtifactKind) ?? null;
-  }, [launchEntryStep, byKind, variables]);
+  }, [launchEntryStep, byKind, variables, subTemplates]);
 
   const canLaunch =
     editingRef !== null && entryStepId !== null && !hasMissingDeps;
@@ -1871,8 +1899,8 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       if (!src || !tgt) return false;
       const srcStep = src.data as unknown as TemplateStepDraft;
       const tgtStep = tgt.data as unknown as TemplateStepDraft;
-      const srcSpec = resolveStepSpec(srcStep, byKind, variables);
-      const tgtSpec = resolveStepSpec(tgtStep, byKind, variables);
+      const srcSpec = resolveStepSpec(srcStep, byKind, variables, subTemplates);
+      const tgtSpec = resolveStepSpec(tgtStep, byKind, variables, subTemplates);
       if (!srcSpec || !tgtSpec) return false;
       if (
         !transitionTypable(srcSpec, tgtSpec, {
@@ -1900,7 +1928,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       }
       return true;
     },
-    [nodes, byKind, edges, variables],
+    [nodes, byKind, edges, variables, subTemplates],
   );
 
   const onConnect = useCallback((conn: Connection) => {
@@ -1974,7 +2002,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     const origin = nodes.find((n) => n.id === pendingConnect.fromNodeId);
     if (!origin) return [];
     const originStep = origin.data as unknown as TemplateStepDraft;
-    const originSpec = resolveStepSpec(originStep, byKind, variables);
+    const originSpec = resolveStepSpec(originStep, byKind, variables, subTemplates);
     if (!originSpec) return [];
     const result: EdgeDropSuggestion[] = [];
     for (const kindMeta of STEP_KIND_CATALOG) {
@@ -1985,7 +2013,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         kindMeta.id,
         candidateConfig,
         base,
-        { variables },
+        { variables, subTemplates },
       );
       const isCompatible =
         pendingConnect.handleType === "source"
@@ -2007,7 +2035,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       });
     }
     return result;
-  }, [nodes, pendingConnect, byKind, variables]);
+  }, [nodes, pendingConnect, byKind, variables, subTemplates]);
 
   const handleSuggestionPick = (suggestion: EdgeDropSuggestion) => {
     if (!pendingConnect) return;
@@ -2454,8 +2482,8 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         const src = stepById.get(t.from);
         const dst = stepById.get(t.to);
         if (!src || !dst) return `Transition orpheline : ${t.from} → ${t.to}`;
-        const srcSpec = resolveStepSpec(src, byKind, variables);
-        const dstSpec = resolveStepSpec(dst, byKind, variables);
+        const srcSpec = resolveStepSpec(src, byKind, variables, subTemplates);
+        const dstSpec = resolveStepSpec(dst, byKind, variables, subTemplates);
         if (!srcSpec || !dstSpec) continue;
         if (
           !transitionTypable(srcSpec, dstSpec, {

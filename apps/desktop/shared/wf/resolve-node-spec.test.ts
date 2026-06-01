@@ -100,3 +100,47 @@ describe("resolveNodeSpec — file.load", () => {
     ).toEqual([]);
   });
 });
+
+describe("resolveNodeSpec — workflow.call", () => {
+  const base: NodeSpecView = {
+    kind: "workflow.call",
+    title: "Sub-workflow",
+    inputs: [],
+    outputs: [],
+  };
+  const subTemplates = new Map([
+    [
+      "invoke-claude-on-string@v1",
+      [
+        { name: "itemString", kind: "Markdown", role: "input" as const },
+        { name: "answer", kind: "Markdown", role: "output" as const },
+        { name: "scratch", kind: "Markdown", role: "internal" as const },
+      ],
+    ],
+  ]);
+
+  it("derives input/output ports from the referenced sub-template's interface", () => {
+    const spec = resolveNodeSpec(
+      "workflow.call",
+      { templateId: "invoke-claude-on-string", templateVersion: "v1" },
+      base,
+      { subTemplates },
+    );
+    expect(spec.inputs).toEqual([{ name: "itemString", kinds: ["Markdown"] }]);
+    expect(spec.outputs).toEqual([{ name: "answer", kind: "Markdown" }]);
+  });
+
+  it("falls back to the portless base when the child is unknown or config is missing", () => {
+    expect(
+      resolveNodeSpec("workflow.call", {}, base, { subTemplates }).inputs,
+    ).toEqual([]);
+    expect(
+      resolveNodeSpec(
+        "workflow.call",
+        { templateId: "missing", templateVersion: "v9" },
+        base,
+        { subTemplates },
+      ).outputs,
+    ).toEqual([]);
+  });
+});
