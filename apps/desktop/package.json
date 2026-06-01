@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "check:typography": "node scripts/check-typography.mjs",
     "test": "vitest run",
+    "test:node": "vitest run --project node",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "wipe-db": "ELECTRON_RUN_AS_NODE=1 electron scripts/wipe-db.mjs",
