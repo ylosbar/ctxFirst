@@ -41,5 +41,10 @@ jobs:
       - name: Typecheck
         run: yarn workspace @ctxfirst/desktop typecheck
 
+      # Le projet Vitest « storybook » tourne dans Chromium via Playwright ;
+      # le binaire n'est pas présent sur le runner par défaut.
+      - name: Install Playwright Chromium
+        run: yarn playwright install --with-deps chromium
+
       - name: Test
         run: yarn test
