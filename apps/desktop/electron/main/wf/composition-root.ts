@@ -113,6 +113,7 @@ import { makeDeleteChannel } from "./application/use-cases/delete-channel";
 import { makeMoveEntity } from "./application/use-cases/move-entity";
 import { createConcatMarkdownRunner } from "./plugins/concat-markdown";
 import { createFileLoadMarkdownRunner } from "./plugins/file-load-markdown";
+import { createFileLoadRunner } from "./plugins/file-load";
 import { createHumanGateRunner } from "./plugins/human-gate";
 import { createBranchBoolRunner } from "./plugins/branch-bool";
 import { createBranchMatchRunner } from "./plugins/branch-match";
@@ -510,6 +511,7 @@ export const buildWfEngine = async ({
   runners.register(createRenderMarkdownRunner());
   runners.register(createWebhookCallRunner());
   runners.register(createFileLoadMarkdownRunner());
+  runners.register(createFileLoadRunner());
   runners.register(createSkillLoaderRunner());
   runners.register(createLoopForeachRunner());
   runners.register(createLoopCollectRunner());

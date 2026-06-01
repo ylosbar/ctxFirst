@@ -167,6 +167,17 @@ export const resolveNodeSpec = (
         outputs: [{ name: "out", kind: outputKind }],
       };
     }
+    case "file.load": {
+      // Mirrors `createFileLoadRunner.resolveSpec` (plugins/file-load.ts):
+      // the static `path` input lives in `base`; only the `out` port is
+      // polymorphic, restricted to text-envelope kinds (Markdown | Json).
+      const outputKind = readStr(config.outputKind);
+      if (outputKind !== "Markdown" && outputKind !== "Json") return base;
+      return {
+        ...base,
+        outputs: [{ name: "out", kind: outputKind, primary: true }],
+      };
+    }
     case "human.gate": {
       const inputKind = readStr(config.inputKind);
       if (!inputKind) return base;

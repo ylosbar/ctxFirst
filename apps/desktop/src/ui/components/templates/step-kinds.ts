@@ -288,6 +288,21 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     }),
   },
   {
+    id: "file.load",
+    label: "Load File",
+    description:
+      "Lit un fichier au chemin absolu (input `path` ou config) et l'expose comme artifact du kind choisi (Markdown ou Json).",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: FileDown,
+    family: "input",
+    category: "source",
+    buildDefaultConfig: () => ({
+      path: "",
+      outputKind: "Markdown",
+    }),
+  },
+  {
     id: "file.load-markdown",
     label: "Load Markdown File",
     description:

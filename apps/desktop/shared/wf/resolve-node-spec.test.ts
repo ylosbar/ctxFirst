@@ -56,3 +56,47 @@ describe("resolveNodeSpec — json.transform", () => {
     });
   });
 });
+
+describe("resolveNodeSpec — file.load", () => {
+  // Base spec as `listNodeSpecs()` returns it for `file.load`: the static
+  // `path` input plus empty outputs (the runner resolves outputs to [] when
+  // config.outputKind is unset). The mirror must re-derive the `out` port.
+  const fileLoadBase: NodeSpecView = {
+    kind: "file.load",
+    title: "Load File",
+    inputs: [
+      { name: "path", kinds: ["Path", "String", "Markdown", "*"], optional: true, primary: true },
+    ],
+    outputs: [],
+  };
+
+  it("emits the polymorphic `out` port from config.outputKind (Markdown)", () => {
+    const spec = resolveNodeSpec(
+      "file.load",
+      { path: "", outputKind: "Markdown" },
+      fileLoadBase,
+    );
+    expect(spec.outputs).toEqual([
+      { name: "out", kind: "Markdown", primary: true },
+    ]);
+    // The static `path` input is preserved from base.
+    expect(spec.inputs).toEqual(fileLoadBase.inputs);
+  });
+
+  it("emits a Json `out` port for outputKind=Json", () => {
+    const spec = resolveNodeSpec(
+      "file.load",
+      { outputKind: "Json" },
+      fileLoadBase,
+    );
+    expect(spec.outputs).toEqual([{ name: "out", kind: "Json", primary: true }]);
+  });
+
+  it("falls back to base (no output) for a missing or unsupported outputKind", () => {
+    expect(resolveNodeSpec("file.load", {}, fileLoadBase).outputs).toEqual([]);
+    expect(
+      resolveNodeSpec("file.load", { outputKind: "Ticket" }, fileLoadBase)
+        .outputs,
+    ).toEqual([]);
+  });
+});
