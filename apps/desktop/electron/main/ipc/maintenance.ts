@@ -15,7 +15,7 @@ import { seedDefaultChannel } from "../wf/adapters/channel-registry/sqlite";
  * À tenir à jour à chaque rename. Le nom courant (`@ctxfirst` / `CtxFirst`) ne
  * doit JAMAIS y figurer, sinon le reset effacerait le profil actif.
  */
-const LEGACY_USERDATA_DIRS = [""];
+const LEGACY_USERDATA_DIRS: string[] = [];
 
 /**
  * Réinitialisation d'usine : vide *toutes* les tables SQLite (y compris
@@ -80,7 +80,20 @@ export const registerMaintenanceHandlers = (db: Database.Database) => {
     // nom. `appData` est le dossier parent sous lequel vit chaque profil nommé.
     const appData = app.getPath("appData");
     for (const legacy of LEGACY_USERDATA_DIRS) {
-      rmSync(path.join(appData, legacy), { recursive: true, force: true });
+      const target = path.resolve(appData, legacy);
+      const rel = path.relative(appData, target);
+      // Garde-fou : `target` doit être un *enfant direct* nommé de `appData`,
+      // jamais `appData` lui-même (une entrée vide y résoudrait et effacerait
+      // tout `~/.config`), jamais un chemin remontant hors de `appData`, et
+      // jamais le profil actif. Sans ça une entrée mal formée nuke le dossier
+      // de config partagé par toutes les apps de l'utilisateur.
+      const isDirectChild =
+        rel !== "" && !rel.startsWith("..") && !rel.includes(path.sep);
+      if (!isDirectChild || target === userData) {
+        console.warn(`[maintenance:ipc] skip unsafe legacy dir: ${legacy}`);
+        continue;
+      }
+      rmSync(target, { recursive: true, force: true });
     }
 
     app.exit(0);

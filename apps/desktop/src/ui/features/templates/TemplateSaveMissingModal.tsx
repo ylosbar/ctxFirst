@@ -1,6 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Save, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
@@ -32,12 +32,17 @@ const TemplateSaveMissingModal = ({
   const [id, setId] = useState(initial.id);
   const [version, setVersion] = useState(initial.version);
 
-  // Re-sync sur réouverture pour ne pas garder l'état d'une session précédente.
+  // Re-sync uniquement sur la transition fermé→ouvert. Le parent recrée l'objet
+  // `initial` à chaque rendu : dépendre de sa référence réinitialiserait l'état
+  // à chaque frappe (la saisie serait effacée). On suit donc le front montant.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    setName(initial.name);
-    setId(initial.id);
-    setVersion(initial.version);
+    if (open && !wasOpen.current) {
+      setName(initial.name);
+      setId(initial.id);
+      setVersion(initial.version);
+    }
+    wasOpen.current = open;
   }, [open, initial]);
 
   const requires = (k: RequiredField) => missing.includes(k);
