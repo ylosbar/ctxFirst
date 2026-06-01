@@ -14,6 +14,11 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Restrict auto-included global @types to what the desktop actually uses.
+       Without this, tsc scans every hoisted node_modules/@types entry — including
+       the api workspace's deprecated hapi stub types (no index.d.ts) → TS2688. */
+    "types": ["node", "react", "react-dom", "better-sqlite3"],
+
     "paths": {
       "@/*": ["./src/*"],
       "@shared/*": ["./shared/*"]
