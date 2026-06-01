@@ -558,13 +558,21 @@ describe("ctxfirst_save_template", () => {
     expect(JSON.parse(got).id).toBe("linear-ticket-summary");
   });
 
-  it("refuses any status other than draft (no publish via chat)", async () => {
+  it("allows publishing a new ref (needed for workflow.call sub-templates)", async () => {
+    const engine = authoringEngine();
+    const { text } = await invokeMcpTool(engine, "ctxfirst_save_template", {
+      template: { ...draftTemplate(), status: "published" },
+    });
+    expect(JSON.parse(text).status).toBe("published");
+  });
+
+  it("refuses a status that is neither draft nor published", async () => {
     const engine = authoringEngine();
     await expect(
       invokeMcpTool(engine, "ctxfirst_save_template", {
-        template: { ...draftTemplate(), status: "published" },
+        template: { ...draftTemplate(), status: "archived" },
       }),
-    ).rejects.toThrow(/seuls les drafts/i);
+    ).rejects.toThrow(/"draft" ou "published"/i);
   });
 
   it("refuses to overwrite an existing published ref", async () => {

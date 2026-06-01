@@ -1,7 +1,9 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Cog } from "lucide-react";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
+import type { TemplateVariableView } from "@shared/wf/types";
+import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/ui/callout";
 import { STATUS_STYLE } from "@/components/ui/step-status";
@@ -112,7 +114,30 @@ const StepNode = ({ data, selected }: NodeProps) => {
   const specs = useNodeSpecs();
   const base: NodeSpecView | undefined =
     specs.status === "ready" ? specs.byKind.get(step.kind) : undefined;
-  const spec = base ? resolveNodeSpec(step.kind, step.config, base) : null;
+  // A `workflow.call` node derives its ports from the referenced sub-template's
+  // interface variables (the kind-keyed catalog can't), so feed `resolveNodeSpec`
+  // a ref→variables map built from the loaded templates. Cheap & shared: the
+  // query is cached, the map is memoized.
+  const { templates } = useWorkflowTemplates();
+  const subTemplates = useMemo(() => {
+    const map = new Map<string, ReadonlyArray<TemplateVariableView>>();
+    for (const tpl of templates) {
+      map.set(
+        `${tpl.id}@${tpl.version}`,
+        tpl.variables.map((v) => ({
+          name: v.name,
+          kind: v.kind,
+          role: v.role,
+          description: v.description,
+          defaultValue: v.defaultValue,
+        })),
+      );
+    }
+    return map;
+  }, [templates]);
+  const spec = base
+    ? resolveNodeSpec(step.kind, step.config, base, { subTemplates })
+    : null;
   const notesVisible = useNotesVisible();
   const showNote =
     notesVisible && typeof step.note === "string" && step.note.length > 0;

@@ -456,6 +456,16 @@
           "description": "When enabled, replaces <code>success</code>/<code>failure</code> with named ports mapped to exit codes (with a required catch-all). The <code>stdout</code>/<code>stderr</code> ports remain unchanged."
         }
       },
+      "fileLoad": {
+        "path": {
+          "label": "File path",
+          "description": "Absolute path, picked here or received on the <code>path</code> input (the input wins). The file content is exposed as an artifact of the chosen kind."
+        },
+        "outputKind": {
+          "label": "Output kind",
+          "description": "Type of the produced artifact. A file is text, so only <code>Markdown</code> and <code>Json</code> are available; a Json file is parsed to fail early on malformed content."
+        }
+      },
       "fileLoadMarkdown": {
         "path": {
           "label": "Markdown file path",
@@ -627,6 +637,10 @@
       "markdownPicker": {
         "allFiles": "All files",
         "title": "Choose a Markdown file"
+      },
+      "filePicker": {
+        "allFiles": "All files",
+        "title": "Choose a file"
       },
       "validation": {
         "duplicate": "Duplicate",

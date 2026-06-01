@@ -66,6 +66,7 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "git.clone",
   "gitlab.mr.create",
   "gitlab.mr.merge",
+  "file.load",
   "file.load-markdown",
   "skill.loader",
   "concat.markdown",
@@ -77,6 +78,12 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "json.transform",
   "workflow.call",
 ]);
+
+/**
+ * Output kinds proposés par le node `file.load`. Restreint aux kinds
+ * text-envelope (un fichier est du texte) — cf. `FILE_LOAD_FORMATS` côté runner.
+ */
+const FILE_LOAD_OUTPUT_KINDS = ["Markdown", "Json"] as const;
 
 const CASE_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
 
@@ -136,6 +143,23 @@ const StepInspector = ({
         { name: "Markdown", extensions: ["md", "markdown", "mdx"] },
         {
           name: t("template.stepInspector.markdownPicker.allFiles"),
+          extensions: ["*"],
+        },
+      ],
+    });
+    if (picked) setConfig({ path: picked });
+  };
+
+  const pickFilePath = async () => {
+    const current = (config["path"] as string | undefined) ?? "";
+    const picked = await services.pickFile({
+      defaultPath: current || undefined,
+      title: t("template.stepInspector.filePicker.title"),
+      filters: [
+        { name: "Markdown", extensions: ["md", "markdown", "mdx"] },
+        { name: "JSON", extensions: ["json"] },
+        {
+          name: t("template.stepInspector.filePicker.allFiles"),
           extensions: ["*"],
         },
       ],
@@ -669,6 +693,62 @@ const StepInspector = ({
                 onChange={(next) => setConfig({ exitCodes: next })}
               />
             ) : null}
+          </>
+        ) : null}
+
+        {step.kind === "file.load" ? (
+          <>
+            <FormField
+              label={t("template.stepInspector.fileLoad.path.label")}
+              description={
+                <Trans
+                  t={t}
+                  i18nKey="template.stepInspector.fileLoad.path.description"
+                  components={{ code: <code /> }}
+                />
+              }
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  className="font-mono"
+                  placeholder="/chemin/absolu/vers/data.json"
+                  value={(config["path"] as string | undefined) ?? ""}
+                  onChange={(e) => setConfig({ path: e.target.value })}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={pickFilePath}
+                >
+                  {t("template.stepInspector.browse")}
+                </Button>
+              </div>
+            </FormField>
+            <FormField
+              label={t("template.stepInspector.fileLoad.outputKind.label")}
+              description={t(
+                "template.stepInspector.fileLoad.outputKind.description",
+              )}
+            >
+              <Select
+                value={(config["outputKind"] as string | undefined) ?? ""}
+                onChange={(e) => setConfig({ outputKind: e.target.value })}
+              >
+                {FILE_LOAD_OUTPUT_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </Select>
+              {typeof config["outputKind"] === "string" &&
+              config["outputKind"] ? (
+                <KindPreviewBlock
+                  kind={config["outputKind"] as ArtifactKind}
+                  className="mt-2"
+                />
+              ) : null}
+            </FormField>
           </>
         ) : null}
 

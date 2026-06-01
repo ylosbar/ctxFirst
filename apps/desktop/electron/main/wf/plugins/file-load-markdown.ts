@@ -1,42 +1,30 @@
 /**
  * Runner du step kind "file.load-markdown".
  *
+ * @deprecated Alias conservé pour les templates persistés. Le node générique
+ * {@link createFileLoadRunner} (`file.load`) couvre ce cas avec
+ * `outputKind = "Markdown"` plus le choix du kind de sortie et un chemin
+ * dynamique depuis un input. Ce runner reste enregistré pour ne pas casser les
+ * templates existants ; il délègue son exécution au cœur partagé.
+ *
  * Lit le fichier Markdown indiqué par `step.config.path` (chemin absolu choisi
  * par l'utilisateur via le file picker côté UI) et l'expose comme un artifact
- * `Markdown`. Aucun `workspace.set` n'est requis en amont.
+ * `Markdown`.
  */
-import { putArtifactPayload } from "../application/artifact-io";
 import type {
   NodeSpec,
   StepOutcome,
   StepRunner,
 } from "../application/step-runner";
-import type { PathPort } from "../application/ports/outbound/path";
-import type { ArtifactPayload } from "../domain/artifact-schemas";
+import { loadFileArtifact } from "./file-load";
 
-type FileLoadMarkdownConfig = {
-  path: string;
-};
-
-const parseConfig = (
-  cfg: Readonly<Record<string, unknown>>,
-): FileLoadMarkdownConfig => {
+const readPath = (cfg: Readonly<Record<string, unknown>>): string => {
   const raw = cfg["path"];
   const path = typeof raw === "string" ? raw.trim() : "";
   if (!path) {
     throw new Error("file.load-markdown: `path` is required");
   }
-  return { path };
-};
-
-const assertAbsolute = (rawPath: string, pathPort: PathPort): string => {
-  const resolved = pathPort.resolve(rawPath);
-  if (resolved !== rawPath) {
-    throw new Error(
-      `file.load-markdown: \`path\` must be absolute (got "${rawPath}")`,
-    );
-  }
-  return resolved;
+  return path;
 };
 
 export const createFileLoadMarkdownRunner = (): StepRunner => ({
@@ -54,30 +42,7 @@ export const createFileLoadMarkdownRunner = (): StepRunner => ({
   },
 
   async run(ctx): Promise<StepOutcome> {
-    const cfg = parseConfig(ctx.step.config);
-    const absolutePath = assertAbsolute(cfg.path, ctx.deps.path);
-
-    const body = await ctx.deps.fs.readTextFile(absolutePath);
-    if (body.length === 0) {
-      throw new Error(
-        `file.load-markdown: file is empty (${absolutePath})`,
-      );
-    }
-
-    const payload: ArtifactPayload<"Markdown"> = {
-      format: "markdown",
-      body,
-    };
-    const artifact = await putArtifactPayload(
-      ctx.deps.artifactStore,
-      "Markdown",
-      payload,
-      {
-        source: "file.load-markdown",
-        path: absolutePath,
-        byteLength: String(Buffer.byteLength(body, "utf-8")),
-      },
-    );
-    return { kind: "produced", artifact };
+    const path = readPath(ctx.step.config);
+    return loadFileArtifact(ctx, path, "Markdown", "file.load-markdown");
   },
 });

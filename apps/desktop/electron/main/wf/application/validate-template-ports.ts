@@ -512,23 +512,36 @@ const validateTemplateVariables = (
           `step ${step.id} (${step.kind}) readsFrom["${portName}"]="${variableName}" kind mismatch: variable is ${variable.kind} but port accepts [${port.kinds.join("|")}]`,
         );
       }
-      // Rule 9: at least one producer must be an ancestor (or the step
-      // itself in a self-loop pattern — accepted because the same step's
-      // earlier iteration writes the variable before the loop reread).
-      const producers = producersByVariable.get(variableName);
-      if (!producers || producers.size === 0) {
-        throw new TemplatePortError(
-          `step ${step.id} (${step.kind}) reads variable "${variableName}" but no step writes to it`,
+      // A variable seeded by the caller (`role: "input"`, the interface seed
+      // of a sub-workflow) or by a literal `defaultValue` is materialized into
+      // an artifact *before any step runs* (cf. `start-instance.ts` §seeds /
+      // variableDefaults). It therefore always has a value, with no in-template
+      // `writesTo` producer — so Rule 9 (a producer must exist) and Rule 9b
+      // (a producer must be an ancestor) do not apply. Without this exemption a
+      // sub-template that reads its `input` variable could never be saved,
+      // blocking the `workflow.call` flattening that rebinds that read onto a
+      // host variable (`flatten-template.ts` §1).
+      const seeded =
+        variable.role === "input" || variable.defaultValue !== undefined;
+      if (!seeded) {
+        // Rule 9: at least one producer must be an ancestor (or the step
+        // itself in a self-loop pattern — accepted because the same step's
+        // earlier iteration writes the variable before the loop reread).
+        const producers = producersByVariable.get(variableName);
+        if (!producers || producers.size === 0) {
+          throw new TemplatePortError(
+            `step ${step.id} (${step.kind}) reads variable "${variableName}" but no step writes to it`,
+          );
+        }
+        const ancestors = ancestorsByStep.get(step.id) ?? new Set<StepId>();
+        const hasAncestor = [...producers].some(
+          (p) => p === step.id || ancestors.has(p),
         );
-      }
-      const ancestors = ancestorsByStep.get(step.id) ?? new Set<StepId>();
-      const hasAncestor = [...producers].some(
-        (p) => p === step.id || ancestors.has(p),
-      );
-      if (!hasAncestor) {
-        throw new TemplatePortError(
-          `step ${step.id} (${step.kind}) reads variable "${variableName}" but its producers [${[...producers].join(", ")}] are not ancestors in the control-flow DAG`,
-        );
+        if (!hasAncestor) {
+          throw new TemplatePortError(
+            `step ${step.id} (${step.kind}) reads variable "${variableName}" but its producers [${[...producers].join(", ")}] are not ancestors in the control-flow DAG`,
+          );
+        }
       }
       // Rule 10: a consumer with readsFrom still needs a control-flow
       // entrance (unless it is the entry step itself).

@@ -456,6 +456,16 @@
           "description": "Quand activé, remplace <code>success</code>/<code>failure</code> par des ports nommés mappés à des exit codes (avec un catch-all obligatoire). Les ports <code>stdout</code>/<code>stderr</code> restent inchangés."
         }
       },
+      "fileLoad": {
+        "path": {
+          "label": "Chemin du fichier",
+          "description": "Chemin absolu, choisi ici ou reçu sur l'input <code>path</code> (l'input l'emporte). Le contenu du fichier est exposé en sortie comme artifact du kind choisi."
+        },
+        "outputKind": {
+          "label": "Kind de sortie",
+          "description": "Type de l'artifact produit. Un fichier étant du texte, seuls <code>Markdown</code> et <code>Json</code> sont proposés ; un fichier Json est parsé pour échouer tôt en cas de contenu malformé."
+        }
+      },
       "fileLoadMarkdown": {
         "path": {
           "label": "Chemin du fichier Markdown",
@@ -627,6 +637,10 @@
       "markdownPicker": {
         "allFiles": "Tous les fichiers",
         "title": "Choisir un fichier Markdown"
+      },
+      "filePicker": {
+        "allFiles": "Tous les fichiers",
+        "title": "Choisir un fichier"
       },
       "validation": {
         "duplicate": "Doublon",

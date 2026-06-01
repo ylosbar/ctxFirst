@@ -238,11 +238,13 @@ const TEMPLATE_TOOLS: ReadonlyArray<ToolDescriptor> = [
     },
     handler: async (engine, args) => {
       const { template } = args as { template: Record<string, unknown> };
-      // Refus du publish via chat : on cap à draft, peu importe ce que le LLM met.
-      if (template["status"] !== "draft") {
+      // Accepte `draft` ou `published`. La publication via MCP est autorisée
+      // (un sous-template doit être `published` pour être inliné par un
+      // `workflow.call`, cf. validate-workflow-calls §Rule 1) ; l'immutabilité
+      // d'une ref déjà publiée reste protégée par le garde-fou ci-dessous.
+      if (template["status"] !== "draft" && template["status"] !== "published") {
         throw new Error(
-          "ctxfirst_save_template: seuls les drafts peuvent être créés/édités via " +
-            'le chat. Mets `status: "draft"` dans ton template.',
+          'ctxfirst_save_template: `status` doit valoir "draft" ou "published".',
         );
       }
       // Garde-fou supplémentaire : si la ref existe déjà en `published`, on refuse.

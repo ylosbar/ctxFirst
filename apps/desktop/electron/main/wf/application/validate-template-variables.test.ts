@@ -395,6 +395,47 @@ describe("validateTemplateVariables — readsFrom", () => {
     expect(() => validateTemplatePorts(tpl, registry)).not.toThrow();
   });
 
+  it("Rule 9: accepts readsFrom on a `role: input` variable with no producer (caller-seeded sub-template interface)", () => {
+    // Sub-template shape: the entry step reads its `input` interface variable,
+    // which is seeded by the caller (or `workflow.call` rebind) — never written
+    // by a step. Must save without a `writesTo` producer.
+    const tpl = template({
+      variables: [
+        { name: "itemString", kind: "Markdown" as const, role: "input" },
+        { name: "answer", kind: "Markdown" as const, role: "output" },
+      ],
+      steps: [
+        step("claude", {
+          kind: "claude_code.invoke",
+          readsFrom: { prompt: "itemString" },
+          writesTo: { out: "answer" },
+        }),
+      ],
+      entryStep: asStepId("claude"),
+      transitions: [],
+      exitSteps: [asStepId("claude")],
+    });
+    expect(() => validateTemplatePorts(tpl, registry)).not.toThrow();
+  });
+
+  it("Rule 9: accepts readsFrom on a variable with a defaultValue and no producer (pre-seeded at launch)", () => {
+    const tpl = template({
+      variables: [
+        { name: "seeded", kind: "Markdown" as const, defaultValue: "x" },
+      ],
+      steps: [
+        step("a"),
+        step("b", {
+          kind: "claude_code.invoke",
+          readsFrom: { prompt: "seeded" },
+        }),
+      ],
+      transitions: [edge("a", "b")],
+      exitSteps: [asStepId("b")],
+    });
+    expect(() => validateTemplatePorts(tpl, registry)).not.toThrow();
+  });
+
   it("Rule 10: rejects readsFrom without any incoming control-flow transition (non-entry)", () => {
     // step "b" both writes and reads "draft" — rule 9 passes via self-reference
     // (p === step.id) but rule 10 fails because "b" has no incoming transition
