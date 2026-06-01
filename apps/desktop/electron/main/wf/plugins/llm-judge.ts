@@ -33,13 +33,6 @@ import {
 const DEFAULT_MODEL = "claude-haiku-4-5";
 const DEFAULT_MAX_ATTEMPTS = 3;
 
-type LlmJudgeConfig = {
-  judgePrompt: string;
-  model?: string;
-  maxAttempts?: number;
-  approvedKind?: ArtifactKind;
-};
-
 const readJudgePrompt = (config: Readonly<Record<string, unknown>>): string => {
   const raw = config["judgePrompt"];
   if (typeof raw !== "string" || raw.trim().length === 0) {
@@ -147,8 +140,7 @@ export const createLlmJudgeRunner = (): StepRunner => ({
   kind: "llm.judge",
 
   resolveSpec({ config }): NodeSpec {
-    const cfg = config as Partial<LlmJudgeConfig>;
-    const approvedKind = (cfg.approvedKind ?? ("Markdown" as ArtifactKind)) as ArtifactKind;
+    const approvedKind = readApprovedKind(config) ?? "Markdown";
     return {
       title: "LLM Judge",
       description:
@@ -162,13 +154,13 @@ export const createLlmJudgeRunner = (): StepRunner => ({
         },
         {
           name: "rejected",
-          kind: "Markdown" as ArtifactKind,
+          kind: "Markdown",
           description:
             "Judge feedback when the verdict is rejected and attempts remain. An outgoing isLoop transition on this port triggers an auto-loop.",
         },
         {
           name: "exhausted",
-          kind: "Markdown" as ArtifactKind,
+          kind: "Markdown",
           description:
             "Same feedback as `rejected`, emitted when no attempts remain. Typically wired to a human gate.",
         },

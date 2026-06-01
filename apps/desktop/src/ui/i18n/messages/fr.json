@@ -103,14 +103,19 @@
     },
     "studio": {
       "output": {
-        "running": "En cours… {{seconds}}s",
-        "awaitingHumanTitle": "En attente d'une action humaine",
-        "awaitingHumanBody": "Cette étape requiert une intervention du rôle",
+        "running": "Exécution en cours… ({{seconds}}s)",
+        "awaitingHumanTitle": "La node demande une intervention humaine",
+        "awaitingHumanBody": "Pas de support en studio (testez-la dans un vrai run). Rôle attendu :",
         "workspaceSetTitle": "Workspace défini",
         "workspaceSetBody": "a été défini comme répertoire de travail.",
         "resultLabel_one": "Résultat ({{duration}}s) · 1 artifact",
         "resultLabel_other": "Résultat ({{duration}}s) · {{count}} artifacts",
-        "resultLabel": "Terminé en {{duration}}s · {{count}} artifact(s)"
+        "resultLabel": "Terminé en {{duration}}s · {{count}} artifact(s)",
+        "errorTitle": "Erreur d'exécution",
+        "cwdTitle": "La node a défini un cwd",
+        "cwdBody": "— effet ignoré en studio (les nodes suivantes ne sont pas exécutées).",
+        "resultSummary_one": "Résultat ({{seconds}}s) · {{count}} artifact",
+        "resultSummary_other": "Résultat ({{seconds}}s) · {{count}} artifacts"
       },
       "inputs": {
         "noInputs": "Cette node ne prend aucune entrée.",
@@ -130,7 +135,20 @@
         "closeAriaLabel": "Fermer le studio (Esc)",
         "loadingSignature": "Chargement de la signature…",
         "running": "Exécution en cours…",
-        "testNode": "Tester la node"
+        "testNode": "Tester la node",
+        "title": "Studio",
+        "close": "Fermer le studio (Esc)",
+        "runningButton": "Exécution en cours…",
+        "testButton": "Tester la node"
+      },
+      "inputsForm": {
+        "noInputs": "Cette node n'a aucune entrée. Cliquez sur « Tester la node » pour lancer l'exécution.",
+        "optionalBadge": "optional",
+        "listBadge": "list",
+        "includeInput": "Inclure cet input",
+        "addEntry": "Ajouter une entrée",
+        "linearRefPlaceholder": "ex. ENG-1234",
+        "removeEntry": "Supprimer cette entrée"
       }
     },
     "launchRunDialog": {
@@ -160,6 +178,103 @@
     },
     "nodesPickerMenu": {
       "tooltip": "Ajouter un node"
+    },
+    "variableEditor": {
+      "editTitle": "Modifier la variable",
+      "createTitle": "Nouvelle variable",
+      "create": "Créer",
+      "nameLabel": "Nom",
+      "namePlaceholder": "ex. ticketDescription",
+      "kindLabel": "Kind",
+      "listLabel": "Liste",
+      "roleLabel": "Rôle (interface sous-workflow)",
+      "roleOption": {
+        "internal": "Interne (privée au template)",
+        "input": "Entrée (input — fournie par l'appelant)",
+        "output": "Sortie (output — exposée à l'appelant)"
+      },
+      "roleHint": {
+        "before": "Marquer une variable",
+        "inputToken": "input",
+        "outputToken": "output",
+        "middle": "rend ce template invocable comme sous-workflow via un step",
+        "callToken": "workflow.call",
+        "after": "."
+      },
+      "descriptionLabel": "Description (optionnelle)",
+      "descriptionPlaceholder": "À quoi sert cette variable ?",
+      "defaultLabel": "Valeur par défaut (optionnelle)",
+      "defaultPlaceholder": "Valeur par défaut…",
+      "defaultPlaceholderList": "Tableau JSON, ex. [\"a\", \"b\"]",
+      "defaultHint": "Matérialisée au lancement, avant tout step. Un step producteur l'écrase ensuite (pas de reset par tour de boucle).",
+      "validating": "Validation…",
+      "references": "Références",
+      "writtenBy": "Écrit par :",
+      "readBy": "Lu par :",
+      "none": "—",
+      "error": {
+        "nameRequired": "Le nom est requis.",
+        "nameInvalid": "Nom invalide : commence par une lettre ou _, puis lettres/chiffres/_ uniquement.",
+        "nameConflict": "La variable \"{{name}}\" existe déjà."
+      },
+      "deleteConfirm": "Supprimer \"{{name}}\" ? {{producers}}, {{consumers}} seront déliés.",
+      "producerCount_one": "{{count}} producteur",
+      "producerCount_other": "{{count}} producteurs",
+      "consumerCount_one": "{{count}} consommateur",
+      "consumerCount_other": "{{count}} consommateurs"
+    },
+    "variablesPicker": {
+      "label": "Variables",
+      "manageAriaLabel": "Gérer les variables",
+      "manageTooltip": "Gérer les variables du template",
+      "searchPlaceholder": "Rechercher une variable…",
+      "searchAriaLabel": "Rechercher une variable",
+      "create": "Créer une variable",
+      "empty": "Aucune variable déclarée.",
+      "noResults": "Aucune variable ne correspond à « {{query}} ».",
+      "viewShapeAriaLabel": "Voir la shape de {{kind}}"
+    },
+    "nodesPicker": {
+      "label": "Nodes",
+      "addAriaLabel": "Ajouter un node",
+      "addTooltip": "Ajouter un node au workflow",
+      "searchPlaceholder": "Rechercher un node…",
+      "searchAriaLabel": "Rechercher un node",
+      "noResults": "Aucun node ne correspond à « {{query}} »."
+    },
+    "launchRun": {
+      "close": "Fermer",
+      "seedLabel": "Contenu d'entrée",
+      "expectedInput": "Entrée attendue :",
+      "seedPlaceholder": "Contenu {{kind}}…",
+      "noSeedMessage": "Ce template ne nécessite pas d'entrée utilisateur — la première étape se lance directement avec sa configuration.",
+      "starting": "Démarrage…",
+      "start": "Démarrer"
+    },
+    "missingDeps": {
+      "sectionHeader": "{{title}} ({{count}})",
+      "usedBy": "utilisé par",
+      "title_one": "Dépendance manquante ({{count}})",
+      "title_other": "Dépendances manquantes ({{count}})",
+      "bodyBefore": "Ce template référence des ressources absentes de votre environnement. Il est en",
+      "draftToken": "draft",
+      "bodyAfter": "; recréez les ressources ou remplacez les refs dans les steps concernés avant publication.",
+      "close": "Fermer",
+      "skillsSection": "Skills manquants",
+      "artifactTypesSection": "Artifact types manquants",
+      "closeButton": "Fermer"
+    },
+    "saveMissing": {
+      "title": "Compléter le template avant de sauvegarder",
+      "close": "Fermer",
+      "body": "Quelques champs obligatoires sont vides. Remplis-les pour pouvoir sauvegarder ce template.",
+      "nameLabel": "Nom",
+      "namePlaceholder": "Mon template",
+      "idLabel": "ID",
+      "idPlaceholder": "my-flow",
+      "versionLabel": "Version",
+      "versionPlaceholder": "v1",
+      "saving": "Sauvegarde…"
     }
   },
   "template": {
@@ -908,6 +1023,31 @@
     "resourceTreeView": {
       "resourceCount_one": "{{count}} ressource",
       "resourceCount_other": "{{count}} ressources"
+    },
+    "menus": {
+      "artifactSchema": {
+        "open": "Ouvrir",
+        "confirmDelete": "Supprimer le type {{typeRef}} ? Cette action est définitive."
+      },
+      "folder": {
+        "newSubfolder": "Nouveau sous-dossier",
+        "rename": "Renommer",
+        "confirmDelete": "Supprimer le dossier \"{{name}}\" ? Les ressources qu'il contient remonteront à la racine."
+      },
+      "prompt": {
+        "open": "Ouvrir",
+        "confirmDelete": "Supprimer le prompt {{skillRef}} ? Cette action est définitive."
+      },
+      "template": {
+        "open": "Ouvrir",
+        "duplicate": "Dupliquer",
+        "exportJson": "Exporter en JSON",
+        "rename": "Renommer"
+      }
+    },
+    "tree": {
+      "resourceCount_one": "{{count}} ressource",
+      "resourceCount_other": "{{count}} ressources"
     }
   },
   "runs": {
@@ -1000,6 +1140,33 @@
     },
     "newRunDialog": {
       "title": "Nouveau run"
+    },
+    "gantt": {
+      "cumulative": "Σ {{duration}}",
+      "tooltipSeparator": " · ",
+      "tooltipInProgress": " · en cours"
+    },
+    "leafMenu": {
+      "open": "Ouvrir",
+      "unpin": "Désépingler",
+      "pin": "Épingler",
+      "exportJson": "Exporter (JSON)",
+      "confirmDelete": "Supprimer le run {{name}} ? Cette action est définitive."
+    },
+    "tabRenderer": {
+      "closeTab": "Fermer l'onglet",
+      "unpin": "Désépingler",
+      "pin": "Épingler",
+      "closeOthers": "Fermer les autres",
+      "closeAll": "Tout fermer"
+    },
+    "viewHeader": {
+      "label": "Run",
+      "separator": "·",
+      "exportLabel": "Exporter",
+      "exportTooltip": "Exporter tout le run en JSON (events, artifacts, sessions LLM…)",
+      "openInEditorLabel": "Ouvrir en édition",
+      "openInEditorTooltip": "Ouvrir le template en édition (nouvel onglet)"
     }
   },
   "channels": {
@@ -1028,6 +1195,27 @@
       "tooltip": "Channel : {{label}}",
       "groupLabel": "Channels",
       "newChannel": "Nouveau channel…"
+    },
+    "activityButton": {
+      "tooltip": "Channel : {{label}}",
+      "groupLabel": "Channels",
+      "newChannel": "Nouveau channel…"
+    },
+    "createDialog": {
+      "title": "Nouveau channel",
+      "nameLabel": "Nom",
+      "slugLabel": "Slug (id stable, lowercase / digits / dashes)",
+      "imageLabel": "Image (PNG ou JPEG, 2 Mo max)"
+    },
+    "editLogoDialog": {
+      "title": "Logo de « {{name}} »",
+      "imageLabel": "Image (PNG ou JPEG, 2 Mo max)",
+      "removeLogo": "Retirer le logo"
+    },
+    "imageUpload": {
+      "change": "Changer",
+      "remove": "Retirer l'image",
+      "choose": "Choisir un fichier…"
     }
   },
   "commandPalette": {
@@ -1052,6 +1240,29 @@
       "themeActive": "Actif",
       "hintNavigate": "Naviguer",
       "hintOpen": "Ouvrir",
+      "resultCount_one": "{{count}} résultat",
+      "resultCount_other": "{{count}} résultats"
+    },
+    "themeBackTooltip": "Retour aux commandes (Esc)",
+    "toggleTooltipToCommands": "Basculer (⌘⇧P → commandes)",
+    "toggleTooltipToQuickOpen": "Basculer (⌘P → ouverture)",
+    "clear": "Effacer",
+    "kbd": {
+      "esc": "Esc",
+      "arrowUp": "↑",
+      "arrowDown": "↓",
+      "enter": "↵"
+    },
+    "empty": {
+      "prefix": "Aucun résultat pour",
+      "query": "« {{query}} »",
+      "suffix": ".",
+      "noQuery": "Aucun résultat pour cette recherche."
+    },
+    "themeActive": "Actif",
+    "footer": {
+      "navigate": "Naviguer",
+      "open": "Ouvrir",
       "resultCount_one": "{{count}} résultat",
       "resultCount_other": "{{count}} résultats"
     }
@@ -1165,7 +1376,25 @@
       "sample": "Sample",
       "autoDerived": "auto-dérivé",
       "noSample": "Aucun sample disponible.",
-      "extends": "Étend"
+      "extends": "Étend",
+      "copySample": "Copier le sample"
+    },
+    "view": {
+      "empty": "(vide)",
+      "emptyArray": "[] vide",
+      "emptyObject": "{} vide",
+      "readable": "Lisible",
+      "raw": "Brut",
+      "copyContent": "Copier le contenu",
+      "displayLabel": "Affichage :",
+      "viaParser": "Vu via parser",
+      "parserTooltip": "Applique le parser {{id}}@{{version}} ({{mode}}) sur la payload brute — visualisation du résultat qu'un node `transform.run` produirait.",
+      "applyingParser": "Application du parser…",
+      "parserNotApplied": "Parser non appliqué",
+      "invalidJsonPayload": "La payload brute n'est pas du JSON parseable ({{error}}). Le parser ne tournera pas.",
+      "parserFailed": "Le parser a échoué : {{error}}.",
+      "reduction": "Réduction : {{raw}} → {{parsed}} octets",
+      "reductionRatio": " (−{{ratio}}%)"
     }
   },
   "llm": {
@@ -1179,6 +1408,31 @@
       "iteration": "Itération {{n}}",
       "feedbackSummary": "— feedback: {{summary}}",
       "noEvents": "(aucun événement de session bufferisé)"
+    },
+    "sessionPanel": {
+      "statusPending": "En attente",
+      "statusRunning": "En cours",
+      "statusAwaitingHuman": "Validation requise",
+      "statusValidated": "Validée",
+      "statusLooped": "Rebouclée",
+      "statusFailed": "Échouée",
+      "statusSkipped": "Ignorée",
+      "thinking": "thinking",
+      "session": "session · {{model}}",
+      "orphanResult": "(résultat orphelin)",
+      "ctxLabel": "ctx · ",
+      "runComplete": "Run terminé",
+      "latency": "· {{ms}}ms",
+      "cost": "· {{cost}}$",
+      "exec": "exec {{id}}",
+      "artifact": "· art {{id}}",
+      "unknownError": "(erreur inconnue)",
+      "pendingStart": "Étape en attente d'être démarrée",
+      "iteration": "Itération {{n}}",
+      "feedback": "— feedback: {{text}}",
+      "commentCount_one": "{{count}} commentaire",
+      "commentCount_other": "{{count}} commentaires",
+      "noBufferedEvents": "(aucun événement de session bufferisé)"
     }
   },
   "humanGate": {
@@ -1203,6 +1457,10 @@
       "addComment": "Ajouter un commentaire",
       "addCommentSubmit": "Ajouter",
       "commentPlaceholder": "Commentaire…"
+    },
+    "artifactViewer": {
+      "addComment": "Ajouter un commentaire",
+      "delete": "Supprimer"
     }
   },
   "diff": {
@@ -1383,7 +1641,27 @@
       "words_other": "{{count}} mots",
       "unsaved": "Modifications non sauvegardées",
       "saved": "Sauvegardé",
-      "encoding": "UTF-8"
+      "encoding": "UTF-8",
+      "untitled": "sans nom",
+      "exportMarkdown": "Exporter en Markdown",
+      "deletePrompt": "Supprimer le prompt",
+      "savePromptAria": "Sauvegarder le prompt",
+      "upToDate": "À jour",
+      "saveShortcut": "Sauvegarder (⌘S)",
+      "noChanges": "Aucun changement",
+      "exportDialogTitle": "Exporter le prompt",
+      "markdownLabel": "Markdown",
+      "deleteConfirm": "Supprimer le prompt \"{{ref}}\" ? Cette action est définitive.",
+      "sourcePlaceholder": "Tu es un agent…",
+      "trustedSourceRequired": "Source de confiance requise",
+      "trustedSourceWarning": "Ces variables sont injectées telles quelles dans le prompt. Assurez-vous qu'elles proviennent d'une source de confiance : une valeur non vérifiée peut détourner les instructions de la skill (injection de prompt).",
+      "lineCount_one": "{{count}} ligne",
+      "lineCount_other": "{{count}} lignes",
+      "charCount": "{{count}} car.",
+      "wordCount_one": "{{count}} mot",
+      "wordCount_other": "{{count}} mots",
+      "unsavedChanges": "Modifications non sauvegardées",
+      "encodingLabel": "UTF-8"
     }
   },
   "chat": {
@@ -1449,15 +1727,25 @@
       "commandPalette": "Palette de commande",
       "commandPaletteShortcut": "⌘⇧P",
       "search": "Recherche",
-      "searchShortcut": "⌘P"
+      "searchShortcut": "⌘P",
+      "title": "Aucun éditeur ouvert.",
+      "subtitle": "Choisis un élément dans la barre latérale pour commencer.",
+      "runAction": "Lancer un run",
+      "createArtifactSchema": "Créer un artifact type",
+      "kbd": {
+        "newRun": "⌘N",
+        "commandPalette": "⌘⇧P",
+        "quickOpen": "⌘P"
+      }
     },
     "dock": {
-      "noEditor": "Aucun éditeur enregistré pour {{uri}}"
+      "noEditor": "Aucun éditeur enregistré pour {{uri}}",
+      "noEditorRegistered": "Aucun éditeur enregistré pour {{uri}}"
     }
   },
   "plugins": {
     "errorBoundary": {
-      "title": "Erreur de plugin : {{name}}",
+      "title": "Erreur du plugin : {{name}}",
       "hint": "Consultez la console pour la trace complète. Le reste de l'application n'est pas affecté ; rechargez la fenêtre pour réessayer."
     }
   }

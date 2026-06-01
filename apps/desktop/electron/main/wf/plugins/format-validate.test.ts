@@ -55,12 +55,12 @@ const buildCtx = async (params: {
 }): Promise<{ ctx: RunContext; subjectId: string }> => {
   const store = createFakeArtifactStore();
   const content = JSON.stringify({ format: "markdown", body: params.subjectBody });
-  const subject = await store.put("Markdown" as ArtifactKind, content, {
+  const subject = await store.put("Markdown", content, {
     payloadFormat: "json-v1",
   });
   const input: RunContextInput = {
     port: "subject",
-    kind: "Markdown" as ArtifactKind,
+    kind: "Markdown",
     content,
     payload: { format: "markdown", body: params.subjectBody },
     artifactId: subject.id,
@@ -220,7 +220,7 @@ describe("format.validate runner", () => {
     const { ctx } = await buildCtx({
       config: { expectedKind: "user:Nope@v1" },
       subjectBody: "x",
-      validateResult: { ok: false, error: new UnknownArtifactKindError("user:Nope@v1" as ArtifactKind) },
+      validateResult: { ok: false, error: new UnknownArtifactKindError("user:Nope@v1") },
     });
     await expect(runner.run(ctx)).rejects.toThrow(/Unknown artifact kind/);
   });

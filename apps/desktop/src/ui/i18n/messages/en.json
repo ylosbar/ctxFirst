@@ -103,14 +103,19 @@
     },
     "studio": {
       "output": {
-        "running": "Running… {{seconds}}s",
-        "awaitingHumanTitle": "Awaiting human action",
-        "awaitingHumanBody": "This step requires action from the role",
+        "running": "Running… ({{seconds}}s)",
+        "awaitingHumanTitle": "The node requires human intervention",
+        "awaitingHumanBody": "Not supported in studio (test it in a real run). Expected role:",
         "workspaceSetTitle": "Workspace set",
         "workspaceSetBody": "has been set as the working directory.",
         "resultLabel_one": "Result ({{duration}}s) · 1 artifact",
         "resultLabel_other": "Result ({{duration}}s) · {{count}} artifacts",
-        "resultLabel": "Done in {{duration}}s · {{count}} artifact(s)"
+        "resultLabel": "Done in {{duration}}s · {{count}} artifact(s)",
+        "errorTitle": "Execution error",
+        "cwdTitle": "The node set a cwd",
+        "cwdBody": "— effect ignored in studio (subsequent nodes are not executed).",
+        "resultSummary_one": "Result ({{seconds}}s) · {{count}} artifact",
+        "resultSummary_other": "Result ({{seconds}}s) · {{count}} artifacts"
       },
       "inputs": {
         "noInputs": "This node takes no inputs.",
@@ -125,12 +130,25 @@
         "studioLabel": "Studio",
         "notRunnableTitle": "Kind not testable in studio",
         "notRunnableBody": "depends on the context of a full run (loopHistory, InstanceView…). Test it in a real run.",
-        "sideEffectsTitle": "Real native side-effects",
-        "sideEffectsBody": "This kind runs real actions (shell, LLM, HTTP, fs). No mock — the command / call will actually be performed.",
+        "sideEffectsTitle": "Real native side effects",
+        "sideEffectsBody": "This kind performs real actions (shell, LLM, HTTP, fs). No mock — the command / call will actually run.",
         "closeAriaLabel": "Close the studio (Esc)",
-        "loadingSignature": "Loading the signature…",
+        "loadingSignature": "Loading signature…",
         "running": "Running…",
-        "testNode": "Test the node"
+        "testNode": "Test the node",
+        "title": "Studio",
+        "close": "Close the studio (Esc)",
+        "runningButton": "Running…",
+        "testButton": "Test the node"
+      },
+      "inputsForm": {
+        "noInputs": "This node has no inputs. Click \"Test the node\" to run it.",
+        "optionalBadge": "optional",
+        "listBadge": "list",
+        "includeInput": "Include this input",
+        "addEntry": "Add an entry",
+        "linearRefPlaceholder": "e.g. ENG-1234",
+        "removeEntry": "Remove this entry"
       }
     },
     "launchRunDialog": {
@@ -160,6 +178,103 @@
     },
     "nodesPickerMenu": {
       "tooltip": "Add a node"
+    },
+    "variableEditor": {
+      "editTitle": "Edit variable",
+      "createTitle": "New variable",
+      "create": "Create",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. ticketDescription",
+      "kindLabel": "Kind",
+      "listLabel": "List",
+      "roleLabel": "Role (sub-workflow interface)",
+      "roleOption": {
+        "internal": "Internal (private to the template)",
+        "input": "Input (provided by the caller)",
+        "output": "Output (exposed to the caller)"
+      },
+      "roleHint": {
+        "before": "Marking a variable",
+        "inputToken": "input",
+        "outputToken": "output",
+        "middle": "makes this template callable as a sub-workflow through a step",
+        "callToken": "workflow.call",
+        "after": "."
+      },
+      "descriptionLabel": "Description (optional)",
+      "descriptionPlaceholder": "What is this variable for?",
+      "defaultLabel": "Default value (optional)",
+      "defaultPlaceholder": "Default value…",
+      "defaultPlaceholderList": "JSON array, e.g. [\"a\", \"b\"]",
+      "defaultHint": "Materialized at launch, before any step. A producer step then overwrites it (no reset per loop iteration).",
+      "validating": "Validating…",
+      "references": "References",
+      "writtenBy": "Written by:",
+      "readBy": "Read by:",
+      "none": "—",
+      "error": {
+        "nameRequired": "Name is required.",
+        "nameInvalid": "Invalid name: must start with a letter or _, then letters/digits/_ only.",
+        "nameConflict": "The variable \"{{name}}\" already exists."
+      },
+      "deleteConfirm": "Delete \"{{name}}\"? {{producers}}, {{consumers}} will be unlinked.",
+      "producerCount_one": "{{count}} producer",
+      "producerCount_other": "{{count}} producers",
+      "consumerCount_one": "{{count}} consumer",
+      "consumerCount_other": "{{count}} consumers"
+    },
+    "variablesPicker": {
+      "label": "Variables",
+      "manageAriaLabel": "Manage variables",
+      "manageTooltip": "Manage the template variables",
+      "searchPlaceholder": "Search for a variable…",
+      "searchAriaLabel": "Search for a variable",
+      "create": "Create a variable",
+      "empty": "No variables declared.",
+      "noResults": "No variable matches “{{query}}”.",
+      "viewShapeAriaLabel": "View the shape of {{kind}}"
+    },
+    "nodesPicker": {
+      "label": "Nodes",
+      "addAriaLabel": "Add a node",
+      "addTooltip": "Add a node to the workflow",
+      "searchPlaceholder": "Search for a node…",
+      "searchAriaLabel": "Search for a node",
+      "noResults": "No node matches “{{query}}”."
+    },
+    "launchRun": {
+      "close": "Close",
+      "seedLabel": "Input content",
+      "expectedInput": "Expected input:",
+      "seedPlaceholder": "{{kind}} content…",
+      "noSeedMessage": "This template requires no user input — the first step runs directly with its configuration.",
+      "starting": "Starting…",
+      "start": "Start"
+    },
+    "missingDeps": {
+      "sectionHeader": "{{title}} ({{count}})",
+      "usedBy": "used by",
+      "title_one": "Missing dependency ({{count}})",
+      "title_other": "Missing dependencies ({{count}})",
+      "bodyBefore": "This template references resources absent from your environment. It is in",
+      "draftToken": "draft",
+      "bodyAfter": "; recreate the resources or replace the refs in the affected steps before publishing.",
+      "close": "Close",
+      "skillsSection": "Missing skills",
+      "artifactTypesSection": "Missing artifact types",
+      "closeButton": "Close"
+    },
+    "saveMissing": {
+      "title": "Complete the template before saving",
+      "close": "Close",
+      "body": "Some required fields are empty. Fill them in to save this template.",
+      "nameLabel": "Name",
+      "namePlaceholder": "My template",
+      "idLabel": "ID",
+      "idPlaceholder": "my-flow",
+      "versionLabel": "Version",
+      "versionPlaceholder": "v1",
+      "saving": "Saving…"
     }
   },
   "template": {
@@ -908,6 +1023,31 @@
     "resourceTreeView": {
       "resourceCount_one": "{{count}} resource",
       "resourceCount_other": "{{count}} resources"
+    },
+    "menus": {
+      "artifactSchema": {
+        "open": "Open",
+        "confirmDelete": "Delete the type {{typeRef}}? This action is permanent."
+      },
+      "folder": {
+        "newSubfolder": "New subfolder",
+        "rename": "Rename",
+        "confirmDelete": "Delete the folder \"{{name}}\"? The resources it contains will move back to the root."
+      },
+      "prompt": {
+        "open": "Open",
+        "confirmDelete": "Delete the prompt {{skillRef}}? This action is permanent."
+      },
+      "template": {
+        "open": "Open",
+        "duplicate": "Duplicate",
+        "exportJson": "Export as JSON",
+        "rename": "Rename"
+      }
+    },
+    "tree": {
+      "resourceCount_one": "{{count}} resource",
+      "resourceCount_other": "{{count}} resources"
     }
   },
   "runs": {
@@ -1000,6 +1140,33 @@
     },
     "newRunDialog": {
       "title": "New run"
+    },
+    "gantt": {
+      "cumulative": "Σ {{duration}}",
+      "tooltipSeparator": " · ",
+      "tooltipInProgress": " · in progress"
+    },
+    "leafMenu": {
+      "open": "Open",
+      "unpin": "Unpin",
+      "pin": "Pin",
+      "exportJson": "Export (JSON)",
+      "confirmDelete": "Delete run {{name}}? This action is permanent."
+    },
+    "tabRenderer": {
+      "closeTab": "Close tab",
+      "unpin": "Unpin",
+      "pin": "Pin",
+      "closeOthers": "Close others",
+      "closeAll": "Close all"
+    },
+    "viewHeader": {
+      "label": "Run",
+      "separator": "·",
+      "exportLabel": "Export",
+      "exportTooltip": "Export the whole run as JSON (events, artifacts, LLM sessions…)",
+      "openInEditorLabel": "Open in editor",
+      "openInEditorTooltip": "Open the template in the editor (new tab)"
     }
   },
   "channels": {
@@ -1028,6 +1195,27 @@
       "tooltip": "Channel: {{label}}",
       "groupLabel": "Channels",
       "newChannel": "New channel…"
+    },
+    "activityButton": {
+      "tooltip": "Channel: {{label}}",
+      "groupLabel": "Channels",
+      "newChannel": "New channel…"
+    },
+    "createDialog": {
+      "title": "New channel",
+      "nameLabel": "Name",
+      "slugLabel": "Slug (stable id, lowercase / digits / dashes)",
+      "imageLabel": "Image (PNG or JPEG, 2 MB max)"
+    },
+    "editLogoDialog": {
+      "title": "Logo for “{{name}}”",
+      "imageLabel": "Image (PNG or JPEG, 2 MB max)",
+      "removeLogo": "Remove logo"
+    },
+    "imageUpload": {
+      "change": "Change",
+      "remove": "Remove image",
+      "choose": "Choose a file…"
     }
   },
   "commandPalette": {
@@ -1052,6 +1240,29 @@
       "themeActive": "Active",
       "hintNavigate": "Navigate",
       "hintOpen": "Open",
+      "resultCount_one": "{{count}} result",
+      "resultCount_other": "{{count}} results"
+    },
+    "themeBackTooltip": "Back to commands (Esc)",
+    "toggleTooltipToCommands": "Switch (⌘⇧P → commands)",
+    "toggleTooltipToQuickOpen": "Switch (⌘P → quick open)",
+    "clear": "Clear",
+    "kbd": {
+      "esc": "Esc",
+      "arrowUp": "↑",
+      "arrowDown": "↓",
+      "enter": "↵"
+    },
+    "empty": {
+      "prefix": "No results for",
+      "query": "“{{query}}”",
+      "suffix": ".",
+      "noQuery": "No results for this search."
+    },
+    "themeActive": "Active",
+    "footer": {
+      "navigate": "Navigate",
+      "open": "Open",
       "resultCount_one": "{{count}} result",
       "resultCount_other": "{{count}} results"
     }
@@ -1165,7 +1376,25 @@
       "sample": "Sample",
       "autoDerived": "auto-derived",
       "noSample": "No sample available.",
-      "extends": "Extends"
+      "extends": "Extends",
+      "copySample": "Copy sample"
+    },
+    "view": {
+      "empty": "(empty)",
+      "emptyArray": "[] empty",
+      "emptyObject": "{} empty",
+      "readable": "Readable",
+      "raw": "Raw",
+      "copyContent": "Copy content",
+      "displayLabel": "Display:",
+      "viaParser": "Viewed via parser",
+      "parserTooltip": "Applies parser {{id}}@{{version}} ({{mode}}) to the raw payload — preview of the result a `transform.run` node would produce.",
+      "applyingParser": "Applying parser…",
+      "parserNotApplied": "Parser not applied",
+      "invalidJsonPayload": "The raw payload is not parseable JSON ({{error}}). The parser will not run.",
+      "parserFailed": "The parser failed: {{error}}.",
+      "reduction": "Reduction: {{raw}} → {{parsed}} bytes",
+      "reductionRatio": " (−{{ratio}}%)"
     }
   },
   "llm": {
@@ -1179,6 +1408,31 @@
       "iteration": "Iteration {{n}}",
       "feedbackSummary": "— feedback: {{summary}}",
       "noEvents": "(no session events buffered)"
+    },
+    "sessionPanel": {
+      "statusPending": "Pending",
+      "statusRunning": "Running",
+      "statusAwaitingHuman": "Validation required",
+      "statusValidated": "Validated",
+      "statusLooped": "Looped",
+      "statusFailed": "Failed",
+      "statusSkipped": "Skipped",
+      "thinking": "thinking",
+      "session": "session · {{model}}",
+      "orphanResult": "(orphan result)",
+      "ctxLabel": "ctx · ",
+      "runComplete": "Run complete",
+      "latency": "· {{ms}}ms",
+      "cost": "· {{cost}}$",
+      "exec": "exec {{id}}",
+      "artifact": "· art {{id}}",
+      "unknownError": "(unknown error)",
+      "pendingStart": "Step waiting to be started",
+      "iteration": "Iteration {{n}}",
+      "feedback": "— feedback: {{text}}",
+      "commentCount_one": "{{count}} comment",
+      "commentCount_other": "{{count}} comments",
+      "noBufferedEvents": "(no buffered session events)"
     }
   },
   "humanGate": {
@@ -1203,6 +1457,10 @@
       "addComment": "Add a comment",
       "addCommentSubmit": "Add",
       "commentPlaceholder": "Comment…"
+    },
+    "artifactViewer": {
+      "addComment": "Add a comment",
+      "delete": "Delete"
     }
   },
   "diff": {
@@ -1383,7 +1641,27 @@
       "words_other": "{{count}} words",
       "unsaved": "Unsaved changes",
       "saved": "Saved",
-      "encoding": "UTF-8"
+      "encoding": "UTF-8",
+      "untitled": "untitled",
+      "exportMarkdown": "Export to Markdown",
+      "deletePrompt": "Delete prompt",
+      "savePromptAria": "Save prompt",
+      "upToDate": "Up to date",
+      "saveShortcut": "Save (⌘S)",
+      "noChanges": "No changes",
+      "exportDialogTitle": "Export prompt",
+      "markdownLabel": "Markdown",
+      "deleteConfirm": "Delete the prompt \"{{ref}}\"? This action is permanent.",
+      "sourcePlaceholder": "You are an agent…",
+      "trustedSourceRequired": "Trusted source required",
+      "trustedSourceWarning": "These variables are injected as-is into the prompt. Make sure they come from a trusted source: an unverified value can hijack the skill's instructions (prompt injection).",
+      "lineCount_one": "{{count}} line",
+      "lineCount_other": "{{count}} lines",
+      "charCount": "{{count}} chars",
+      "wordCount_one": "{{count}} word",
+      "wordCount_other": "{{count}} words",
+      "unsavedChanges": "Unsaved changes",
+      "encodingLabel": "UTF-8"
     }
   },
   "chat": {
@@ -1449,10 +1727,20 @@
       "commandPalette": "Command palette",
       "commandPaletteShortcut": "⌘⇧P",
       "search": "Search",
-      "searchShortcut": "⌘P"
+      "searchShortcut": "⌘P",
+      "title": "No editor open.",
+      "subtitle": "Pick an item from the sidebar to get started.",
+      "runAction": "Start a run",
+      "createArtifactSchema": "Create an artifact type",
+      "kbd": {
+        "newRun": "⌘N",
+        "commandPalette": "⌘⇧P",
+        "quickOpen": "⌘P"
+      }
     },
     "dock": {
-      "noEditor": "No editor registered for {{uri}}"
+      "noEditor": "No editor registered for {{uri}}",
+      "noEditorRegistered": "No editor registered for {{uri}}"
     }
   },
   "plugins": {

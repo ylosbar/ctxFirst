@@ -310,7 +310,7 @@ describe("flattenTemplate — guards", () => {
     // chain of 9: A → t1 → … → t8, each calling the next.
     const chain: WorkflowTemplate[] = [];
     for (let i = 1; i <= 8; i++) {
-      const nextId = `t${i}` as string;
+      const nextId = `t${i}`;
       const callee = i === 8 ? "leaf" : `t${i + 1}`;
       void nextId;
       chain.push(

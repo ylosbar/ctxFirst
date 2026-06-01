@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/ui/i18n";
 
 import type {
   ArtifactKind,
@@ -50,6 +51,7 @@ const KindPreview = ({
   extendsChain,
   className,
 }: Props) => {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   const sampleText =
@@ -76,11 +78,11 @@ const KindPreview = ({
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate font-mono text-sm font-semibold">{kind}</span>
           <Badge tone="warning" size="sm">
-            inconnu
+            {t("artifacts.kindPreview.unknown")}
           </Badge>
         </div>
         <p className="text-2xs text-muted-foreground">
-          Kind inconnu — le registre ne le résout pas.
+          {t("artifacts.kindPreview.unknownDescription")}
         </p>
       </div>
     );
@@ -111,7 +113,7 @@ const KindPreview = ({
 
       <div className="flex flex-col gap-1">
         <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Shape
+          {t("artifacts.kindPreview.shape")}
         </span>
         <pre className="overflow-x-auto rounded border border-border/60 bg-background p-2 font-mono text-2xs leading-snug">
           {shapeText}
@@ -121,12 +123,12 @@ const KindPreview = ({
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
           <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Sample
+            {t("artifacts.kindPreview.sample")}
           </span>
           <div className="flex items-center gap-1.5">
             {sampleAutoDerived ? (
               <Badge tone="warning" size="sm">
-                auto-dérivé
+                {t("artifacts.kindPreview.autoDerived")}
               </Badge>
             ) : null}
             <Button
@@ -134,7 +136,7 @@ const KindPreview = ({
               variant="ghost"
               onClick={copySample}
               disabled={sampleText === null}
-              aria-label="Copier le sample"
+              aria-label={t("artifacts.kindPreview.copySample")}
               className="h-5 w-5"
             >
               {copied ? (
@@ -151,7 +153,7 @@ const KindPreview = ({
           </pre>
         ) : (
           <p className="text-2xs italic text-muted-foreground">
-            Aucun sample disponible.
+            {t("artifacts.kindPreview.noSample")}
           </p>
         )}
       </div>
@@ -159,7 +161,7 @@ const KindPreview = ({
       {extendsChain.length > 0 ? (
         <div className="flex items-baseline gap-1.5">
           <span className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Étend
+            {t("artifacts.kindPreview.extends")}
           </span>
           <span className="truncate font-mono text-2xs text-foreground">
             {extendsChain.join(" → ")}

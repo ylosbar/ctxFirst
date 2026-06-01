@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/ui/i18n";
 
 type RequiredField = "name" | "id" | "version";
 
@@ -28,6 +29,7 @@ const TemplateSaveMissingModal = ({
   onConfirm,
   onCancel,
 }: Props) => {
+  const t = useT();
   const [name, setName] = useState(initial.name);
   const [id, setId] = useState(initial.id);
   const [version, setVersion] = useState(initial.version);
@@ -87,10 +89,10 @@ const TemplateSaveMissingModal = ({
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xl outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
           <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
             <Dialog.Title className="min-w-0 truncate text-sm font-semibold">
-              Compléter le template avant de sauvegarder
+              {t("templates.saveMissing.title")}
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Fermer"
+              aria-label={t("templates.saveMissing.close")}
               disabled={busy}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
@@ -100,15 +102,17 @@ const TemplateSaveMissingModal = ({
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
             <p className="text-xs text-muted-foreground">
-              Quelques champs obligatoires sont vides. Remplis-les pour pouvoir
-              sauvegarder ce template.
+              {t("templates.saveMissing.body")}
             </p>
 
             {requires("name") ? (
-              <FormField label="Nom" htmlFor="template-missing-name">
+              <FormField
+                label={t("templates.saveMissing.nameLabel")}
+                htmlFor="template-missing-name"
+              >
                 <Input
                   id="template-missing-name"
-                  placeholder="Mon template"
+                  placeholder={t("templates.saveMissing.namePlaceholder")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -119,10 +123,13 @@ const TemplateSaveMissingModal = ({
             ) : null}
 
             {requires("id") ? (
-              <FormField label="ID" htmlFor="template-missing-id">
+              <FormField
+                label={t("templates.saveMissing.idLabel")}
+                htmlFor="template-missing-id"
+              >
                 <Input
                   id="template-missing-id"
-                  placeholder="my-flow"
+                  placeholder={t("templates.saveMissing.idPlaceholder")}
                   value={id}
                   onChange={(e) => setId(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -133,10 +140,13 @@ const TemplateSaveMissingModal = ({
             ) : null}
 
             {requires("version") ? (
-              <FormField label="Version" htmlFor="template-missing-version">
+              <FormField
+                label={t("templates.saveMissing.versionLabel")}
+                htmlFor="template-missing-version"
+              >
                 <Input
                   id="template-missing-version"
-                  placeholder="v1"
+                  placeholder={t("templates.saveMissing.versionPlaceholder")}
                   value={version}
                   onChange={(e) => setVersion(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -154,15 +164,15 @@ const TemplateSaveMissingModal = ({
               onClick={onCancel}
               disabled={busy}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
               {busy ? (
-                "Sauvegarde…"
+                t("templates.saveMissing.saving")
               ) : (
                 <>
                   <Save data-icon="inline-start" className="size-3.5" />
-                  Sauvegarder
+                  {t("common.save")}
                 </>
               )}
             </Button>

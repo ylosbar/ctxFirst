@@ -24,7 +24,6 @@
 import { putArtifactPayload } from "../application/artifact-io";
 import type {
   NodeSpec,
-  RunContext,
   StepOutcome,
   StepRunner,
 } from "../application/step-runner";
@@ -67,12 +66,6 @@ const readSubjectRaw = (subject: {
   const raw =
     payload && typeof payload.body === "string" ? payload.body : subject.content;
   return stripCodeFence(raw);
-};
-
-type FormatValidateConfig = {
-  expectedKind: ArtifactKind;
-  maxAttempts?: number;
-  approvedKind?: ArtifactKind;
 };
 
 const readExpectedKind = (

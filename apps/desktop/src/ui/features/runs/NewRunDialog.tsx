@@ -2,6 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useT } from "@/ui/i18n";
 import useWorkflow from "../../hooks/useWorkflow";
 import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
 import WorkflowStartForm from "../../components/WorkflowStartForm";
@@ -13,6 +14,7 @@ type Props = {
 };
 
 const NewRunDialog = ({ open, onClose }: Props) => {
+  const t = useT();
   const navigate = useNavigate();
   const { startWorkflow, busy, error } = useWorkflow(null);
   const {
@@ -47,10 +49,10 @@ const NewRunDialog = ({ open, onClose }: Props) => {
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[640px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-md border border-border bg-card text-card-foreground shadow-xl outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <Dialog.Title className="text-sm font-semibold">
-              Nouveau run
+              {t("runs.newRunDialog.title")}
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Fermer"
+              aria-label={t("common.close")}
               className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <X className="size-4" />

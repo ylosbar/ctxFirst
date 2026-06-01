@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Callout } from "@/components/ui/callout";
+import { useT } from "@/ui/i18n";
 import { ArtifactInlineView } from "../../../components/ArtifactView";
 import type {
   ArtifactContentView,
@@ -23,6 +24,7 @@ const StudioOutput = ({ state }: Props) => {
 };
 
 const RunningView = ({ startedAt }: { startedAt: number }) => {
+  const t = useT();
   const [elapsed, setElapsed] = useState(() =>
     Math.max(0, Date.now() - startedAt),
   );
@@ -37,7 +39,11 @@ const RunningView = ({ startedAt }: { startedAt: number }) => {
   return (
     <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
       <Loader2 className="size-3.5 animate-spin" />
-      <span>Exécution en cours… ({Math.round(elapsed / 1000)}s)</span>
+      <span>
+        {t("templates.studio.output.running", {
+          seconds: Math.round(elapsed / 1000),
+        })}
+      </span>
     </div>
   );
 };
@@ -49,10 +55,11 @@ const DoneView = ({
   result: DebugStepResultView;
   durationMs: number;
 }) => {
+  const t = useT();
   if (result.kind === "error") {
     return (
       <div className="px-3">
-        <Callout tone="danger" title="Erreur d'exécution">
+        <Callout tone="danger" title={t("templates.studio.output.errorTitle")}>
           <code className="font-mono text-xs">{result.message}</code>
         </Callout>
       </div>
@@ -64,9 +71,9 @@ const DoneView = ({
       <div className="px-3">
         <Callout
           tone="info"
-          title="La node demande une intervention humaine"
+          title={t("templates.studio.output.awaitingHumanTitle")}
         >
-          Pas de support en studio (testez-la dans un vrai run). Rôle attendu :{" "}
+          {t("templates.studio.output.awaitingHumanBody")}{" "}
           <code className="font-mono">{result.actorRole}</code>.
         </Callout>
       </div>
@@ -76,9 +83,9 @@ const DoneView = ({
   if (result.kind === "workspace-set") {
     return (
       <div className="px-3">
-        <Callout tone="info" title="La node a défini un cwd">
-          <code className="font-mono text-xs">{result.cwd}</code> — effet ignoré
-          en studio (les nodes suivantes ne sont pas exécutées).
+        <Callout tone="info" title={t("templates.studio.output.cwdTitle")}>
+          <code className="font-mono text-xs">{result.cwd}</code>{" "}
+          {t("templates.studio.output.cwdBody")}
         </Callout>
       </div>
     );
@@ -87,9 +94,10 @@ const DoneView = ({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3">
       <div className="shrink-0 text-2xs uppercase tracking-wide text-muted-foreground">
-        Résultat ({(durationMs / 1000).toFixed(1)}s) ·{" "}
-        {result.artifacts.length} artifact
-        {result.artifacts.length > 1 ? "s" : ""}
+        {t("templates.studio.output.resultSummary", {
+          seconds: (durationMs / 1000).toFixed(1),
+          count: result.artifacts.length,
+        })}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         {result.artifacts.map((artifact, index) => {

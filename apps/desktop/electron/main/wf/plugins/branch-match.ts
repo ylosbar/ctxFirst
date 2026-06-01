@@ -49,7 +49,7 @@ const readTargetKind = (
       `branch.match: \`targetKind\` ${raw} is not a OneOf<…> kind`,
     );
   }
-  return raw as SumArtifactKind;
+  return raw;
 };
 
 const readVariants = (

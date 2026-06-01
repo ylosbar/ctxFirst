@@ -63,7 +63,7 @@ export const buildTemplate = (
   transitions: ReadonlyArray<BuildTransition>,
   opts: BuildTemplateOptions = {},
 ): WorkflowTemplate => {
-  const id = (opts.id ?? name) as string;
+  const id = (opts.id ?? name);
   const version = opts.version ?? "v1";
 
   const stepDefs: StepDef[] = steps.map((s) => ({

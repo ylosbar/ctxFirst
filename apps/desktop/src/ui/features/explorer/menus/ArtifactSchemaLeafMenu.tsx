@@ -7,6 +7,7 @@ import {
   menuItemDestructiveClass,
   menuPopupClass,
 } from "./menu-styles";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   readonly trigger: ReactElement;
@@ -22,7 +23,9 @@ const ArtifactSchemaLeafMenu = ({
   isUserDefined,
   onOpen,
   onDelete,
-}: Props) => (
+}: Props) => {
+  const t = useT();
+  return (
   <ContextMenu.Root>
     <ContextMenu.Trigger render={trigger} />
     <ContextMenu.Portal>
@@ -30,7 +33,7 @@ const ArtifactSchemaLeafMenu = ({
         <ContextMenu.Popup className={menuPopupClass}>
           <Menu.Item className={menuItemClass} onClick={onOpen}>
             <ExternalLink className="size-4" />
-            Ouvrir
+            {t("explorer.menus.artifactSchema.open")}
           </Menu.Item>
           {isUserDefined ? (
             <>
@@ -39,14 +42,16 @@ const ArtifactSchemaLeafMenu = ({
                 className={menuItemDestructiveClass}
                 onClick={() => {
                   const ok = window.confirm(
-                    `Supprimer le type ${typeRef} ? Cette action est définitive.`,
+                    t("explorer.menus.artifactSchema.confirmDelete", {
+                      typeRef,
+                    }),
                   );
                   if (!ok) return;
                   onDelete();
                 }}
               >
                 <Trash2 className="size-4" />
-                Supprimer
+                {t("common.delete")}
               </Menu.Item>
             </>
           ) : null}
@@ -54,6 +59,7 @@ const ArtifactSchemaLeafMenu = ({
       </ContextMenu.Positioner>
     </ContextMenu.Portal>
   </ContextMenu.Root>
-);
+  );
+};
 
 export default ArtifactSchemaLeafMenu;

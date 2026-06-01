@@ -511,9 +511,7 @@ const ResourceTreeView = () => {
         </ScrollArea>
 
         <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
-          <span>
-            {totalCount} ressource{totalCount > 1 ? "s" : ""}
-          </span>
+          <span>{t("explorer.tree.resourceCount", { count: totalCount })}</span>
         </div>
       </div>
     </DndContext>

@@ -5,6 +5,7 @@ import { scaleBand, scaleLinear } from "@visx/scale";
 import { useTooltip } from "@visx/tooltip";
 import type { StepExecStatus } from "../../../domain/workflow/types";
 import { STATUS_LABEL } from "@/components/ui/step-status";
+import { useT } from "@/ui/i18n";
 import { formatDurationMs } from "./build-step-stats";
 import type { GanttBar, GanttModel } from "./run-stats-types";
 
@@ -40,6 +41,7 @@ const GanttChart = ({
   selectedStepId,
   onSelectStep,
 }: Props) => {
+  const t = useT();
   const innerW = Math.max(width - MARGIN.left - MARGIN.right, 0);
   const innerH = Math.max(height - MARGIN.top - MARGIN.bottom, 0);
 
@@ -147,7 +149,9 @@ const GanttChart = ({
                     className="fill-muted-foreground"
                     style={{ fontSize: 13 }}
                   >
-                    Σ {formatDurationMs(row.cumulativeMs)}
+                    {t("runs.gantt.cumulative", {
+                      duration: formatDurationMs(row.cumulativeMs),
+                    })}
                   </text>
                 ) : null}
               </Group>
@@ -194,18 +198,25 @@ const GanttChart = ({
   );
 };
 
-const BarTooltip = ({ bar }: { bar: GanttBar }) => (
-  <div>
-    <div style={{ fontWeight: 500 }}>{bar.label}</div>
-    <div style={{ opacity: 0.7 }}>
-      {STATUS_LABEL[bar.status]} · {formatDurationMs(bar.durationMs)}
-      {bar.inProgress ? " · en cours" : ""}
+const BarTooltip = ({ bar }: { bar: GanttBar }) => {
+  const t = useT();
+  return (
+    <div>
+      <div style={{ fontWeight: 500 }}>{bar.label}</div>
+      <div style={{ opacity: 0.7 }}>
+        {STATUS_LABEL[bar.status]}
+        {t("runs.gantt.tooltipSeparator")}
+        {formatDurationMs(bar.durationMs)}
+        {bar.inProgress ? t("runs.gantt.tooltipInProgress") : ""}
+      </div>
+      {bar.error ? (
+        <div style={{ marginTop: 4, color: "var(--destructive)" }}>
+          {bar.error}
+        </div>
+      ) : null}
     </div>
-    {bar.error ? (
-      <div style={{ marginTop: 4, color: "var(--destructive)" }}>{bar.error}</div>
-    ) : null}
-  </div>
-);
+  );
+};
 
 const truncate = (s: string, max: number): string =>
   s.length <= max ? s : `${s.slice(0, max - 1)}…`;

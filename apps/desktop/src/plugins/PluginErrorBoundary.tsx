@@ -8,6 +8,7 @@
  * canonical arrow-function form.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { i18n } from "@/ui/i18n";
 
 type Props = {
   readonly pluginId: string;
@@ -44,14 +45,15 @@ class PluginErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex h-full min-w-0 flex-col gap-2 p-4 text-xs">
           <p className="text-sm font-medium text-destructive">
-            Plugin error: {this.props.fallbackTitle ?? this.props.pluginId}
+            {i18n.t("plugins.errorBoundary.title", {
+              name: this.props.fallbackTitle ?? this.props.pluginId,
+            })}
           </p>
           <p className="text-muted-foreground">
             {this.state.error.message}
           </p>
           <p className="text-muted-foreground">
-            Check the console for the full stack trace. The rest of the app
-            is unaffected; reload the window to retry.
+            {i18n.t("plugins.errorBoundary.hint")}
           </p>
         </div>
       );

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useServices } from "../di/services-provider";
 import { useActiveChannel } from "./ChannelProvider";
 import ImageUploadField, { type ImageUploadValue } from "./ImageUploadField";
+import { useT } from "@/ui/i18n";
 import type {
   ChannelIconImageInputView,
   ChannelIconImageMimeView,
@@ -28,6 +29,7 @@ const slugify = (raw: string): string =>
     .slice(0, 64);
 
 const CreateChannelDialog = ({ open, onOpenChange, onCreated }: Props) => {
+  const t = useT();
   const { workflowGateway } = useServices();
   const { bumpVersion } = useActiveChannel();
   const [name, setName] = useState("");
@@ -105,7 +107,7 @@ const CreateChannelDialog = ({ open, onOpenChange, onCreated }: Props) => {
           <form onSubmit={submit}>
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <Dialog.Title className="text-sm font-semibold">
-                Nouveau channel
+                {t("channels.createDialog.title")}
               </Dialog.Title>
               <Dialog.Close
                 render={
@@ -122,7 +124,9 @@ const CreateChannelDialog = ({ open, onOpenChange, onCreated }: Props) => {
             </div>
             <div className="flex flex-col gap-3 p-4">
               <label className="flex flex-col gap-1 text-xs">
-                <span className="text-muted-foreground">Nom</span>
+                <span className="text-muted-foreground">
+                  {t("channels.createDialog.nameLabel")}
+                </span>
                 <input
                   type="text"
                   value={name}
@@ -134,7 +138,7 @@ const CreateChannelDialog = ({ open, onOpenChange, onCreated }: Props) => {
               </label>
               <label className="flex flex-col gap-1 text-xs">
                 <span className="text-muted-foreground">
-                  Slug (id stable, lowercase / digits / dashes)
+                  {t("channels.createDialog.slugLabel")}
                 </span>
                 <input
                   type="text"
@@ -148,7 +152,7 @@ const CreateChannelDialog = ({ open, onOpenChange, onCreated }: Props) => {
               </label>
               <div className="flex flex-col gap-1 text-xs">
                 <span className="text-muted-foreground">
-                  Image (PNG ou JPEG, 2 Mo max)
+                  {t("channels.createDialog.imageLabel")}
                 </span>
                 <ImageUploadField value={imageFile} onChange={setImageFile} />
               </div>

@@ -7,6 +7,7 @@ import {
   menuItemDestructiveClass,
   menuPopupClass,
 } from "../explorer/menus/menu-styles";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   readonly trigger: ReactElement;
@@ -28,49 +29,54 @@ const RunLeafMenu = ({
   onUnpin,
   onExport,
   onDelete,
-}: Props) => (
-  <ContextMenu.Root>
-    <ContextMenu.Trigger render={trigger} />
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner sideOffset={4} className="z-50">
-        <ContextMenu.Popup className={menuPopupClass}>
-          <Menu.Item className={menuItemClass} onClick={onOpen}>
-            <ExternalLink className="size-4" />
-            Ouvrir
-          </Menu.Item>
-          {isPinned ? (
-            <Menu.Item className={menuItemClass} onClick={onUnpin}>
-              <PinOff className="size-4" />
-              Désépingler
+}: Props) => {
+  const t = useT();
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger render={trigger} />
+      <ContextMenu.Portal>
+        <ContextMenu.Positioner sideOffset={4} className="z-50">
+          <ContextMenu.Popup className={menuPopupClass}>
+            <Menu.Item className={menuItemClass} onClick={onOpen}>
+              <ExternalLink className="size-4" />
+              {t("runs.leafMenu.open")}
             </Menu.Item>
-          ) : (
-            <Menu.Item className={menuItemClass} onClick={onPin}>
-              <Pin className="size-4" />
-              Épingler
+            {isPinned ? (
+              <Menu.Item className={menuItemClass} onClick={onUnpin}>
+                <PinOff className="size-4" />
+                {t("runs.leafMenu.unpin")}
+              </Menu.Item>
+            ) : (
+              <Menu.Item className={menuItemClass} onClick={onPin}>
+                <Pin className="size-4" />
+                {t("runs.leafMenu.pin")}
+              </Menu.Item>
+            )}
+            <Menu.Item className={menuItemClass} onClick={onExport}>
+              <Download className="size-4" />
+              {t("runs.leafMenu.exportJson")}
             </Menu.Item>
-          )}
-          <Menu.Item className={menuItemClass} onClick={onExport}>
-            <Download className="size-4" />
-            Exporter (JSON)
-          </Menu.Item>
-          <ContextMenu.Separator className="my-1 h-px bg-border" />
-          <Menu.Item
-            className={menuItemDestructiveClass}
-            onClick={() => {
-              const ok = window.confirm(
-                `Supprimer le run ${instanceId.slice(0, 8)} ? Cette action est définitive.`,
-              );
-              if (!ok) return;
-              onDelete();
-            }}
-          >
-            <Trash2 className="size-4" />
-            Supprimer
-          </Menu.Item>
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
-  </ContextMenu.Root>
-);
+            <ContextMenu.Separator className="my-1 h-px bg-border" />
+            <Menu.Item
+              className={menuItemDestructiveClass}
+              onClick={() => {
+                const ok = window.confirm(
+                  t("runs.leafMenu.confirmDelete", {
+                    name: instanceId.slice(0, 8),
+                  }),
+                );
+                if (!ok) return;
+                onDelete();
+              }}
+            >
+              <Trash2 className="size-4" />
+              {t("common.delete")}
+            </Menu.Item>
+          </ContextMenu.Popup>
+        </ContextMenu.Positioner>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
+  );
+};
 
 export default RunLeafMenu;

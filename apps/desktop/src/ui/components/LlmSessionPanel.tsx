@@ -24,6 +24,7 @@ import ChatToolRow from "../features/chat/ChatToolRow";
 import HumanGatePanel from "./HumanGatePanel";
 import UsageBadge from "./UsageBadge";
 import { WORKFLOW_STATUS_TONE } from "./StatusBadge";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   exec: StepExecutionView;
@@ -39,15 +40,15 @@ type Props = {
   }>;
 };
 
-const statusLabel = (s: StepExecutionView["status"]): string => {
+const statusLabelKey = (s: StepExecutionView["status"]): string => {
   switch (s) {
-    case "pending": return "En attente";
-    case "running": return "En cours";
-    case "awaitingHuman": return "Validation requise";
-    case "validated": return "Validée";
-    case "looped": return "Rebouclée";
-    case "failed": return "Échouée";
-    case "skipped": return "Ignorée";
+    case "pending": return "llm.sessionPanel.statusPending";
+    case "running": return "llm.sessionPanel.statusRunning";
+    case "awaitingHuman": return "llm.sessionPanel.statusAwaitingHuman";
+    case "validated": return "llm.sessionPanel.statusValidated";
+    case "looped": return "llm.sessionPanel.statusLooped";
+    case "failed": return "llm.sessionPanel.statusFailed";
+    case "skipped": return "llm.sessionPanel.statusSkipped";
   }
 };
 
@@ -141,6 +142,7 @@ const buildBlocks = (events: ReadonlyArray<LlmSessionEvent>): Block[] => {
 };
 
 const ThinkingCard = ({ text }: { text: string }) => {
+  const t = useT();
   return (
     <ExpandableCard
       accent="warning"
@@ -149,7 +151,7 @@ const ThinkingCard = ({ text }: { text: string }) => {
         <>
           <Brain className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="font-medium italic text-muted-foreground">
-            thinking
+            {t("llm.sessionPanel.thinking")}
           </span>
         </>
       }
@@ -183,6 +185,7 @@ const SessionTimeline = ({
   events: ReadonlyArray<LlmSessionEvent>;
   loading: boolean;
 }) => {
+  const t = useT();
   const blocks = useMemo(() => buildBlocks(events), [events]);
 
   // Apparie chaque tool_result à son tool_use (même id) pour les fusionner dans
@@ -229,7 +232,7 @@ const SessionTimeline = ({
               <div key={b.key} className="flex justify-center py-1">
                 <Badge tone="neutral" size="sm" font="mono">
                   <Sparkles className="size-3" />
-                  <span>session · {b.model}</span>
+                  <span>{t("llm.sessionPanel.session", { model: b.model })}</span>
                 </Badge>
               </div>
             );
@@ -270,7 +273,7 @@ const SessionTimeline = ({
               <ChatToolRow
                 key={b.key}
                 toolCallId={b.turn.tool_use_id}
-                name="(résultat orphelin)"
+                name={t("llm.sessionPanel.orphanResult")}
                 input={undefined}
                 status={b.turn.is_error ? "errored" : "completed"}
                 result={{
@@ -287,7 +290,7 @@ const SessionTimeline = ({
                 key={b.key}
                 className="-my-1.5 flex w-full items-center justify-end"
               >
-                <UsageBadge usage={b.usage} label="ctx · " />
+                <UsageBadge usage={b.usage} label={t("llm.sessionPanel.ctxLabel")} />
               </div>
             );
           case "result": {
@@ -303,12 +306,12 @@ const SessionTimeline = ({
                 className="mt-1 flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-2xs text-muted-foreground"
               >
                 <span className="font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-                  Run terminé
+                  {t("llm.sessionPanel.runComplete")}
                 </span>
                 <UsageBadge usage={usage} />
-                <span>· {b.latencyMs}ms</span>
+                <span>{t("llm.sessionPanel.latency", { ms: b.latencyMs })}</span>
                 {b.costUsd !== undefined && (
-                  <span>· {b.costUsd.toFixed(4)}$</span>
+                  <span>{t("llm.sessionPanel.cost", { cost: b.costUsd.toFixed(4) })}</span>
                 )}
               </div>
             );
@@ -334,6 +337,7 @@ const LlmSessionPanel = ({
   onRequestAdjustments,
   pastExecutions,
 }: Props) => {
+  const t = useT();
   const scrollRef = useRef<ScrollAreaHandle | null>(null);
 
   // `pastExecutions` is a fresh array reference on every parent render, so we
@@ -367,14 +371,18 @@ const LlmSessionPanel = ({
       title={exec.stepId}
       trailing={
         <Badge tone={WORKFLOW_STATUS_TONE[exec.status]} className="text-2xs">
-          {statusLabel(exec.status)}
+          {t(statusLabelKey(exec.status))}
         </Badge>
       }
       actions={
         <div className="flex items-center gap-2 font-mono text-2xs text-muted-foreground">
-          <span>exec {exec.id.slice(0, 8)}</span>
+          <span>{t("llm.sessionPanel.exec", { id: exec.id.slice(0, 8) })}</span>
           {exec.outputArtifact && (
-            <span>· art {exec.outputArtifact.slice(0, 8)}</span>
+            <span>
+              {t("llm.sessionPanel.artifact", {
+                id: exec.outputArtifact.slice(0, 8),
+              })}
+            </span>
           )}
         </div>
       }
@@ -389,7 +397,7 @@ const LlmSessionPanel = ({
           <div className="p-4">
             <Callout tone="danger">
               <pre className="m-0 whitespace-pre-wrap font-mono text-xs">
-                {exec.error ?? "(erreur inconnue)"}
+                {exec.error ?? t("llm.sessionPanel.unknownError")}
               </pre>
             </Callout>
           </div>
@@ -404,7 +412,7 @@ const LlmSessionPanel = ({
         {header}
         <EmptyState
           icon={<Sparkles className="size-5" />}
-          description="Étape en attente d'être démarrée"
+          description={t("llm.sessionPanel.pendingStart")}
         />
       </div>
     );
@@ -420,10 +428,18 @@ const LlmSessionPanel = ({
         {pastExecutions.map((p, i) => (
           <div key={p.exec.id} className="border-b border-border/60">
             <div className="flex items-baseline gap-2 border-y border-border/40 bg-muted/40 px-3 py-1.5 text-2xs font-semibold uppercase tracking-wide text-primary">
-              <span className="shrink-0">Itération {i + 1}</span>
+              <span className="shrink-0">
+                {t("llm.sessionPanel.iteration", { n: i + 1 })}
+              </span>
               {p.exec.humanFeedback ? (
                 <span className="truncate font-normal normal-case text-muted-foreground">
-                  — feedback: {p.exec.humanFeedback.summary || `${p.exec.humanFeedback.comments.length} commentaire(s)`}
+                  {t("llm.sessionPanel.feedback", {
+                    text:
+                      p.exec.humanFeedback.summary ||
+                      t("llm.sessionPanel.commentCount", {
+                        count: p.exec.humanFeedback.comments.length,
+                      }),
+                  })}
                 </span>
               ) : null}
             </div>
@@ -431,14 +447,14 @@ const LlmSessionPanel = ({
               <SessionTimeline events={p.events} loading={false} />
             ) : (
               <div className="px-3 py-2 text-xs italic text-muted-foreground">
-                (aucun événement de session bufferisé)
+                {t("llm.sessionPanel.noBufferedEvents")}
               </div>
             )}
           </div>
         ))}
         {pastExecutions.length > 0 && (
           <div className="border-y border-border/40 bg-muted/40 px-3 py-1.5 text-2xs font-semibold uppercase tracking-wide text-primary">
-            Itération {pastExecutions.length + 1}
+            {t("llm.sessionPanel.iteration", { n: pastExecutions.length + 1 })}
           </div>
         )}
         <SessionTimeline

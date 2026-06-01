@@ -70,7 +70,7 @@ describe("computeStructuralHash", () => {
     const schema = { type: "object", properties: { v: { type: "string" } } };
     const root = computeStructuralHash({ simplifiedSchema: schema, extends: null }, noParent);
     const refinement = computeStructuralHash(
-      { simplifiedSchema: schema, extends: "String" as ArtifactKind },
+      { simplifiedSchema: schema, extends: "String" },
       (k) => (k === "String" ? "parent-hash-deadbeef" : null),
     );
     expect(refinement).not.toBe(root);

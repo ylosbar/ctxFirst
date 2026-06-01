@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useServices } from "../di/services-provider";
+import { useT } from "@/ui/i18n";
 import type {
   ArtifactContentView,
   ArtifactKind,
@@ -133,6 +134,7 @@ const JsonScalar = ({ value }: { value: number | boolean | null }) => (
 );
 
 const JsonString = ({ value }: { value: string }) => {
+  const t = useT();
   if (value.includes("\n")) {
     return (
       <div className="markdown-body markdown-body--doc text-sm">
@@ -147,12 +149,17 @@ const JsonString = ({ value }: { value: string }) => {
     );
   }
   if (value.length === 0) {
-    return <span className="text-xs italic text-muted-foreground">(vide)</span>;
+    return (
+      <span className="text-xs italic text-muted-foreground">
+        {t("artifacts.view.empty")}
+      </span>
+    );
   }
   return <span className="whitespace-pre-wrap break-words text-sm">{value}</span>;
 };
 
 const JsonNode = ({ value }: { value: unknown }) => {
+  const t = useT();
   if (
     value === null ||
     typeof value === "number" ||
@@ -164,7 +171,9 @@ const JsonNode = ({ value }: { value: unknown }) => {
   if (Array.isArray(value)) {
     if (value.length === 0) {
       return (
-        <span className="text-xs italic text-muted-foreground">[] vide</span>
+        <span className="text-xs italic text-muted-foreground">
+          {t("artifacts.view.emptyArray")}
+        </span>
       );
     }
     return (
@@ -186,7 +195,9 @@ const JsonNode = ({ value }: { value: unknown }) => {
   const entries = Object.entries(value as Record<string, unknown>);
   if (entries.length === 0) {
     return (
-      <span className="text-xs italic text-muted-foreground">{"{}"} vide</span>
+      <span className="text-xs italic text-muted-foreground">
+        {t("artifacts.view.emptyObject")}
+      </span>
     );
   }
   return (
@@ -213,11 +224,13 @@ const JsonDocumentView = ({ value }: { value: unknown }) => (
 
 const CopyButton = ({
   value,
-  label = "Copier",
+  label,
 }: {
   value: string;
   label?: string;
 }) => {
+  const t = useT();
+  const effectiveLabel = label ?? t("common.copy");
   const [done, setDone] = useState(false);
   const handle = () => {
     void navigator.clipboard.writeText(value).then(() => {
@@ -233,14 +246,14 @@ const CopyButton = ({
             variant="ghost"
             size="icon-xs"
             onClick={handle}
-            aria-label={label}
+            aria-label={effectiveLabel}
             className="size-5 text-muted-foreground"
           >
             {done ? <Check className="size-3" /> : <Copy className="size-3" />}
           </Button>
         }
       />
-      <TooltipContent>{done ? "Copié" : label}</TooltipContent>
+      <TooltipContent>{done ? t("common.copied") : effectiveLabel}</TooltipContent>
     </Tooltip>
   );
 };
@@ -274,6 +287,7 @@ export const ArtifactInlineView = ({
   kindHint,
   view,
 }: InlineProps) => {
+  const t = useT();
   const body = extractDisplayableContent(view.content);
   const effectiveKind = (kindHint ?? view.meta.kind) as ArtifactKind | undefined;
   const isDiff = looksLikeUnifiedDiff(body);
@@ -358,7 +372,7 @@ export const ArtifactInlineView = ({
                     : "text-muted-foreground hover:bg-muted/40"
                 }`}
               >
-                Lisible
+                {t("artifacts.view.readable")}
               </button>
               <button
                 type="button"
@@ -369,7 +383,7 @@ export const ArtifactInlineView = ({
                     : "text-muted-foreground hover:bg-muted/40"
                 }`}
               >
-                Brut
+                {t("artifacts.view.raw")}
               </button>
             </div>
           ) : null}
@@ -379,7 +393,7 @@ export const ArtifactInlineView = ({
             </span>
           ) : null}
           {body.length > 0 ? (
-            <CopyButton value={body} label="Copier le contenu" />
+            <CopyButton value={body} label={t("artifacts.view.copyContent")} />
           ) : null}
         </div>
       </div>
@@ -442,40 +456,49 @@ type SwitchProps = {
   onChange: (next: ViewMode) => void;
 };
 
-export const ParserViewSwitch = ({ mode, parser, onChange }: SwitchProps) => (
-  <div className="flex shrink-0 items-center gap-1 border-b bg-muted/10 px-3 py-1.5 text-2xs">
-    <span className="text-muted-foreground">Affichage :</span>
-    <button
-      type="button"
-      onClick={() => onChange("raw")}
-      className={`rounded px-2 py-0.5 ${
-        mode === "raw"
-          ? "bg-muted text-foreground"
-          : "text-muted-foreground hover:bg-muted/40"
-      }`}
-    >
-      Brut
-    </button>
-    <button
-      type="button"
-      onClick={() => onChange("parsed")}
-      className={`flex items-center gap-1 rounded px-2 py-0.5 ${
-        mode === "parsed"
-          ? "bg-violet-500/20 text-violet-200"
-          : "text-violet-300/70 hover:bg-violet-500/10"
-      }`}
-      title={`Applique le parser ${parser.id}@${parser.version} (${parser.mode}) sur la payload brute — visualisation du résultat qu'un node \`transform.run\` produirait.`}
-    >
-      <Sparkles className="size-3" />
-      <span>
-        Vu via parser{" "}
-        <span className="font-mono">
-          {parser.id}@{parser.version}
-        </span>
+export const ParserViewSwitch = ({ mode, parser, onChange }: SwitchProps) => {
+  const t = useT();
+  return (
+    <div className="flex shrink-0 items-center gap-1 border-b bg-muted/10 px-3 py-1.5 text-2xs">
+      <span className="text-muted-foreground">
+        {t("artifacts.view.displayLabel")}
       </span>
-    </button>
-  </div>
-);
+      <button
+        type="button"
+        onClick={() => onChange("raw")}
+        className={`rounded px-2 py-0.5 ${
+          mode === "raw"
+            ? "bg-muted text-foreground"
+            : "text-muted-foreground hover:bg-muted/40"
+        }`}
+      >
+        {t("artifacts.view.raw")}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("parsed")}
+        className={`flex items-center gap-1 rounded px-2 py-0.5 ${
+          mode === "parsed"
+            ? "bg-violet-500/20 text-violet-200"
+            : "text-violet-300/70 hover:bg-violet-500/10"
+        }`}
+        title={t("artifacts.view.parserTooltip", {
+          id: parser.id,
+          version: parser.version,
+          mode: parser.mode,
+        })}
+      >
+        <Sparkles className="size-3" />
+        <span>
+          {t("artifacts.view.viaParser")}{" "}
+          <span className="font-mono">
+            {parser.id}@{parser.version}
+          </span>
+        </span>
+      </button>
+    </div>
+  );
+};
 
 type ParsedProps = {
   parser: ParserView;
@@ -488,6 +511,7 @@ type ParsedState =
   | { status: "error"; message: string };
 
 export const ParsedArtifactView = ({ parser, rawContent }: ParsedProps) => {
+  const t = useT();
   const services = useServices();
   const [state, setState] = useState<ParsedState>({ status: "loading" });
 
@@ -509,9 +533,9 @@ export const ParsedArtifactView = ({ parser, rawContent }: ParsedProps) => {
         if (!cancelled)
           setState({
             status: "error",
-            message: `La payload brute n'est pas du JSON parseable (${
-              err instanceof Error ? err.message : String(err)
-            }). Le parser ne tournera pas.`,
+            message: t("artifacts.view.invalidJsonPayload", {
+              error: err instanceof Error ? err.message : String(err),
+            }),
           });
         return;
       }
@@ -533,20 +557,23 @@ export const ParsedArtifactView = ({ parser, rawContent }: ParsedProps) => {
         if (cancelled) return;
         setState({
           status: "error",
-          message: `Le parser a échoué : ${
-            err instanceof Error ? err.message : String(err)
-          }.`,
+          message: t("artifacts.view.parserFailed", {
+            error: err instanceof Error ? err.message : String(err),
+          }),
         });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [services, parserKey, rawContent, parser.id, parser.version]);
+  }, [services, parserKey, rawContent, parser.id, parser.version, t]);
 
   if (state.status === "loading") {
     return (
-      <LoadingState className="min-h-[160px]" label="Application du parser…" />
+      <LoadingState
+        className="min-h-[160px]"
+        label={t("artifacts.view.applyingParser")}
+      />
     );
   }
   if (state.status === "error") {
@@ -555,7 +582,7 @@ export const ParsedArtifactView = ({ parser, rawContent }: ParsedProps) => {
         <Callout
           tone="warning"
           icon={<Sparkles className="size-4" />}
-          title="Parser non appliqué"
+          title={t("artifacts.view.parserNotApplied")}
         >
           {state.message}
         </Callout>
@@ -569,8 +596,11 @@ export const ParsedArtifactView = ({ parser, rawContent }: ParsedProps) => {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b bg-muted/5 px-3 py-1 text-2xs text-muted-foreground">
-        Réduction : {state.rawBytes.toLocaleString()} → {state.parsedBytes.toLocaleString()} octets
-        {ratio > 0 ? ` (−${ratio}%)` : ""}
+        {t("artifacts.view.reduction", {
+          raw: state.rawBytes.toLocaleString(),
+          parsed: state.parsedBytes.toLocaleString(),
+        })}
+        {ratio > 0 ? t("artifacts.view.reductionRatio", { ratio }) : ""}
       </div>
       <ScrollArea className="min-h-0 flex-1">
         <pre className="whitespace-pre-wrap break-words bg-muted/20 p-4 font-mono text-xs">

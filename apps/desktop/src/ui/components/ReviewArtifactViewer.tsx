@@ -15,6 +15,7 @@
  */
 import { useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/ui/i18n";
 import { Button } from "../../components/ui/button";
 import { Callout } from "../../components/ui/callout";
 import { ScrollArea } from "../../components/ui/scroll-area";
@@ -49,6 +50,7 @@ const ReviewArtifactViewer = ({
   onAddComment,
   onRemoveComment,
 }: Props) => {
+  const t = useT();
   const lines = useMemo(() => content.split("\n"), [content]);
   const [hoverLine, setHoverLine] = useState<number | null>(null);
   const [dragStart, setDragStart] = useState<number | null>(null);
@@ -157,7 +159,7 @@ const ReviewArtifactViewer = ({
                         render={
                           <Button
                             size="icon-xs"
-                            aria-label="Ajouter un commentaire"
+                            aria-label={t("review.artifactViewer.addComment")}
                             className="absolute -left-1 top-1/2 z-10 size-4 -translate-y-1/2 rounded text-2xs font-bold leading-none shadow"
                             onMouseDown={(ev) => {
                               ev.preventDefault();
@@ -172,7 +174,9 @@ const ReviewArtifactViewer = ({
                           </Button>
                         }
                       />
-                      <TooltipContent>Ajouter un commentaire</TooltipContent>
+                      <TooltipContent>
+                        {t("review.artifactViewer.addComment")}
+                      </TooltipContent>
                     </Tooltip>
                   ) : null}
                   <span>{lineNum}</span>
@@ -211,7 +215,7 @@ const ReviewArtifactViewer = ({
                             className="px-1 text-2xs text-muted-foreground hover:bg-transparent hover:text-destructive"
                             onClick={() => onRemoveComment(index)}
                           >
-                            Supprimer
+                            {t("review.artifactViewer.delete")}
                           </Button>
                         ) : null}
                       </div>
@@ -244,10 +248,10 @@ const ReviewArtifactViewer = ({
                       disabled={composer.body.trim().length === 0}
                       onClick={submitComposer}
                     >
-                      Ajouter
+                      {t("common.add")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={cancelComposer}>
-                      Annuler
+                      {t("common.cancel")}
                     </Button>
                   </div>
                 </div>

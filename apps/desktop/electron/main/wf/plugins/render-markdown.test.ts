@@ -104,7 +104,7 @@ const input = (
   port: "in",
   kind,
   content: content ?? JSON.stringify(payload),
-  payload: payload as never,
+  payload: payload,
   artifactId: asArtifactId("upstream-1"),
 });
 

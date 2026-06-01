@@ -129,7 +129,7 @@ describe("createFsArtifactStore — validation at put", () => {
   it("rejects garbage on an unknown kind with UnknownArtifactKindError", async () => {
     const store = buildStore();
     await expect(
-      store.put("user:does-not-exist@1" as ArtifactKind, "anything"),
+      store.put("user:does-not-exist@1", "anything"),
     ).rejects.toBeInstanceOf(UnknownArtifactKindError);
     const entries = await fs.readdir(rootDir).catch(() => [] as string[]);
     expect(entries).toEqual([]);

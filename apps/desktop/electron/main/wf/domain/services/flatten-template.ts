@@ -47,8 +47,6 @@ export const readWorkflowCallRef = (step: StepDef): WorkflowCallRef => {
   return { templateId: id as TemplateId, templateVersion: version as TemplateVersion };
 };
 
-const refKey = (ref: WorkflowCallRef): string => `${ref.templateId}@${ref.templateVersion}`;
-
 /**
  * Returns a unique, `VARIABLE_NAME_RE`-valid name derived from a namespaced
  * step prefix + the original variable name. The step-id namespace separator

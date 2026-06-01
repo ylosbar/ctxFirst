@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useT } from "@/ui/i18n";
 import CreateChannelDialog from "./CreateChannelDialog";
 import EditChannelLogoDialog from "./EditChannelLogoDialog";
 import ChannelIcon from "./ChannelIcon";
@@ -22,6 +23,7 @@ import ChannelIcon from "./ChannelIcon";
  * channel's uploaded image; falls back to a generic Layers icon when none is set.
  */
 const ChannelActivityButton = () => {
+  const t = useT();
   const { workflowGateway } = useServices();
   const { activeChannelId, setActiveChannel, channelVersion } =
     useActiveChannel();
@@ -63,7 +65,9 @@ const ChannelActivityButton = () => {
               </MenuPrimitive.Trigger>
             }
           />
-          <TooltipContent side="right">Channel : {label}</TooltipContent>
+          <TooltipContent side="right">
+            {t("channels.activityButton.tooltip", { label })}
+          </TooltipContent>
         </Tooltip>
         <MenuPrimitive.Portal>
           <MenuPrimitive.Positioner
@@ -82,7 +86,7 @@ const ChannelActivityButton = () => {
             >
               <MenuPrimitive.Group>
                 <MenuPrimitive.GroupLabel className="px-2 py-1 text-2xs font-semibold tracking-wide uppercase text-muted-foreground">
-                  Channels
+                  {t("channels.activityButton.groupLabel")}
                 </MenuPrimitive.GroupLabel>
                 {channels.map((c) => {
                   const selected = c.id === activeChannelId;
@@ -140,7 +144,7 @@ const ChannelActivityButton = () => {
                 )}
               >
                 <Plus className="size-3.5" />
-                <span>Nouveau channel…</span>
+                <span>{t("channels.activityButton.newChannel")}</span>
               </MenuPrimitive.Item>
             </MenuPrimitive.Popup>
           </MenuPrimitive.Positioner>
