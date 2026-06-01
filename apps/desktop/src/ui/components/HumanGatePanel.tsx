@@ -1,4 +1,5 @@
 import { Button } from "../../components/ui/button";
+import { useT } from "../i18n";
 
 type Props = {
   stepExecId: string;
@@ -14,6 +15,7 @@ const HumanGatePanel = ({
   onValidate,
   onRequestAdjustments,
 }: Props) => {
+  const t = useT();
   const canLoop = loopTargetStepId !== null;
 
   return (
@@ -23,27 +25,25 @@ const HumanGatePanel = ({
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-500/70" />
           <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
         </span>
-        Validation requise
+        {t("components.humanGate.validationRequired")}
         <span className="font-mono text-2xs font-normal text-amber-700/70 dark:text-amber-400/70">
-          étape {stepExecId.slice(0, 8)}
+          {t("components.humanGate.stepId", { id: stepExecId.slice(0, 8) })}
         </span>
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex gap-2">
-          <Button onClick={onValidate}>Valider</Button>
+          <Button onClick={onValidate}>{t("components.humanGate.validate")}</Button>
           <Button
             variant="outline"
             disabled={!canLoop}
             onClick={onRequestAdjustments}
           >
-            Demander ajustements
+            {t("components.humanGate.requestAdjustments")}
           </Button>
         </div>
         {!canLoop ? (
           <div className="text-2xs text-muted-foreground">
-            Pour pouvoir envoyer un feedback et relancer ce step, ajoute une
-            transition « Boucle de feedback » sur ce nœud (auto-boucle) dans le
-            template.
+            {t("components.humanGate.noLoopHint")}
           </div>
         ) : null}
       </div>

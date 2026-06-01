@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { ArtifactKind } from "../domain/artifact";
 import { BUILTIN_DESCRIPTORS } from "../domain/BuiltIns";
 import {
   STRUCTURAL_HASH_SHORT_LEN,
@@ -112,7 +113,9 @@ describe("§5 — record:<hash> resolution", () => {
     // engineer a collision deterministically, so instead we sanity-check that
     // the very-short prefix `""` (empty) matches every descriptor and the
     // resolver rejects it as ambiguous.
-    expect(() => registry.resolve("record:" + "".padEnd(16, "a"))).not.toThrow();
+    expect(() =>
+      registry.resolve(("record:" + "".padEnd(16, "a")) as ArtifactKind),
+    ).not.toThrow();
     // A 0-length prefix isn't a valid kind per the grammar (16-char min),
     // so we instead test the throw path by forcing two records to share
     // a known prefix via crafted hashes. Skipped at unit level — the

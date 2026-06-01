@@ -50,5 +50,5 @@ export const makeGetRunTokenUsage =
       }),
     );
 
-    return perExec.filter((u): u is StepTokenUsage => u !== null);
+    return perExec.filter((u) => u !== null);
   };

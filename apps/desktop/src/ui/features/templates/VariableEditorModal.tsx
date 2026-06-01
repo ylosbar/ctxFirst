@@ -24,6 +24,7 @@ import {
 import KindPreviewBlock from "../../components/artifact-kinds/KindPreviewBlock";
 import { useServices } from "../../di/services-provider";
 import useArtifactSchemas from "../../hooks/useArtifactSchemas";
+import { useT } from "@/ui/i18n";
 
 const VAR_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -154,6 +155,7 @@ const VariableEditorModal = ({
   onDelete,
   onOpenChange,
 }: Props) => {
+  const t = useT();
   const isEdit = mode.kind === "edit";
   const previousName = isEdit ? mode.variable.name : null;
 
@@ -252,14 +254,17 @@ const VariableEditorModal = ({
   const canSubmit = trimmedName.length > 0 && defaultValueError === null;
 
   const validate = (): string | null => {
-    if (!trimmedName) return "Le nom est requis.";
+    if (!trimmedName) return t("templates.variableEditor.error.nameRequired");
     if (!VAR_NAME_RE.test(trimmedName)) {
-      return "Nom invalide : commence par une lettre ou _, puis lettres/chiffres/_ uniquement.";
+      return t("templates.variableEditor.error.nameInvalid");
     }
     const conflict = variables.some(
       (v) => v.name === trimmedName && v.name !== previousName,
     );
-    if (conflict) return `La variable "${trimmedName}" existe déjà.`;
+    if (conflict)
+      return t("templates.variableEditor.error.nameConflict", {
+        name: trimmedName,
+      });
     return null;
   };
 
@@ -305,7 +310,15 @@ const VariableEditorModal = ({
     if (
       inUse &&
       !confirm(
-        `Supprimer "${previousName}" ? ${refs.producers.length} producteur(s), ${refs.consumers.length} consommateur(s) seront déliés.`,
+        t("templates.variableEditor.deleteConfirm", {
+          name: previousName,
+          producers: t("templates.variableEditor.producerCount", {
+            count: refs.producers.length,
+          }),
+          consumers: t("templates.variableEditor.consumerCount", {
+            count: refs.consumers.length,
+          }),
+        }),
       )
     ) {
       return;
@@ -313,8 +326,10 @@ const VariableEditorModal = ({
     onDelete();
   };
 
-  const title = isEdit ? "Modifier la variable" : "Nouvelle variable";
-  const submitLabel = isEdit ? "Enregistrer" : "Créer";
+  const title = isEdit
+    ? t("templates.variableEditor.editTitle")
+    : t("templates.variableEditor.createTitle");
+  const submitLabel = isEdit ? t("common.save") : t("templates.variableEditor.create");
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -326,7 +341,7 @@ const VariableEditorModal = ({
               {title}
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Fermer"
+              aria-label={t("common.close")}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <X className="size-4" />
@@ -334,10 +349,13 @@ const VariableEditorModal = ({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
-            <FormField label="Nom" htmlFor="variable-modal-name">
+            <FormField
+              label={t("templates.variableEditor.nameLabel")}
+              htmlFor="variable-modal-name"
+            >
               <Input
                 id="variable-modal-name"
-                placeholder="ex. ticketDescription"
+                placeholder={t("templates.variableEditor.namePlaceholder")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -345,7 +363,10 @@ const VariableEditorModal = ({
               />
             </FormField>
 
-            <FormField label="Kind" htmlFor="variable-modal-kind">
+            <FormField
+              label={t("templates.variableEditor.kindLabel")}
+              htmlFor="variable-modal-kind"
+            >
               <Select
                 id="variable-modal-kind"
                 value={baseKind}
@@ -366,7 +387,7 @@ const VariableEditorModal = ({
                   checked={isList}
                   onCheckedChange={(c) => setIsList(c)}
                 />
-                <span>Liste</span>
+                <span>{t("templates.variableEditor.listLabel")}</span>
                 {isList ? (
                   <span className="ml-auto font-mono text-2xs text-muted-foreground">
                     {composedKind}
@@ -377,7 +398,10 @@ const VariableEditorModal = ({
 
             <KindPreviewBlock kind={composedKind} />
 
-            <FormField label="Rôle (interface sous-workflow)" htmlFor="variable-modal-role">
+            <FormField
+              label={t("templates.variableEditor.roleLabel")}
+              htmlFor="variable-modal-role"
+            >
               <Select
                 id="variable-modal-role"
                 value={role}
@@ -386,23 +410,33 @@ const VariableEditorModal = ({
                 }
                 onKeyDown={handleKeyDown}
               >
-                <option value="internal">Interne (privée au template)</option>
-                <option value="input">Entrée (input — fournie par l'appelant)</option>
-                <option value="output">Sortie (output — exposée à l'appelant)</option>
+                <option value="internal">
+                  {t("templates.variableEditor.roleOption.internal")}
+                </option>
+                <option value="input">
+                  {t("templates.variableEditor.roleOption.input")}
+                </option>
+                <option value="output">
+                  {t("templates.variableEditor.roleOption.output")}
+                </option>
               </Select>
               <p className="mt-1 text-2xs text-muted-foreground">
-                Marquer une variable <code>input</code>/<code>output</code> rend ce template
-                invocable comme sous-workflow via un step <code>workflow.call</code>.
+                {t("templates.variableEditor.roleHint.before")}{" "}
+                <code>{t("templates.variableEditor.roleHint.inputToken")}</code>/
+                <code>{t("templates.variableEditor.roleHint.outputToken")}</code>{" "}
+                {t("templates.variableEditor.roleHint.middle")}{" "}
+                <code>{t("templates.variableEditor.roleHint.callToken")}</code>
+                {t("templates.variableEditor.roleHint.after")}
               </p>
             </FormField>
 
             <FormField
-              label="Description (optionnelle)"
+              label={t("templates.variableEditor.descriptionLabel")}
               htmlFor="variable-modal-description"
             >
               <Input
                 id="variable-modal-description"
-                placeholder="À quoi sert cette variable ?"
+                placeholder={t("templates.variableEditor.descriptionPlaceholder")}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -410,7 +444,7 @@ const VariableEditorModal = ({
             </FormField>
 
             <FormField
-              label="Valeur par défaut (optionnelle)"
+              label={t("templates.variableEditor.defaultLabel")}
               htmlFor="variable-modal-default"
             >
               {isList || baseKind === "Markdown" ? (
@@ -419,8 +453,8 @@ const VariableEditorModal = ({
                   rows={3}
                   placeholder={
                     isList
-                      ? `Tableau JSON, ex. ["a", "b"]`
-                      : "Valeur par défaut…"
+                      ? t("templates.variableEditor.defaultPlaceholderList")
+                      : t("templates.variableEditor.defaultPlaceholder")
                   }
                   value={defaultValue}
                   onChange={(e) => setDefaultValue(e.target.value)}
@@ -429,15 +463,14 @@ const VariableEditorModal = ({
               ) : (
                 <Input
                   id="variable-modal-default"
-                  placeholder="Valeur par défaut…"
+                  placeholder={t("templates.variableEditor.defaultPlaceholder")}
                   value={defaultValue}
                   onChange={(e) => setDefaultValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                 />
               )}
               <p className="mt-1 text-2xs text-muted-foreground">
-                Matérialisée au lancement, avant tout step. Un step producteur
-                l'écrase ensuite (pas de reset par tour de boucle).
+                {t("templates.variableEditor.defaultHint")}
               </p>
               {defaultValueError ? (
                 <p className="mt-1 text-2xs text-destructive">
@@ -445,7 +478,7 @@ const VariableEditorModal = ({
                 </p>
               ) : validating ? (
                 <p className="mt-1 text-2xs text-muted-foreground">
-                  Validation…
+                  {t("templates.variableEditor.validating")}
                 </p>
               ) : null}
             </FormField>
@@ -457,19 +490,23 @@ const VariableEditorModal = ({
             {isEdit ? (
               <div className="mt-1 rounded border border-input bg-muted/30 p-2 text-2xs text-muted-foreground">
                 <div className="mb-1 text-xs font-semibold text-foreground">
-                  Références
+                  {t("templates.variableEditor.references")}
                 </div>
                 <div className="grid grid-cols-2 gap-1">
                   <div>
-                    <span className="font-semibold">Écrit par :</span>{" "}
+                    <span className="font-semibold">
+                      {t("templates.variableEditor.writtenBy")}
+                    </span>{" "}
                     {refs.producers.length === 0
-                      ? "—"
+                      ? t("templates.variableEditor.none")
                       : refs.producers.join(", ")}
                   </div>
                   <div>
-                    <span className="font-semibold">Lu par :</span>{" "}
+                    <span className="font-semibold">
+                      {t("templates.variableEditor.readBy")}
+                    </span>{" "}
                     {refs.consumers.length === 0
-                      ? "—"
+                      ? t("templates.variableEditor.none")
                       : refs.consumers.join(", ")}
                   </div>
                 </div>
@@ -486,7 +523,7 @@ const VariableEditorModal = ({
                 onClick={handleDelete}
               >
                 <Trash2 data-icon="inline-start" className="size-3.5" />
-                Supprimer
+                {t("common.delete")}
               </Button>
             ) : null}
             <Button
@@ -494,7 +531,7 @@ const VariableEditorModal = ({
               size="sm"
               onClick={() => onOpenChange(false)}
             >
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button
               size="sm"

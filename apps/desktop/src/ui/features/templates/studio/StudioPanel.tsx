@@ -6,6 +6,7 @@ import { Callout } from "@/components/ui/callout";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
+import { useT } from "@/ui/i18n";
 import { useServices } from "../../../di/services-provider";
 import useNodeSpecs from "../../../hooks/useNodeSpecs";
 import { getKindMeta } from "../../../components/templates/step-kinds";
@@ -34,6 +35,7 @@ type Props = {
 };
 
 const StudioPanel = ({ step, variables, onExit }: Props) => {
+  const t = useT();
   const services = useServices();
   const specs = useNodeSpecs();
   const meta = getKindMeta(step.kind);
@@ -117,7 +119,7 @@ const StudioPanel = ({ step, variables, onExit }: Props) => {
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Studio
+            {t("templates.studio.panel.title")}
           </span>
           <span className="truncate text-sm font-medium">{step.name}</span>
           <Badge tone="neutral" font="mono" size="sm">
@@ -129,7 +131,7 @@ const StudioPanel = ({ step, variables, onExit }: Props) => {
           size="icon-xs"
           variant="ghost"
           onClick={onExit}
-          aria-label="Fermer le studio (Esc)"
+          aria-label={t("templates.studio.panel.close")}
         >
           <X className="size-3.5" />
         </Button>
@@ -137,14 +139,18 @@ const StudioPanel = ({ step, variables, onExit }: Props) => {
 
       {!runnable ? (
         <div className="px-3 py-3">
-          <Callout tone="info" title="Kind non testable en studio">
-            <code className="font-mono">{step.kind}</code> dépend du contexte
-            d'un run complet (loopHistory, InstanceView…). Testez-la dans une
-            exécution réelle.
+          <Callout
+            tone="info"
+            title={t("templates.studio.panel.notRunnableTitle")}
+          >
+            <code className="font-mono">{step.kind}</code>{" "}
+            {t("templates.studio.panel.notRunnableBody")}
           </Callout>
         </div>
       ) : resolvedSpec === null ? (
-        <EmptyState description="Chargement de la signature…" />
+        <EmptyState
+          description={t("templates.studio.panel.loadingSignature")}
+        />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Controls — own scroll area; capped so the output keeps room. */}
@@ -156,9 +162,11 @@ const StudioPanel = ({ step, variables, onExit }: Props) => {
             <div className="flex flex-col gap-3 py-3">
               {showSideEffectWarning ? (
                 <div className="px-3">
-                  <Callout tone="warning" title="Side-effects natifs réels">
-                    Ce kind exécute des actions réelles (shell, LLM, HTTP, fs).
-                    Pas de mock — la commande / l'appel sera bien effectué.
+                  <Callout
+                    tone="warning"
+                    title={t("templates.studio.panel.sideEffectsTitle")}
+                  >
+                    {t("templates.studio.panel.sideEffectsBody")}
                   </Callout>
                 </div>
               ) : null}
@@ -180,8 +188,8 @@ const StudioPanel = ({ step, variables, onExit }: Props) => {
                 >
                   <Play className="mr-1 size-3" />
                   {runState.status === "running"
-                    ? "Exécution en cours…"
-                    : "Tester la node"}
+                    ? t("templates.studio.panel.runningButton")
+                    : t("templates.studio.panel.testButton")}
                 </Button>
               </div>
             </div>

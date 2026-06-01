@@ -8,6 +8,7 @@
  * "+ Nouveau" crée immédiatement une session avec le modèle par défaut Settings.
  */
 import { useCallback, useEffect, useState } from "react";
+import { useT } from "@/ui/i18n";
 import { Dialog } from "@base-ui/react/dialog";
 import { History, Plus, RefreshCw, Settings, X } from "lucide-react";
 import Button from "@/components/ui/button";
@@ -23,6 +24,7 @@ import ChatSessionList from "./ChatSessionList";
 import ChatConversation from "./ChatConversation";
 
 const ChatActivityView = () => {
+  const t = useT();
   const { chatGateway, settingsGateway } = useServices();
   const workbench = useWorkbench();
   const [sessions, setSessions] = useState<ReadonlyArray<ChatSessionSummary>>([]);
@@ -101,7 +103,7 @@ const ChatActivityView = () => {
             variant="ghost"
             size="icon-xs"
             onClick={() => void refresh()}
-            title="Rafraîchir"
+            title={t("chat.chatActivityView.refreshTitle")}
           >
             <RefreshCw />
           </Button>
@@ -112,7 +114,7 @@ const ChatActivityView = () => {
               void refresh();
               setHistoryOpen(true);
             }}
-            title="Historique des conversations"
+            title={t("chat.chatActivityView.historyTitle")}
           >
             <History />
           </Button>
@@ -121,7 +123,7 @@ const ChatActivityView = () => {
             size="icon-xs"
             onClick={() => void handleNew()}
             disabled={creating || needsKey}
-            title="Nouvelle conversation"
+            title={t("chat.chatActivityView.newTitle")}
           >
             <Plus />
           </Button>
@@ -129,7 +131,7 @@ const ChatActivityView = () => {
             variant="ghost"
             size="icon-xs"
             onClick={() => workbench.hideView("chat.main")}
-            title="Fermer le chat"
+            title={t("chat.chatActivityView.closeTitle")}
           >
             <X />
           </Button>
@@ -143,7 +145,7 @@ const ChatActivityView = () => {
         <div className="relative flex flex-1 overflow-hidden">
           <WavesBackground />
           <EmptyState
-            description="Démarre une nouvelle conversation (+), ou ouvre l'historique pour en reprendre une."
+            description={t("chat.chatActivityView.emptyDescription")}
             className="flex-1"
           />
         </div>
@@ -181,17 +183,19 @@ const ChatHistoryDialog = ({
   activeId,
   onSelect,
   onDelete,
-}: ChatHistoryDialogProps) => (
+}: ChatHistoryDialogProps) => {
+  const t = useT();
+  return (
   <Dialog.Root open={open} onOpenChange={onOpenChange}>
     <Dialog.Portal>
       <Dialog.Backdrop className="fixed inset-0 z-50 bg-foreground/10 backdrop-blur-[1px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
       <Dialog.Popup className="fixed left-1/2 top-[12vh] z-50 flex max-h-[70vh] w-[680px] max-w-[92vw] -translate-x-1/2 flex-col overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-[0_20px_50px_-12px_color-mix(in_srgb,var(--foreground)_28%,transparent)] outline-none transition-all duration-150 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <Dialog.Title className="text-sm font-semibold">
-            Historique des conversations
+            {t("chat.chatActivityView.historyDialogTitle")}
           </Dialog.Title>
           <Dialog.Close
-            aria-label="Fermer"
+            aria-label={t("common.close")}
             className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="size-4" />
@@ -208,19 +212,23 @@ const ChatHistoryDialog = ({
       </Dialog.Popup>
     </Dialog.Portal>
   </Dialog.Root>
-);
+  );
+};
 
-const NeedsOpenRouterKey = ({ settingsGateway: _ }: { settingsGateway: SettingsGateway }) => (
+const NeedsOpenRouterKey = ({ settingsGateway: _ }: { settingsGateway: SettingsGateway }) => {
+  const t = useT();
+  return (
   <EmptyState
     icon={<Settings />}
     description={
       <>
-        Le chat a besoin d'une clé OpenRouter. Ouvre{" "}
-        <span className="font-medium text-foreground">Paramètres → Modèles LLM</span>{" "}
-        pour la configurer.
+        {t("chat.chatActivityView.needsKeyPrefix")}{" "}
+        <span className="font-medium text-foreground">{t("chat.chatActivityView.needsKeySettings")}</span>{" "}
+        {t("chat.chatActivityView.needsKeySuffix")}
       </>
     }
   />
-);
+  );
+};
 
 export default ChatActivityView;

@@ -7,6 +7,7 @@ import {
   menuItemDestructiveClass,
   menuPopupClass,
 } from "./menu-styles";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   readonly trigger: ReactElement;
@@ -15,7 +16,9 @@ type Props = {
   readonly onDelete: () => void;
 };
 
-const PromptLeafMenu = ({ trigger, skillRef, onOpen, onDelete }: Props) => (
+const PromptLeafMenu = ({ trigger, skillRef, onOpen, onDelete }: Props) => {
+  const t = useT();
+  return (
   <ContextMenu.Root>
     <ContextMenu.Trigger render={trigger} />
     <ContextMenu.Portal>
@@ -23,26 +26,27 @@ const PromptLeafMenu = ({ trigger, skillRef, onOpen, onDelete }: Props) => (
         <ContextMenu.Popup className={menuPopupClass}>
           <Menu.Item className={menuItemClass} onClick={onOpen}>
             <ExternalLink className="size-4" />
-            Ouvrir
+            {t("explorer.menus.prompt.open")}
           </Menu.Item>
           <ContextMenu.Separator className="my-1 h-px bg-border" />
           <Menu.Item
             className={menuItemDestructiveClass}
             onClick={() => {
               const ok = window.confirm(
-                `Supprimer le prompt ${skillRef} ? Cette action est définitive.`,
+                t("explorer.menus.prompt.confirmDelete", { skillRef }),
               );
               if (!ok) return;
               onDelete();
             }}
           >
             <Trash2 className="size-4" />
-            Supprimer
+            {t("common.delete")}
           </Menu.Item>
         </ContextMenu.Popup>
       </ContextMenu.Positioner>
     </ContextMenu.Portal>
   </ContextMenu.Root>
-);
+  );
+};
 
 export default PromptLeafMenu;

@@ -2,6 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/ui/i18n";
 import type { ArtifactKind } from "../../../domain/workflow/types";
 
 type Props = {
@@ -29,6 +30,7 @@ const LaunchRunDialog = ({
   onSubmit,
   onClose,
 }: Props) => {
+  const t = useT();
   const canSubmit = !busy && (!needsSeed || text.trim().length > 0);
 
   return (
@@ -46,7 +48,7 @@ const LaunchRunDialog = ({
               {title}
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Fermer"
+              aria-label={t("templates.launchRun.close")}
               disabled={busy}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
@@ -59,18 +61,20 @@ const LaunchRunDialog = ({
               <>
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs font-medium text-foreground">
-                    Contenu d'entrée
+                    {t("templates.launchRun.seedLabel")}
                   </span>
                   {seedKind ? (
                     <span className="text-2xs uppercase tracking-wider text-muted-foreground">
-                      Entrée attendue :{" "}
+                      {t("templates.launchRun.expectedInput")}{" "}
                       <span className="font-mono normal-case">{seedKind}</span>
                     </span>
                   ) : null}
                 </div>
                 <Textarea
                   className="min-h-[220px] flex-1 font-mono text-sm"
-                  placeholder={`Contenu ${seedKind ?? "…"}…`}
+                  placeholder={t("templates.launchRun.seedPlaceholder", {
+                    kind: seedKind ?? "…",
+                  })}
                   value={text}
                   onChange={(e) => onTextChange(e.target.value)}
                   onKeyDown={(e) => {
@@ -85,8 +89,7 @@ const LaunchRunDialog = ({
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Ce template ne nécessite pas d'entrée utilisateur — la première
-                étape se lance directement avec sa configuration.
+                {t("templates.launchRun.noSeedMessage")}
               </p>
             )}
             {error ? (
@@ -98,15 +101,15 @@ const LaunchRunDialog = ({
 
           <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
             <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button size="sm" onClick={onSubmit} disabled={!canSubmit}>
               {busy ? (
-                "Démarrage…"
+                t("templates.launchRun.starting")
               ) : (
                 <>
                   <Play data-icon="inline-start" className="size-3.5" />
-                  Démarrer
+                  {t("templates.launchRun.start")}
                 </>
               )}
             </Button>

@@ -19,6 +19,7 @@ import type {
 import { useServices } from "../../di/services-provider";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
+import { useT } from "../../i18n";
 import { CRON_PRESETS } from "./cron-presets";
 
 const getEntrySeedKind = (
@@ -50,6 +51,7 @@ const ScheduleDialog = ({
   busy,
   error,
 }: Props) => {
+  const t = useT();
   const services = useServices();
   const { templates, loading: templatesLoading } = useWorkflowTemplates();
   const specs = useNodeSpecs();
@@ -132,10 +134,12 @@ const ScheduleDialog = ({
         <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[640px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-md border border-border bg-card text-card-foreground shadow-xl outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
           <div className="flex items-center justify-between border-b border-border px-4 py-2">
             <Dialog.Title className="text-sm font-semibold">
-              {editing ? "Éditer la planification" : "Nouvelle planification"}
+              {editing
+                ? t("schedules.dialog.editTitle")
+                : t("schedules.dialog.createTitle")}
             </Dialog.Title>
             <Dialog.Close
-              aria-label="Fermer"
+              aria-label={t("common.close")}
               disabled={busy}
               className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
             >
@@ -145,24 +149,26 @@ const ScheduleDialog = ({
 
           <ScrollArea className="flex min-h-0 flex-1 flex-col">
             <div className="flex flex-col gap-4 p-6">
-              <FormField label="Nom">
+              <FormField label={t("schedules.dialog.nameLabel")}>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Audit quotidien"
+                  placeholder={t("schedules.dialog.namePlaceholder")}
                   disabled={busy}
                   autoFocus
                 />
               </FormField>
 
-              <FormField label="Template">
+              <FormField label={t("schedules.dialog.templateLabel")}>
                 <Select
                   value={templateRef}
                   onChange={(e) => setTemplateRef(e.target.value)}
                   disabled={busy || templatesLoading}
                 >
                   {published.length === 0 ? (
-                    <option value="">Aucun template publié</option>
+                    <option value="">
+                      {t("schedules.dialog.noPublishedTemplate")}
+                    </option>
                   ) : null}
                   {published.map((t) => {
                     const ref = `${t.id}@${t.version}`;
@@ -175,7 +181,7 @@ const ScheduleDialog = ({
                 </Select>
               </FormField>
 
-              <FormField label="Expression cron (5 champs)">
+              <FormField label={t("schedules.dialog.cronLabel")}>
                 <div className="flex flex-col gap-2">
                   <Input
                     className="font-mono"
@@ -200,22 +206,26 @@ const ScheduleDialog = ({
                 </div>
               </FormField>
 
-              <FormField label={`Seed (${seedKind})`}>
+              <FormField label={t("schedules.dialog.seedLabel", { kind: seedKind })}>
                 <Textarea
                   size="sm"
                   className="min-h-[200px] max-h-[40vh] overflow-auto font-mono"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  placeholder={seedKind === "Markdown" ? "# Titre\n\n…" : ""}
+                  placeholder={
+                    seedKind === "Markdown"
+                      ? t("schedules.dialog.seedPlaceholder")
+                      : ""
+                  }
                   disabled={busy}
                 />
               </FormField>
 
-              <FormField label="Répertoire de travail (cwd CLI, optionnel)">
+              <FormField label={t("schedules.dialog.cwdLabel")}>
                 <div className="flex items-center gap-2">
                   <Input
                     className="font-mono"
-                    placeholder="(par défaut : cwd du process Electron)"
+                    placeholder={t("schedules.dialog.cwdPlaceholder")}
                     value={cwd}
                     onChange={(e) => setCwd(e.target.value)}
                     disabled={busy}
@@ -227,7 +237,7 @@ const ScheduleDialog = ({
                     onClick={() => void onPickCwd()}
                     disabled={busy}
                   >
-                    Parcourir…
+                    {t("schedules.dialog.browse")}
                   </Button>
                   {cwd ? (
                     <Button
@@ -237,7 +247,7 @@ const ScheduleDialog = ({
                       onClick={() => setCwd("")}
                       disabled={busy}
                     >
-                      Effacer
+                      {t("schedules.dialog.clear")}
                     </Button>
                   ) : null}
                 </div>
@@ -253,14 +263,14 @@ const ScheduleDialog = ({
 
           <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
             <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
-              Annuler
+              {t("common.cancel")}
             </Button>
             <Button size="sm" onClick={submit} disabled={!canSubmit}>
               {busy
-                ? "Enregistrement…"
+                ? t("schedules.dialog.saving")
                 : editing
-                  ? "Enregistrer"
-                  : "Créer"}
+                  ? t("common.save")
+                  : t("schedules.dialog.create")}
             </Button>
           </div>
         </Dialog.Popup>

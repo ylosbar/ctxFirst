@@ -126,7 +126,7 @@ export const createGitlabPipelineWaitRunner = (): StepRunner => ({
         const artifact = await putArtifactPayload(
           ctx.deps.artifactStore,
           "Json",
-          last,
+          { format: "json", body: JSON.stringify(last) },
           { source: "gitlab.pipeline.wait", project, pipelineId, status },
         );
         return { kind: "produced-on-port", port, artifact };

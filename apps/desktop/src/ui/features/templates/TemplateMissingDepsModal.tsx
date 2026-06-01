@@ -2,6 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useT } from "@/ui/i18n";
 import type {
   MissingDepEntry,
   MissingDeps,
@@ -20,11 +21,15 @@ const Section = ({
   title: string;
   entries: ReadonlyArray<MissingDepEntry>;
 }) => {
+  const t = useT();
   if (entries.length === 0) return null;
   return (
     <div className="rounded-md border border-border bg-card">
       <div className="border-b border-border bg-muted/40 px-3 py-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {title} ({entries.length})
+        {t("templates.missingDeps.sectionHeader", {
+          title,
+          count: entries.length,
+        })}
       </div>
       <ul className="divide-y divide-border/60">
         {entries.map((entry) => (
@@ -36,7 +41,7 @@ const Section = ({
               {entry.ref}
             </span>
             <span className="shrink-0 text-2xs text-muted-foreground">
-              utilisé par{" "}
+              {t("templates.missingDeps.usedBy")}{" "}
               <span className="font-mono text-muted-foreground/90">
                 {entry.usedBySteps.join(", ")}
               </span>
@@ -49,6 +54,7 @@ const Section = ({
 };
 
 const TemplateMissingDepsModal = ({ open, onOpenChange, missing }: Props) => {
+  const t = useT();
   const total = missing.skillRefs.length + missing.artifactKinds.length;
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -60,14 +66,14 @@ const TemplateMissingDepsModal = ({ open, onOpenChange, missing }: Props) => {
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
               <div>
                 <Dialog.Title className="text-sm font-semibold text-foreground">
-                  Dépendances manquantes ({total})
+                  {t("templates.missingDeps.title", { count: total })}
                 </Dialog.Title>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Ce template référence des ressources absentes de votre
-                  environnement. Il est en{" "}
-                  <span className="font-mono">draft</span> ; recréez les
-                  ressources ou remplacez les refs dans les steps concernés
-                  avant publication.
+                  {t("templates.missingDeps.bodyBefore")}{" "}
+                  <span className="font-mono">
+                    {t("templates.missingDeps.draftToken")}
+                  </span>{" "}
+                  {t("templates.missingDeps.bodyAfter")}
                 </p>
               </div>
             </div>
@@ -76,7 +82,7 @@ const TemplateMissingDepsModal = ({ open, onOpenChange, missing }: Props) => {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Fermer"
+                  aria-label={t("templates.missingDeps.close")}
                   className="shrink-0"
                 >
                   <X className="size-4" />
@@ -86,15 +92,22 @@ const TemplateMissingDepsModal = ({ open, onOpenChange, missing }: Props) => {
           </div>
           <ScrollArea className="max-h-[60vh]">
             <div className="flex flex-col gap-3 p-4">
-              <Section title="Skills manquants" entries={missing.skillRefs} />
               <Section
-                title="Artifact types manquants"
+                title={t("templates.missingDeps.skillsSection")}
+                entries={missing.skillRefs}
+              />
+              <Section
+                title={t("templates.missingDeps.artifactTypesSection")}
                 entries={missing.artifactKinds}
               />
             </div>
           </ScrollArea>
           <div className="flex justify-end border-t border-border px-4 py-3">
-            <Dialog.Close render={<Button size="sm">Fermer</Button>} />
+            <Dialog.Close
+              render={
+                <Button size="sm">{t("templates.missingDeps.closeButton")}</Button>
+              }
+            />
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

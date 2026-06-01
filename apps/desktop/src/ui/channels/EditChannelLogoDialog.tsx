@@ -11,6 +11,7 @@ import {
 import { useServices } from "../di/services-provider";
 import { useActiveChannel } from "./ChannelProvider";
 import ChannelIcon from "./ChannelIcon";
+import { useT } from "@/ui/i18n";
 import type {
   ChannelIconImageInputView,
   ChannelIconImageMimeView,
@@ -40,6 +41,7 @@ const isAcceptedMime = (mime: string): mime is ChannelIconImageMime =>
   (ACCEPTED_CHANNEL_IMAGE_MIMES as ReadonlyArray<string>).includes(mime);
 
 const EditChannelLogoDialog = ({ channel, onOpenChange, onSaved }: Props) => {
+  const t = useT();
   const { workflowGateway } = useServices();
   const { bumpVersion } = useActiveChannel();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -127,7 +129,7 @@ const EditChannelLogoDialog = ({ channel, onOpenChange, onSaved }: Props) => {
           <form onSubmit={submit}>
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <Dialog.Title className="text-sm font-semibold">
-                Logo de « {channel?.name} »
+                {t("channels.editLogoDialog.title", { name: channel?.name })}
               </Dialog.Title>
               <Dialog.Close
                 render={
@@ -144,7 +146,7 @@ const EditChannelLogoDialog = ({ channel, onOpenChange, onSaved }: Props) => {
             </div>
             <div className="flex flex-col gap-3 p-4">
               <span className="text-xs text-muted-foreground">
-                Image (PNG ou JPEG, 2 Mo max)
+                {t("channels.editLogoDialog.imageLabel")}
               </span>
               <div className="flex items-center gap-3">
                 <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted/30">
@@ -182,7 +184,8 @@ const EditChannelLogoDialog = ({ channel, onOpenChange, onSaved }: Props) => {
                       onClick={() => setPending({ kind: "remove" })}
                       className="text-muted-foreground"
                     >
-                      <X className="mr-1 size-3.5" /> Retirer le logo
+                      <X className="mr-1 size-3.5" />{" "}
+                      {t("channels.editLogoDialog.removeLogo")}
                     </Button>
                   )}
                 </div>

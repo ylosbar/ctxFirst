@@ -18,6 +18,7 @@ import type {
   TemplateVariableDraft,
 } from "../../../domain/workflow/types";
 import KindPreviewBlock from "../../components/artifact-kinds/KindPreviewBlock";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   readonly disabled: boolean;
@@ -35,6 +36,7 @@ const VariablesPickerMenu = ({
   onPick,
   onRequestCreate,
 }: Props) => {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -85,11 +87,11 @@ const VariablesPickerMenu = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  aria-label="Gérer les variables"
+                  aria-label={t("templates.variablesPicker.manageAriaLabel")}
                   disabled={disabled}
                 >
                   <Variable />
-                  Variables
+                  {t("templates.variablesPicker.label")}
                   {variables.length > 0 ? (
                     <span className="ml-1 rounded bg-muted px-1 py-0.5 text-2xs tabular-nums text-muted-foreground">
                       {variables.length}
@@ -100,7 +102,9 @@ const VariablesPickerMenu = ({
             />
           }
         />
-        <TooltipContent>Gérer les variables du template</TooltipContent>
+        <TooltipContent>
+          {t("templates.variablesPicker.manageTooltip")}
+        </TooltipContent>
       </Tooltip>
       <Menu.Portal>
         <Menu.Positioner align="start" sideOffset={4} className="z-50">
@@ -118,7 +122,7 @@ const VariablesPickerMenu = ({
             <div className="p-1">
               <SearchInput
                 ref={inputRef}
-                placeholder="Rechercher une variable…"
+                placeholder={t("templates.variablesPicker.searchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -126,14 +130,14 @@ const VariablesPickerMenu = ({
                   // typed into the search input.
                   e.stopPropagation();
                 }}
-                aria-label="Rechercher une variable"
+                aria-label={t("templates.variablesPicker.searchAriaLabel")}
               />
             </div>
             <div className="px-1">
               <Menu.Item className={itemClass} onClick={createAndClose}>
                 <Plus className="mt-[3px] h-3 w-3 shrink-0 text-muted-foreground/70 transition-colors group-hover:text-foreground" />
                 <span className="text-xs font-medium leading-tight text-foreground">
-                  Créer une variable
+                  {t("templates.variablesPicker.create")}
                 </span>
               </Menu.Item>
             </div>
@@ -162,12 +166,14 @@ const VariablesPickerMenu = ({
               {variables.length === 0 ? (
                 <EmptyState
                   className="flex-none p-2"
-                  description="Aucune variable déclarée."
+                  description={t("templates.variablesPicker.empty")}
                 />
               ) : filtered.length === 0 ? (
                 <EmptyState
                   className="flex-none p-2"
-                  description={`Aucune variable ne correspond à « ${query} ».`}
+                  description={t("templates.variablesPicker.noResults", {
+                    query,
+                  })}
                 />
               ) : null}
             </div>
@@ -185,6 +191,7 @@ const VariablesPickerMenu = ({
  * from interpreting it as "edit this variable".
  */
 const KindBadgePopover = ({ kind }: { kind: ArtifactKind }) => {
+  const t = useT();
   return (
     <Popover.Root modal={false}>
       <Popover.Trigger
@@ -192,7 +199,9 @@ const KindBadgePopover = ({ kind }: { kind: ArtifactKind }) => {
           <span
             role="button"
             tabIndex={0}
-            aria-label={`Voir la shape de ${kind}`}
+            aria-label={t("templates.variablesPicker.viewShapeAriaLabel", {
+              kind,
+            })}
             className="shrink-0 cursor-help rounded bg-muted px-1 py-0.5 font-mono text-2xs hover:bg-muted/80"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {

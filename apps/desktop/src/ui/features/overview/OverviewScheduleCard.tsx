@@ -1,6 +1,7 @@
 import { Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 import { formatRelative } from "../schedules/format-relative";
 import { humanizeCron } from "../schedules/humanize-cron";
 import type { OverviewCard } from "./overview-types";
@@ -14,6 +15,7 @@ type Props = {
 };
 
 const OverviewScheduleCard = ({ card, now, onOpen }: Props) => {
+  const t = useT();
   const { schedule } = card;
   const cron = humanizeCron(schedule.cron) ?? schedule.cron;
   return (
@@ -27,14 +29,16 @@ const OverviewScheduleCard = ({ card, now, onOpen }: Props) => {
       <div className="mb-1.5 flex items-center gap-1">
         <Clock className="size-3.5 text-muted-foreground" />
         <Badge tone="neutral" size="sm">
-          Planifié
+          {t("overview.scheduleCard.scheduled")}
         </Badge>
       </div>
       <div className="text-xs font-medium leading-snug">{schedule.name}</div>
       <p className="mt-1 text-[11px] text-muted-foreground">
         {cron}
         {schedule.nextRunAt
-          ? ` · prochaine : ${formatRelative(schedule.nextRunAt, now)}`
+          ? t("overview.scheduleCard.nextRun", {
+              relative: formatRelative(schedule.nextRunAt, now),
+            })
           : null}
       </p>
     </div>

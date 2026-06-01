@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useT } from "@/ui/i18n";
 import { useServices } from "../../di/services-provider";
 import type { SkillDraft, SkillView } from "../../../domain/workflow/types";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
@@ -95,6 +96,7 @@ type Props = {
 };
 
 const SkillEditor = ({ uri, api }: Props) => {
+  const t = useT();
   const services = useServices();
   const queryClient = useQueryClient();
   const isNew = uri === NEW_SKILL_URI;
@@ -242,8 +244,8 @@ const SkillEditor = ({ uri, api }: Props) => {
       await services.saveTextFile({
         content: state.source,
         defaultFileName: refToFileName(parsed.ok ? parsed.ref : "prompt"),
-        title: "Exporter le prompt",
-        filters: [{ name: "Markdown", extensions: ["md"] }],
+        title: t("skills.editor.exportDialogTitle"),
+        filters: [{ name: t("skills.editor.markdownLabel"), extensions: ["md"] }],
       });
     } catch (e) {
       setFormError(e instanceof Error ? e.message : String(e));
@@ -255,7 +257,7 @@ const SkillEditor = ({ uri, api }: Props) => {
   const remove = async () => {
     if (isNew || !originalRef) return;
     const ok = window.confirm(
-      `Supprimer le prompt "${originalRef}" ? Cette action est définitive.`,
+      t("skills.editor.deleteConfirm", { ref: originalRef }),
     );
     if (!ok) return;
     setBusy(true);
@@ -300,18 +302,20 @@ const SkillEditor = ({ uri, api }: Props) => {
           {parsed.ok ? (
             parsed.ref
           ) : (
-            <em className="font-normal text-muted-foreground">sans nom</em>
+            <em className="font-normal text-muted-foreground">
+              {t("skills.editor.untitled")}
+            </em>
           )}
         </span>
         <ToolbarIconButton
-          label="Exporter en Markdown"
+          label={t("skills.editor.exportMarkdown")}
           icon={Download}
           onClick={exportMarkdown}
           disabled={busy || !state.source.trim()}
         />
         {canDelete ? (
           <ToolbarIconButton
-            label="Supprimer le prompt"
+            label={t("skills.editor.deletePrompt")}
             icon={Trash2}
             onClick={remove}
             disabled={busy}
@@ -326,15 +330,17 @@ const SkillEditor = ({ uri, api }: Props) => {
                 size="sm"
                 onClick={save}
                 disabled={!canSave}
-                aria-label="Sauvegarder le prompt"
+                aria-label={t("skills.editor.savePromptAria")}
               >
                 <Save className="size-3.5" />
-                {dirty ? "Enregistrer" : "À jour"}
+                {dirty ? t("common.save") : t("skills.editor.upToDate")}
               </Button>
             }
           />
           <TooltipContent>
-            {dirty ? "Sauvegarder (⌘S)" : "Aucun changement"}
+            {dirty
+              ? t("skills.editor.saveShortcut")
+              : t("skills.editor.noChanges")}
           </TooltipContent>
         </Tooltip>
       </header>
@@ -354,7 +360,7 @@ const SkillEditor = ({ uri, api }: Props) => {
           value={state.source}
           onChange={handleSourceChange}
           disabled={busy}
-          placeholder="Tu es un agent…"
+          placeholder={t("skills.editor.sourcePlaceholder")}
           initialCaret={isNew ? NEW_SKILL_CURSOR_POS : undefined}
         />
       </div>
@@ -362,7 +368,7 @@ const SkillEditor = ({ uri, api }: Props) => {
       {placeholders.length > 0 ? (
         <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-t bg-muted/10 px-3 py-1.5">
           <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
-            Variables
+            {t("skills.editor.variables")}
           </span>
           <div className="flex flex-wrap items-center gap-1">
             {placeholders.map((name) => (
@@ -376,15 +382,12 @@ const SkillEditor = ({ uri, api }: Props) => {
               render={
                 <Badge tone="warning" size="sm" className="ml-auto cursor-help">
                   <ShieldAlert className="size-3" />
-                  Source de confiance requise
+                  {t("skills.editor.trustedSourceRequired")}
                 </Badge>
               }
             />
             <TooltipContent className="max-w-xs">
-              Ces variables sont injectées telles quelles dans le prompt.
-              Assurez-vous qu'elles proviennent d'une source de confiance : une
-              valeur non vérifiée peut détourner les instructions de la skill
-              (injection de prompt).
+              {t("skills.editor.trustedSourceWarning")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -393,15 +396,11 @@ const SkillEditor = ({ uri, api }: Props) => {
       <div className="flex h-6 shrink-0 items-center gap-3 border-t bg-muted/20 px-3 text-2xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <FileText className="size-3" />
-          Markdown
+          {t("skills.editor.markdownLabel")}
         </span>
-        <span>
-          {bodyLines} ligne{bodyLines > 1 ? "s" : ""}
-        </span>
-        <span>{charCount} car.</span>
-        <span>
-          {wordCount} mot{wordCount > 1 ? "s" : ""}
-        </span>
+        <span>{t("skills.editor.lineCount", { count: bodyLines })}</span>
+        <span>{t("skills.editor.charCount", { count: charCount })}</span>
+        <span>{t("skills.editor.wordCount", { count: wordCount })}</span>
         <div className="flex-1" />
         {dirty ? (
           <span
@@ -416,12 +415,12 @@ const SkillEditor = ({ uri, api }: Props) => {
                 STATUS_STYLE.awaitingHuman.dot,
               )}
             />
-            Modifications non sauvegardées
+            {t("skills.editor.unsavedChanges")}
           </span>
         ) : (
-          <span>Sauvegardé</span>
+          <span>{t("skills.editor.saved")}</span>
         )}
-        <span className="font-mono">UTF-8</span>
+        <span className="font-mono">{t("skills.editor.encodingLabel")}</span>
       </div>
     </section>
   );

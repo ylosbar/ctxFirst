@@ -7,6 +7,7 @@ import {
   menuItemDestructiveClass,
   menuPopupClass,
 } from "./menu-styles";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   readonly trigger: ReactElement;
@@ -22,7 +23,9 @@ const FolderMenu = ({
   onCreateChild,
   onRename,
   onDelete,
-}: Props) => (
+}: Props) => {
+  const t = useT();
+  return (
   <ContextMenu.Root>
     <ContextMenu.Trigger render={trigger} />
     <ContextMenu.Portal>
@@ -30,30 +33,31 @@ const FolderMenu = ({
         <ContextMenu.Popup className={menuPopupClass}>
           <Menu.Item className={menuItemClass} onClick={onCreateChild}>
             <FolderPlus className="size-4" />
-            Nouveau sous-dossier
+            {t("explorer.menus.folder.newSubfolder")}
           </Menu.Item>
           <Menu.Item className={menuItemClass} onClick={onRename}>
             <Pencil className="size-4" />
-            Renommer
+            {t("explorer.menus.folder.rename")}
           </Menu.Item>
           <ContextMenu.Separator className="my-1 h-px bg-border" />
           <Menu.Item
             className={menuItemDestructiveClass}
             onClick={() => {
               const ok = window.confirm(
-                `Supprimer le dossier "${folderName}" ? Les ressources qu'il contient remonteront à la racine.`,
+                t("explorer.menus.folder.confirmDelete", { name: folderName }),
               );
               if (!ok) return;
               onDelete();
             }}
           >
             <Trash2 className="size-4" />
-            Supprimer
+            {t("common.delete")}
           </Menu.Item>
         </ContextMenu.Popup>
       </ContextMenu.Positioner>
     </ContextMenu.Portal>
   </ContextMenu.Root>
-);
+  );
+};
 
 export default FolderMenu;

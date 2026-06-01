@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 import type { StepKindMeta } from "./step-kinds";
 import { portKindsLabel } from "./port-color";
 
@@ -31,6 +32,7 @@ const suggestionKey = (s: EdgeDropSuggestion) =>
   `${s.kind.id}::${s.resolvedInputKinds.join("|")}::${s.resolvedOutputKind ?? ""}`;
 
 const EdgeDropSuggestions = ({ position, suggestions, onSelect, onClose }: Props) => {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -102,7 +104,7 @@ const EdgeDropSuggestions = ({ position, suggestions, onSelect, onClose }: Props
       <Input
         ref={inputRef}
         className="rounded-none border-0 border-b py-1.5"
-        placeholder="Rechercher une étape…"
+        placeholder={t("template.canvas.edgeDropSuggestions.searchPlaceholder")}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -111,7 +113,7 @@ const EdgeDropSuggestions = ({ position, suggestions, onSelect, onClose }: Props
         <ul className="py-1">
           {filtered.length === 0 ? (
             <li className="px-2 py-2 text-xs text-muted-foreground">
-              Aucune étape compatible.
+              {t("template.canvas.edgeDropSuggestions.noMatch")}
             </li>
           ) : (
             filtered.map((s, i) => {

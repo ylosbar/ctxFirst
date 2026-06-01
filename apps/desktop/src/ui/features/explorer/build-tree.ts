@@ -288,7 +288,7 @@ export const buildUnifiedTree = (args: {
   const matchedTypes = args.types.filter((t) => matchesType(t, q));
   const builtinLeaves = matchedTypes
     .filter((t) => t.source.kind === "builtin")
-    .map(typeToLeaf)
+    .map((t) => typeToLeaf(t))
     .sort(byLeafLabel);
   // Only `user` artifact-schemas flow into the user folder tree. Plugin-sourced
   // ones are bucketed under their `@<pluginId>` folder below — restricting this

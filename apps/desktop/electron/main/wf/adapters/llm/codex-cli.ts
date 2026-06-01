@@ -119,16 +119,15 @@ export const createCodexCliLLMGateway = (deps: Deps = {}): LLMGateway => ({
     const done = new Promise<void>((resolve, reject) => {
       let settled = false;
       let spawnFailed = false;
-      let timer: ReturnType<typeof setTimeout> | undefined;
 
       const finish = (fn: () => void) => {
         if (settled) return;
         settled = true;
-        if (timer) clearTimeout(timer);
+        clearTimeout(timer);
         fn();
       };
 
-      timer = setTimeout(() => {
+      const timer = setTimeout(() => {
         // The child is hung (or already exited without delivering `close`):
         // kill the process tree so it can't linger as a zombie, then reject so
         // the orchestrator marks the step failed instead of freezing it.

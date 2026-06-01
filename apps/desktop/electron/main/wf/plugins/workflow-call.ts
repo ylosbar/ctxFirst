@@ -11,7 +11,7 @@
  */
 import type { NodeSpec, StepOutcome, StepRunner } from "../application/step-runner";
 import type { WorkflowTemplate } from "../domain/template";
-import { readWorkflowCallRef, WORKFLOW_CALL_KIND } from "../domain/services/flatten-template";
+import { WORKFLOW_CALL_KIND } from "../domain/services/flatten-template";
 
 export type WorkflowCallRunnerDeps = {
   /**

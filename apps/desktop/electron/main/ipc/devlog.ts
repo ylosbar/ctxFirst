@@ -64,11 +64,11 @@ const wrapStream = (
       /* never let the wrapper crash the original write */
     }
     return original(
-      chunk as never,
+      chunk,
       encodingOrCb as never,
       cb as never,
     );
-  }) as StreamWriter;
+  });
   stream.write = writer;
   return () => {
     if (stream.write === writer) stream.write = original;

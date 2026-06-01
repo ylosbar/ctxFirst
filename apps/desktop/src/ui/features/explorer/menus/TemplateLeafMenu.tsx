@@ -6,6 +6,7 @@ import {
   menuItemClass,
   menuPopupClass,
 } from "./menu-styles";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   readonly trigger: ReactElement;
@@ -19,7 +20,9 @@ const TemplateLeafMenu = ({
   onOpen,
   onDuplicate,
   onExport,
-}: Props) => (
+}: Props) => {
+  const t = useT();
+  return (
   <ContextMenu.Root>
     <ContextMenu.Trigger render={trigger} />
     <ContextMenu.Portal>
@@ -27,26 +30,27 @@ const TemplateLeafMenu = ({
         <ContextMenu.Popup className={menuPopupClass}>
           <Menu.Item className={menuItemClass} onClick={onOpen}>
             <ExternalLink className="size-4" />
-            Ouvrir
+            {t("explorer.menus.template.open")}
           </Menu.Item>
           <Menu.Item className={menuItemClass} onClick={onDuplicate}>
             <Copy className="size-4" />
-            Dupliquer
+            {t("explorer.menus.template.duplicate")}
           </Menu.Item>
           <ContextMenu.Separator className="my-1 h-px bg-border" />
           <Menu.Item className={menuItemClass} onClick={onExport}>
             <Download className="size-4" />
-            Exporter en JSON
+            {t("explorer.menus.template.exportJson")}
           </Menu.Item>
           <ContextMenu.Separator className="my-1 h-px bg-border" />
           <Menu.Item className={menuItemClass} onClick={onOpen}>
             <Pencil className="size-4" />
-            Renommer
+            {t("explorer.menus.template.rename")}
           </Menu.Item>
         </ContextMenu.Popup>
       </ContextMenu.Positioner>
     </ContextMenu.Portal>
   </ContextMenu.Root>
-);
+  );
+};
 
 export default TemplateLeafMenu;

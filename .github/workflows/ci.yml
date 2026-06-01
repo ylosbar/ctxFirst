@@ -41,5 +41,7 @@ jobs:
       - name: Typecheck
         run: yarn workspace @ctxfirst/desktop typecheck
 
+      # Seul le projet Vitest « node » est lancé en CI. Le projet « storybook »
+      # tourne dans Chromium (Playwright) et reste exécuté en local.
       - name: Test
-        run: yarn test
+        run: yarn workspace @ctxfirst/desktop test:node

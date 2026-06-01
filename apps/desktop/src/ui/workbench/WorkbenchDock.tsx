@@ -27,15 +27,17 @@ import {
   type ViewPanelParams,
 } from "./dock-panels";
 import type { ViewRenderProps } from "./types";
+import { useT } from "@/ui/i18n";
 
 const EditorPanelHost = (props: IDockviewPanelProps<EditorPanelParams>) => {
+  const t = useT();
   const api = useWorkbench();
   const { uri } = props.params;
   const type = workbenchRegistry.editorTypeFor(uri);
   if (!type) {
     return (
       <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-        Aucun éditeur enregistré pour {uri}
+        {t("workbench.dock.noEditorRegistered", { uri })}
       </div>
     );
   }

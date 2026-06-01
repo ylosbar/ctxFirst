@@ -58,6 +58,7 @@ import {
   templateUriFor,
 } from "../../features/templates/template-uri";
 import { runUriFor } from "../../features/runs/run-uri";
+import { useT } from "@/ui/i18n";
 import { cn } from "@/lib/utils";
 
 const NEW_SKILL_URI = "skill://new";
@@ -186,6 +187,7 @@ const ACTION_ICON: Record<string, LucideIcon> = {
 };
 
 const CommandPalette = () => {
+  const t = useT();
   const navigate = useNavigate();
   const services = useServices();
   const workbench = useWorkbench();
@@ -568,7 +570,9 @@ const CommandPalette = () => {
                     </Button>
                   }
                 />
-                <TooltipContent>Retour aux commandes (Esc)</TooltipContent>
+                <TooltipContent>
+                  {t("commandPalette.themeBackTooltip")}
+                </TooltipContent>
               </Tooltip>
             ) : (
               <Tooltip>
@@ -587,8 +591,9 @@ const CommandPalette = () => {
                   }
                 />
                 <TooltipContent>
-                  Basculer (
-                  {mode === "quickopen" ? "⌘⇧P → commandes" : "⌘P → ouverture"})
+                  {mode === "quickopen"
+                    ? t("commandPalette.toggleTooltipToCommands")
+                    : t("commandPalette.toggleTooltipToQuickOpen")}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -614,11 +619,11 @@ const CommandPalette = () => {
                 onClick={() => setQuery("")}
                 className="shrink-0 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground"
               >
-                Effacer
+                {t("commandPalette.clear")}
               </Button>
             ) : null}
             <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-2xs font-medium text-muted-foreground">
-              Esc
+              {t("commandPalette.kbd.esc")}
             </kbd>
           </div>
 
@@ -628,18 +633,17 @@ const CommandPalette = () => {
                 <div className="flex flex-col items-center gap-2 px-3 py-10 text-center">
                   <SearchX className="h-6 w-6 text-muted-foreground/60" />
                   <div className="text-xs text-muted-foreground">
-                    Aucun résultat pour
                     {query ? (
                       <>
-                        {" "}
+                        {t("commandPalette.empty.prefix")}{" "}
                         <span className="font-medium text-foreground">
-                          « {query} »
+                          {t("commandPalette.empty.query", { query })}
                         </span>
+                        {t("commandPalette.empty.suffix")}
                       </>
                     ) : (
-                      " cette recherche"
+                      t("commandPalette.empty.noQuery")
                     )}
-                    .
                   </div>
                 </div>
               ) : (
@@ -714,7 +718,7 @@ const CommandPalette = () => {
                             size="sm"
                             className="shrink-0 rounded-sm border-primary/40 bg-primary/10 text-primary"
                           >
-                            Actif
+                            {t("commandPalette.themeActive")}
                           </Badge>
                         ) : null}
                         {selected ? (
@@ -732,28 +736,28 @@ const CommandPalette = () => {
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-2xs">
-                  ↑
+                  {t("commandPalette.kbd.arrowUp")}
                 </kbd>
                 <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-2xs">
-                  ↓
+                  {t("commandPalette.kbd.arrowDown")}
                 </kbd>
-                Naviguer
+                {t("commandPalette.footer.navigate")}
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-2xs">
-                  ↵
+                  {t("commandPalette.kbd.enter")}
                 </kbd>
-                Ouvrir
+                {t("commandPalette.footer.open")}
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="rounded border border-border bg-background px-1 py-0.5 font-mono text-2xs">
-                  Esc
+                  {t("commandPalette.kbd.esc")}
                 </kbd>
-                Fermer
+                {t("common.close")}
               </span>
             </div>
             <span className="tabular-nums">
-              {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+              {t("commandPalette.footer.resultCount", { count: filtered.length })}
             </span>
           </div>
         </Dialog.Popup>

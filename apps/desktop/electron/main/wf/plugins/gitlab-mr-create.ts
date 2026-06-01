@@ -125,12 +125,17 @@ export const createGitlabMrCreateRunner = (
       `[gitlab.mr.create] created MR !${String(mr["iid"] ?? "?")} ${String(mr["web_url"] ?? "")}`,
     );
 
-    const artifact = await putArtifactPayload(ctx.deps.artifactStore, "Json", mr, {
-      source: "gitlab.mr.create",
-      project,
-      iid: String(mr["iid"] ?? ""),
-      webUrl: String(mr["web_url"] ?? ""),
-    });
+    const artifact = await putArtifactPayload(
+      ctx.deps.artifactStore,
+      "Json",
+      { format: "json", body: JSON.stringify(mr) },
+      {
+        source: "gitlab.mr.create",
+        project,
+        iid: String(mr["iid"] ?? ""),
+        webUrl: String(mr["web_url"] ?? ""),
+      },
+    );
     return { kind: "produced", artifact };
   },
 });

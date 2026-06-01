@@ -6,8 +6,6 @@ import type { ScheduleRegistry } from "../../application/ports/outbound/schedule
 import {
   asScheduleId,
   type ScheduleDraft,
-  type ScheduleId,
-  type ScheduleLastStatus,
   type ScheduleSeed,
   type WorkflowSchedule,
 } from "../../domain/schedule";
@@ -61,7 +59,7 @@ const rowToSchedule = (row: Row): WorkflowSchedule => ({
   ...(row.last_run_at ? { lastRunAt: row.last_run_at } : {}),
   ...(row.last_instance_id ? { lastInstanceId: row.last_instance_id } : {}),
   ...(row.last_status === "ok" || row.last_status === "error"
-    ? { lastStatus: row.last_status as ScheduleLastStatus }
+    ? { lastStatus: row.last_status }
     : {}),
   ...(row.last_error ? { lastError: row.last_error } : {}),
   createdAt: row.created_at,

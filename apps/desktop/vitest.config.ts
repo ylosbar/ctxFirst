@@ -22,6 +22,7 @@ export default defineConfig({
     projects: [{
       extends: true,
       test: {
+        name: "node",
         environment: "node",
         include: ["electron/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "shared/**/*.test.ts", "plugins-builtin/**/*.test.js"]
       }

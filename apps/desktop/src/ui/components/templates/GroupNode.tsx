@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 
 export type GroupNodeData = {
   label: string;
@@ -36,6 +37,7 @@ const GROUP_MIN_WIDTH = 80;
 const GROUP_MIN_HEIGHT = 60;
 
 const GroupNode = ({ id, data, selected }: NodeProps) => {
+  const t = useT();
   const actions = useGroupActions();
   const d = data as GroupNodeData;
   const isDrawing = Boolean(d.isDrawing);
@@ -75,7 +77,7 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
           <Input
             type="text"
             value={d.label}
-            placeholder="Groupe"
+            placeholder={t("template.canvas.groupNode.labelPlaceholder")}
             onChange={onLabelChange}
             className="nodrag h-5 w-auto max-w-[80%] truncate border-transparent bg-transparent px-1 text-2xs font-semibold uppercase tracking-wide text-primary placeholder:text-primary/40 focus:border-transparent focus:bg-background focus:ring-1 focus:ring-primary/40"
           />
@@ -85,7 +87,7 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Supprimer le groupe"
+                  aria-label={t("template.canvas.groupNode.deleteGroup")}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -97,7 +99,7 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
                 </Button>
               }
             />
-            <TooltipContent>Supprimer le groupe</TooltipContent>
+            <TooltipContent>{t("template.canvas.groupNode.deleteGroup")}</TooltipContent>
           </Tooltip>
         </div>
       ) : null}

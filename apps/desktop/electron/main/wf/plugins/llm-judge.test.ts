@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  asArtifactId,
   asStepExecId,
   asStepId,
   asWorkflowId,
 } from "../domain/ids";
-import type { ArtifactKind } from "../domain/artifact";
 import type { RunContext, RunContextInput } from "../application/step-runner";
 import { createFakeArtifactStore } from "../__tests__/fixtures/fake-artifact-store";
 import { createFakeLLMGateway } from "../__tests__/fixtures/fake-llm";
@@ -34,13 +32,13 @@ const buildCtx = async (
   // Persist the subject so the runner's `artifactStore.get(input.artifactId)`
   // call (the pass-through path) finds the artifact.
   const subject = await fakes.store.put(
-    "Markdown" as ArtifactKind,
+    "Markdown",
     JSON.stringify({ format: "markdown", body: params.subjectBody }),
     { payloadFormat: "json-v1" },
   );
   const input: RunContextInput = {
     port: "subject",
-    kind: "Markdown" as ArtifactKind,
+    kind: "Markdown",
     content: JSON.stringify({ format: "markdown", body: params.subjectBody }),
     payload: { format: "markdown", body: params.subjectBody },
     artifactId: subject.id,

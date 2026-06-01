@@ -311,15 +311,20 @@ describe("runGitClone", () => {
       shell: shell.gateway,
       store: createStubStore(),
     });
-    const err = await runGitClone(ctx, {
-      repoUrl: "https://gitlab.com/g/p.git",
-      dest: "/base/p",
-      cwd: "/base",
-      token: "glpat-XXX",
-    }).catch((e: unknown) => e as Error);
+    let err: Error | undefined;
+    try {
+      await runGitClone(ctx, {
+        repoUrl: "https://gitlab.com/g/p.git",
+        dest: "/base/p",
+        cwd: "/base",
+        token: "glpat-XXX",
+      });
+    } catch (e) {
+      err = e as Error;
+    }
     expect(err).toBeInstanceOf(Error);
-    expect(err.message).toMatch(/oauth2:\*\*\*@/);
-    expect(err.message).not.toContain("glpat-XXX");
+    expect(err?.message).toMatch(/oauth2:\*\*\*@/);
+    expect(err?.message).not.toContain("glpat-XXX");
   });
 });
 

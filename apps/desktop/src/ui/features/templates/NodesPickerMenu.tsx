@@ -21,6 +21,7 @@ import {
 } from "../../components/templates/step-kinds";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import { STEP_KIND_DND_MIME } from "./picker-dnd";
+import { useT } from "@/ui/i18n";
 
 type Props = {
   readonly disabled: boolean;
@@ -31,6 +32,7 @@ const itemClass =
   "group flex w-full cursor-grab items-start gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none active:cursor-grabbing data-[highlighted]:bg-muted";
 
 const NodesPickerMenu = ({ disabled, onPick }: Props) => {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -138,17 +140,17 @@ const NodesPickerMenu = ({ disabled, onPick }: Props) => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  aria-label="Ajouter un node"
+                  aria-label={t("templates.nodesPicker.addAriaLabel")}
                   disabled={disabled}
                 >
                   <Boxes />
-                  Nodes
+                  {t("templates.nodesPicker.label")}
                 </Button>
               }
             />
           }
         />
-        <TooltipContent>Ajouter un node au workflow</TooltipContent>
+        <TooltipContent>{t("templates.nodesPicker.addTooltip")}</TooltipContent>
       </Tooltip>
       <Menu.Portal>
         <Menu.Positioner align="start" sideOffset={4} className="z-50">
@@ -166,7 +168,7 @@ const NodesPickerMenu = ({ disabled, onPick }: Props) => {
             <div className="p-1">
               <SearchInput
                 ref={inputRef}
-                placeholder="Rechercher un node…"
+                placeholder={t("templates.nodesPicker.searchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -174,7 +176,7 @@ const NodesPickerMenu = ({ disabled, onPick }: Props) => {
                   // typed into the search input.
                   e.stopPropagation();
                 }}
-                aria-label="Rechercher un node"
+                aria-label={t("templates.nodesPicker.searchAriaLabel")}
               />
             </div>
             <div className="max-h-[60vh] overflow-y-auto px-1 pb-1">
@@ -222,7 +224,7 @@ const NodesPickerMenu = ({ disabled, onPick }: Props) => {
               {filtered.length === 0 ? (
                 <EmptyState
                   className="flex-none p-2"
-                  description={`Aucun node ne correspond à « ${query} ».`}
+                  description={t("templates.nodesPicker.noResults", { query })}
                 />
               ) : null}
             </div>

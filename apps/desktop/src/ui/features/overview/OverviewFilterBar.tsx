@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 import {
   OVERVIEW_COLUMN_LABEL,
   OVERVIEW_COLUMN_ORDER,
@@ -61,13 +62,14 @@ const OverviewFilterBar = ({
   onQueryChange,
   onClear,
 }: Props) => {
+  const t = useT();
   const hasActive =
     templateFilter.size > 0 || statusFilter.size > 0 || query.trim() !== "";
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-3 py-2">
       <div className="flex flex-wrap items-center gap-1">
-        {groupLabel("Statut")}
+        {groupLabel(t("overview.filterBar.statusGroup"))}
         {OVERVIEW_COLUMN_ORDER.map((id) => (
           <FilterChip
             key={id}
@@ -81,7 +83,7 @@ const OverviewFilterBar = ({
         <>
           <div className="h-4 w-px bg-border" />
           <div className="flex flex-wrap items-center gap-1">
-            {groupLabel("Template")}
+            {groupLabel(t("overview.filterBar.templateGroup"))}
             {templates.map((t) => (
               <FilterChip
                 key={t.ref}
@@ -97,7 +99,7 @@ const OverviewFilterBar = ({
         <SearchInput
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Rechercher…"
+          placeholder={t("overview.filterBar.searchPlaceholder")}
           className="w-48"
         />
         {hasActive ? (
@@ -108,7 +110,7 @@ const OverviewFilterBar = ({
             className="h-7 px-2 text-xs text-muted-foreground"
             onClick={onClear}
           >
-            Clear
+            {t("overview.filterBar.clear")}
           </Button>
         ) : null}
       </div>

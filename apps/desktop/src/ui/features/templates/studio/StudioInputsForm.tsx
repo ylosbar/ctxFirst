@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/ui/i18n";
 import type {
   ArtifactKind,
   NodeSpecView,
@@ -31,6 +32,7 @@ type Props = {
 };
 
 const StudioInputsForm = ({ spec, inputs, onChange, onSubmit }: Props) => {
+  const t = useT();
   const { types } = useArtifactSchemas();
   const wildcardChoices = useMemo(
     () => buildWildcardKindChoices(types),
@@ -40,8 +42,7 @@ const StudioInputsForm = ({ spec, inputs, onChange, onSubmit }: Props) => {
   if (spec.inputs.length === 0) {
     return (
       <p className="px-3 text-xs italic text-muted-foreground">
-        Cette node n'a aucune entrée. Cliquez sur "Tester la node" pour lancer
-        l'exécution.
+        {t("templates.studio.inputsForm.noInputs")}
       </p>
     );
   }
@@ -114,6 +115,7 @@ const PortField = ({
   onRemove,
   onSubmit,
 }: PortFieldProps) => {
+  const t = useT();
   const isWildcard = port.kinds.includes("*");
   const isPolymorphic = port.kinds.length > 1 && !isWildcard;
   const isList = port.isList === true;
@@ -133,12 +135,12 @@ const PortField = ({
           <span className="font-mono text-xs font-semibold">{port.name}</span>
           {isOptional ? (
             <span className="text-2xs uppercase tracking-wide text-muted-foreground">
-              optional
+              {t("templates.studio.inputsForm.optionalBadge")}
             </span>
           ) : null}
           {isList ? (
             <span className="text-2xs uppercase tracking-wide text-muted-foreground">
-              list
+              {t("templates.studio.inputsForm.listBadge")}
             </span>
           ) : null}
         </div>
@@ -161,7 +163,7 @@ const PortField = ({
               }
             }}
           />
-          <span>Inclure cet input</span>
+          <span>{t("templates.studio.inputsForm.includeInput")}</span>
         </label>
       ) : null}
 
@@ -193,7 +195,7 @@ const PortField = ({
           }
         >
           <Plus className="mr-1 size-3" />
-          Ajouter une entrée
+          {t("templates.studio.inputsForm.addEntry")}
         </Button>
       ) : null}
     </div>
@@ -219,6 +221,7 @@ const PortEntry = ({
   onRemove,
   onSubmit,
 }: PortEntryProps) => {
+  const t = useT();
   const isShort = SHORT_KINDS.has(entry.kind);
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -250,7 +253,11 @@ const PortEntry = ({
           <Input
             className="font-mono"
             value={entry.content}
-            placeholder={entry.kind === "LinearRef" ? "ex. ENG-1234" : ""}
+            placeholder={
+              entry.kind === "LinearRef"
+                ? t("templates.studio.inputsForm.linearRefPlaceholder")
+                : ""
+            }
             onChange={(e) => onUpdate({ content: e.target.value })}
             onKeyDown={handleKey}
           />
@@ -269,7 +276,7 @@ const PortEntry = ({
             size="icon-xs"
             variant="ghost"
             onClick={onRemove}
-            aria-label="Supprimer cette entrée"
+            aria-label={t("templates.studio.inputsForm.removeEntry")}
           >
             <Trash2 className="size-3" />
           </Button>

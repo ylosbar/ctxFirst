@@ -3,6 +3,7 @@ import { Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/ui/i18n";
 import {
   ACCEPTED_CHANNEL_IMAGE_MIMES,
   MAX_CHANNEL_IMAGE_BYTES,
@@ -24,6 +25,7 @@ const isAcceptedMime = (mime: string): mime is ChannelIconImageMime =>
   (ACCEPTED_CHANNEL_IMAGE_MIMES as ReadonlyArray<string>).includes(mime);
 
 const ImageUploadField = ({ value, onChange, className }: Props) => {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Revoke the blob URL on unmount or when it is replaced — without this, the
@@ -78,7 +80,7 @@ const ImageUploadField = ({ value, onChange, className }: Props) => {
             </span>
             <div className="flex gap-2">
               <Button type="button" size="sm" variant="outline" onClick={pickFile}>
-                Changer
+                {t("channels.imageUpload.change")}
               </Button>
               <Button
                 type="button"
@@ -87,13 +89,14 @@ const ImageUploadField = ({ value, onChange, className }: Props) => {
                 onClick={clear}
                 className="text-muted-foreground"
               >
-                <X className="mr-1 size-3.5" /> Retirer l'image
+                <X className="mr-1 size-3.5" />{" "}
+                {t("channels.imageUpload.remove")}
               </Button>
             </div>
           </>
         ) : (
           <Button type="button" size="sm" variant="outline" onClick={pickFile}>
-            Choisir un fichier…
+            {t("channels.imageUpload.choose")}
           </Button>
         )}
       </div>

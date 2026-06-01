@@ -1,5 +1,6 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import PatchView, { looksLikeUnifiedDiff } from "./PatchView";
+import { useT } from "../i18n";
 
 type Props = {
   previous?: string | null;
@@ -18,6 +19,7 @@ const renderContent = (content: string) => {
 };
 
 const DiffViewer = ({ previous, current }: Props) => {
+  const t = useT();
   if (!previous) {
     return renderContent(current);
   }
@@ -25,13 +27,13 @@ const DiffViewer = ({ previous, current }: Props) => {
     <div className="flex min-h-0 flex-1 flex-row">
       <div className="flex min-h-0 flex-1 flex-col border-r">
         <div className="border-b px-3 py-1 text-2xs uppercase tracking-wide text-muted-foreground">
-          Version précédente
+          {t("components.diffViewer.previousVersion")}
         </div>
         {renderContent(previous)}
       </div>
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="border-b px-3 py-1 text-2xs uppercase tracking-wide text-muted-foreground">
-          Nouvelle version
+          {t("components.diffViewer.newVersion")}
         </div>
         {renderContent(current)}
       </div>

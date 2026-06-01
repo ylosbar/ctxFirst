@@ -3,6 +3,7 @@ import { ContextMenu } from "@base-ui/react/context-menu";
 import { Menu } from "@base-ui/react/menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useT } from "@/ui/i18n";
 import {
   RUN_STATUS_LABEL,
   RUN_STATUS_STYLE,
@@ -63,6 +64,7 @@ const popupClass =
   "z-50 min-w-44 overflow-hidden rounded-md border border-border bg-popover p-1 text-sm text-popover-foreground shadow-md outline-none";
 
 const RunTabRenderer = (props: EditorTabProps) => {
+  const t = useT();
   const { api, params } = props;
   const { uri } = params;
   const wb = useWorkbench();
@@ -141,7 +143,7 @@ const RunTabRenderer = (props: EditorTabProps) => {
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="Fermer l'onglet"
+            aria-label={t("runs.tabRenderer.closeTab")}
             onClick={handleClose}
             className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 [&_svg]:size-3"
           >
@@ -158,7 +160,7 @@ const RunTabRenderer = (props: EditorTabProps) => {
                 onClick={() => unpinRun(instanceId)}
               >
                 <PinOff className="size-4" />
-                Désépingler
+                {t("runs.tabRenderer.unpin")}
               </Menu.Item>
             ) : (
               <Menu.Item
@@ -166,7 +168,7 @@ const RunTabRenderer = (props: EditorTabProps) => {
                 onClick={() => pinRun(instanceId)}
               >
                 <Pin className="size-4" />
-                Épingler
+                {t("runs.tabRenderer.pin")}
               </Menu.Item>
             )}
             <ContextMenu.Separator className="my-1 h-px bg-border" />
@@ -176,13 +178,13 @@ const RunTabRenderer = (props: EditorTabProps) => {
               onClick={() => wb.closeEditor(runUriFor(instanceId))}
             >
               <X className="size-4" />
-              Fermer
+              {t("common.close")}
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={closeOthers}>
-              Fermer les autres
+              {t("runs.tabRenderer.closeOthers")}
             </Menu.Item>
             <Menu.Item className={itemClass} onClick={closeAllRuns}>
-              Tout fermer
+              {t("runs.tabRenderer.closeAll")}
             </Menu.Item>
           </ContextMenu.Popup>
         </ContextMenu.Positioner>

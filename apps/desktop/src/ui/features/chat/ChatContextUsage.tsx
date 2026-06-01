@@ -1,5 +1,6 @@
 import { Gauge } from "lucide-react";
 import type { ContextUsage } from "@/application/ports/chat-gateway";
+import { useT } from "@/ui/i18n";
 
 /**
  * Compteur affiché au-dessus de la chatbox : nombre de tokens de contexte de la
@@ -23,12 +24,15 @@ type ChatContextUsageProps = {
 };
 
 const ChatContextUsage = ({ usage }: ChatContextUsageProps) => {
+  const t = useT();
   if (!usage || usage.tokens === null) return null;
 
   const { tokens, contextWindow, percent } = usage;
   const detail =
-    `Contexte de la session : ${nf.format(tokens)} / ${nf.format(contextWindow)} tokens` +
-    (percent !== null ? ` (${Math.round(percent)} %)` : "");
+    t("chat.chatContextUsage.detail", {
+      tokens: nf.format(tokens),
+      window: nf.format(contextWindow),
+    }) + (percent !== null ? t("chat.chatContextUsage.detailPercent", { value: Math.round(percent) }) : "");
 
   return (
     <span
@@ -36,9 +40,9 @@ const ChatContextUsage = ({ usage }: ChatContextUsageProps) => {
       title={detail}
     >
       <Gauge className="size-3" />
-      {abbreviate(tokens)} tokens
+      {t("chat.chatContextUsage.tokens", { count: abbreviate(tokens) })}
       {percent !== null ? (
-        <span className="opacity-70">· {Math.round(percent)} %</span>
+        <span className="opacity-70">{t("chat.chatContextUsage.percent", { value: Math.round(percent) })}</span>
       ) : null}
     </span>
   );

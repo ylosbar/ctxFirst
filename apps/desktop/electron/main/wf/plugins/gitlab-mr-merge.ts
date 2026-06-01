@@ -122,7 +122,7 @@ export const createGitlabMrMergeRunner = (
     const artifact = await putArtifactPayload(
       ctx.deps.artifactStore,
       "Json",
-      merged,
+      { format: "json", body: JSON.stringify(merged) },
       {
         source: "gitlab.mr.merge",
         project,

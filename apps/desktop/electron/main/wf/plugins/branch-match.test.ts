@@ -125,7 +125,7 @@ describe("branch.match — run", () => {
       inputs: [
         {
           port: "in",
-          kind: TARGET as ArtifactKind,
+          kind: TARGET,
           content: JSON.stringify(sumPayload),
           payload: sumPayload,
           artifactId: asArtifactId("artifact-source"),
@@ -160,7 +160,7 @@ describe("branch.match — run", () => {
       inputs: [
         {
           port: "in",
-          kind: TARGET as ArtifactKind,
+          kind: TARGET,
           content: JSON.stringify(sumPayload),
           payload: sumPayload,
           artifactId: asArtifactId("artifact-source"),
@@ -187,7 +187,7 @@ describe("branch.match — run", () => {
       inputs: [
         {
           port: "in",
-          kind: TARGET as ArtifactKind,
+          kind: TARGET,
           content: JSON.stringify(sumPayload),
           payload: sumPayload,
           artifactId: asArtifactId("artifact-source"),

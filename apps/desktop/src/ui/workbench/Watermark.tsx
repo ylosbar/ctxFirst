@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { Brain, Database, Network, Play } from "lucide-react";
 import { useWorkbench } from "./WorkbenchProvider";
+import { useT } from "@/ui/i18n";
 
 // Two waves with the same baseline (y=100) and different phases/frequencies so
 // their crests intersect a couple of times across the width.
@@ -66,14 +67,17 @@ const NEW_ARTIFACT_SCHEMA_URI = "artifact-schema://new";
 const NEW_TEMPLATE_URI = "template://new";
 
 const Watermark = () => {
+  const t = useT();
   const navigate = useNavigate();
   const workbench = useWorkbench();
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center gap-4 overflow-hidden bg-background text-center text-sm text-muted-foreground">
       <WavesBackground />
       <div className="relative flex flex-col items-center gap-4">
-        <p className="font-medium text-foreground">Aucun éditeur ouvert.</p>
-        <p>Choisis un élément dans la barre latérale pour commencer.</p>
+        <p className="font-medium text-foreground">
+          {t("workbench.watermark.title")}
+        </p>
+        <p>{t("workbench.watermark.subtitle")}</p>
         <div className="mt-2 flex flex-col items-stretch gap-1.5">
           <button
             type="button"
@@ -85,9 +89,11 @@ const Watermark = () => {
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--chart-1)]/15 text-[var(--chart-1)]">
               <Play className="h-3.5 w-3.5" />
             </span>
-            <span className="flex-1 text-xs font-medium">Lancer un run</span>
+            <span className="flex-1 text-xs font-medium">
+              {t("workbench.watermark.runAction")}
+            </span>
             <kbd className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-2xs font-medium text-muted-foreground">
-              ⌘N
+              {t("workbench.watermark.kbd.newRun")}
             </kbd>
           </button>
           <button
@@ -98,7 +104,9 @@ const Watermark = () => {
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--chart-3)]/15 text-[var(--chart-3)]">
               <Brain className="h-3.5 w-3.5" />
             </span>
-            <span className="flex-1 text-xs font-medium">Créer un prompt</span>
+            <span className="flex-1 text-xs font-medium">
+              {t("workbench.watermark.createPrompt")}
+            </span>
           </button>
           <button
             type="button"
@@ -111,7 +119,7 @@ const Watermark = () => {
               <Database className="h-3.5 w-3.5" />
             </span>
             <span className="flex-1 text-xs font-medium">
-              Créer un artifact type
+              {t("workbench.watermark.createArtifactSchema")}
             </span>
           </button>
           <button
@@ -125,21 +133,21 @@ const Watermark = () => {
               <Network className="h-3.5 w-3.5" />
             </span>
             <span className="flex-1 text-xs font-medium">
-              Créer un template
+              {t("workbench.watermark.createTemplate")}
             </span>
           </button>
         </div>
         <div className="mt-1 flex flex-col items-center gap-1">
           <p className="flex items-center gap-1.5">
-            <span>Palette de commande</span>
+            <span>{t("workbench.watermark.commandPalette")}</span>
             <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-2xs font-medium text-muted-foreground">
-              ⌘⇧P
+              {t("workbench.watermark.kbd.commandPalette")}
             </kbd>
           </p>
           <p className="flex items-center gap-1.5">
-            <span>Recherche</span>
+            <span>{t("workbench.watermark.search")}</span>
             <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-2xs font-medium text-muted-foreground">
-              ⌘P
+              {t("workbench.watermark.kbd.quickOpen")}
             </kbd>
           </p>
         </div>
