@@ -870,6 +870,7 @@ export const useWorkbenchState = (): WorkbenchState =>
       activeEditor: s.activeEditor,
       activeActivity: s.activeActivity,
       dockviewReady: s.dockviewReady,
+      openViewIds: s.openViewIds,
     })),
   );
 

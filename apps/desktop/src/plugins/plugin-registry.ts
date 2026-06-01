@@ -84,7 +84,7 @@ export const rendererPluginRegistry = {
     if (page.sidebar !== undefined) {
       workbenchRegistry.registerView({
         id: viewId,
-        slot: "primarySidebar",
+        defaultLocation: "left",
         title: page.title,
         icon: page.icon,
         activity: activityId,

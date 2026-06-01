@@ -98,7 +98,7 @@ export const loadAndParseArtifact = async <K extends ArtifactKind>(
     raw =
       fmt === PAYLOAD_FORMAT_JSON_V1
         ? JSON.parse(content)
-        : plainFallback(registry, expectedKind, content);
+        : plainFallback(expectedKind, content);
   } catch (err) {
     if (mode === "strict") throw err;
     logger.warn(

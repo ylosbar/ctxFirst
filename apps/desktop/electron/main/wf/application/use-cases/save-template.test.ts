@@ -1,17 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { makeSaveTemplate } from "./save-template";
 import { buildTemplate } from "../../__tests__/fixtures/builders";
-import { createFakeTemplateRegistry } from "../../__tests__/fixtures/fake-registries";
+import {
+  createFakeArtifactSchemaRegistry,
+  createFakeTemplateRegistry,
+} from "../../__tests__/fixtures/fake-registries";
 import { createUserInputRunner } from "../../plugins/user-input";
 import { createHumanGateRunner } from "../../plugins/human-gate";
 import { createStepRunnerRegistry } from "../step-runner";
 
 const buildDeps = () => {
   const templates = createFakeTemplateRegistry();
+  const artifactSchemas = createFakeArtifactSchemaRegistry();
   const runners = createStepRunnerRegistry();
   runners.register(createUserInputRunner());
   runners.register(createHumanGateRunner());
-  return { templates, runners, save: makeSaveTemplate({ templates, runners }) };
+  return {
+    templates,
+    runners,
+    save: makeSaveTemplate({ templates, runners, artifactSchemas }),
+  };
 };
 
 describe("saveTemplate use-case", () => {

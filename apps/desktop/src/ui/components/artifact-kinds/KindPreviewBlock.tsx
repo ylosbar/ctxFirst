@@ -142,6 +142,7 @@ const composeForListKind = (
     source: inner.view.source,
     extends: null,
     structuralHash: "",
+    markdownTemplate: null,
   };
   return {
     shapeText: `{ items: ${inner.shapeText}[] }`,
@@ -188,6 +189,7 @@ const composeForSumKind = (
     source: { kind: "builtin" },
     extends: null,
     structuralHash: "",
+    markdownTemplate: null,
   };
   return {
     shapeText,
@@ -242,6 +244,7 @@ const composeForWrapperKind = (
     source: inner.view.source,
     extends: null,
     structuralHash: "",
+    markdownTemplate: null,
   };
   return {
     shapeText: `{ variant: "${variantTag}", value: ${inner.shapeText} }`,

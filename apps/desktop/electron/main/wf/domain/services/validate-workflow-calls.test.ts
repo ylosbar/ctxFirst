@@ -35,7 +35,7 @@ const tpl = (id: string, overrides: Partial<WorkflowTemplate> = {}): WorkflowTem
 
 const v = (name: string, role: TemplateVariable["role"], kind = "Markdown"): TemplateVariable => ({
   name,
-  kind,
+  kind: kind as TemplateVariable["kind"],
   role,
 });
 
