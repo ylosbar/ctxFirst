@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  # Vérifie chaque push sur main et chaque pull request ouverte vers main.
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Permet de relancer manuellement depuis l'onglet Actions.
+  workflow_dispatch:
+
+# Annule les runs obsolètes sur une même branche/PR (mais pas sur main).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      # Installe toutes les dépendances du monorepo (yarn workspaces).
+      # Le postinstall desktop recompile better-sqlite3 pour Electron.
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Typecheck
+        run: yarn workspace @ctxfirst/desktop typecheck
+
+      - name: Test
+        run: yarn test
