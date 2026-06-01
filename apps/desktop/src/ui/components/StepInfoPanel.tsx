@@ -212,7 +212,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
               <Callout
                 tone="danger"
                 icon={<AlertCircle className="size-4" />}
-                title={t("template.stepInfoPanel.errors.execution")}
+                title={t("components.stepInfoPanel.errors.execution")}
               >
                 <pre className="m-0 whitespace-pre-wrap font-mono text-xs">
                   {exec.error}
@@ -251,7 +251,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
               {startedAt}
             </span>
           ) : null}
-          {duration ? <span>· {duration}</span> : null}
+          {duration ? <span>{t("components.stepInfoPanel.durationSeparator", { duration })}</span> : null}
         </div>
       </div>
     );
@@ -277,17 +277,17 @@ const StepInfoPanel = ({ exec, template }: Props) => {
         <CardContent className="flex flex-col gap-2.5">
           <div className="flex flex-col gap-1">
             <SectionLabel>
-              {t("template.stepInfoPanel.execution.title")}
+              {t("components.stepInfoPanel.execution.title")}
             </SectionLabel>
             <InfoRow
               icon={<KindIcon className="size-3" />}
-              label={t("template.stepInfoPanel.execution.kind")}
+              label={t("components.stepInfoPanel.execution.kind")}
               value={step?.kind ?? "—"}
             />
             {startedAt ? (
               <InfoRow
                 icon={<Clock className="size-3" />}
-                label={t("template.stepInfoPanel.execution.startedAt")}
+                label={t("components.stepInfoPanel.execution.startedAt")}
                 value={
                   <>
                     {startedAt}
@@ -307,7 +307,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
         <Callout
           tone="danger"
           icon={<AlertCircle className="size-4" />}
-          title={t("template.stepInfoPanel.errors.execution")}
+          title={t("components.stepInfoPanel.errors.execution")}
         >
           <pre className="m-0 whitespace-pre-wrap font-mono text-xs">
             {exec.error}
@@ -316,13 +316,13 @@ const StepInfoPanel = ({ exec, template }: Props) => {
       ) : null}
 
       {exec.humanFeedback ? (
-        <Callout tone="warning" title={t("template.stepInfoPanel.humanFeedback.title")}>
+        <Callout tone="warning" title={t("components.stepInfoPanel.humanFeedback.title")}>
           {exec.humanFeedback.summary ? (
             <p className="text-xs italic">{exec.humanFeedback.summary}</p>
           ) : null}
           {exec.humanFeedback.comments.length > 0 ? (
             <p className="text-2xs opacity-80">
-              {t("template.stepInfoPanel.humanFeedback.inlineComments", {
+              {t("components.stepInfoPanel.humanFeedback.inlineComments", {
                 count: exec.humanFeedback.comments.length,
               })}
             </p>
@@ -333,7 +333,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
       {exec.status === "pending" ? (
         <EmptyState
           className="border-dashed"
-          description={t("template.stepInfoPanel.empty.pending")}
+          description={t("components.stepInfoPanel.empty.pending")}
         />
       ) : null}
     </>
@@ -347,7 +347,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
     inputSlots && inputSlots.length > 0 ? (
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         <div className="shrink-0 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("template.stepInfoPanel.slots.title")}
+          {t("components.stepInfoPanel.slots.title")}
         </div>
         {inputSlots
           .filter((slot) => slot.artifactIds.length === 0)
@@ -360,7 +360,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
                 {slot.port.name}
                 {slot.variableName ? (
                   <span className="ml-1 text-muted-foreground/80">
-                    ← ${slot.variableName}
+                    {t("components.stepInfoPanel.slotVariableRef", { variableName: slot.variableName })}
                   </span>
                 ) : null}
               </span>
@@ -392,7 +392,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
     ) : exec.inputArtifacts.length > 0 ? (
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         <div className="shrink-0 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("template.stepInfoPanel.inputs.title")}
+          {t("components.stepInfoPanel.inputs.title")}
         </div>
         <SlotTabs
           key={exec.id}

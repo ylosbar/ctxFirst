@@ -1,9 +1,11 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
+import type { TFunction } from "i18next";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 
 type ExitCodeValue = number | "timeout";
 
@@ -36,17 +38,18 @@ const RESERVED_PORT_NAMES = new Set(["stdout", "stderr"]);
  */
 const parseCodesCell = (
   text: string,
+  t: TFunction,
 ): { values: ExitCodeValue[]; errors: string[] } => {
   const tokens = text
     .split(/[\s,]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
+    .map((tok) => tok.trim())
+    .filter((tok) => tok.length > 0);
   const values: ExitCodeValue[] = [];
   const errors: string[] = [];
   const seen = new Set<string>();
   for (const tok of tokens) {
     if (seen.has(tok)) {
-      errors.push(`code "${tok}" listed twice`);
+      errors.push(t("template.shellExecExitCodes.errors.codeListedTwice", { code: tok }));
       continue;
     }
     seen.add(tok);
@@ -56,7 +59,7 @@ const parseCodesCell = (
     }
     const n = Number(tok);
     if (!Number.isInteger(n) || n < -128 || n > 255) {
-      errors.push(`"${tok}" is not a valid exit code`);
+      errors.push(t("template.shellExecExitCodes.errors.invalidCode", { code: tok }));
       continue;
     }
     values.push(n);
@@ -97,11 +100,15 @@ type ValidationResult =
  * normalised `ExitCodesConfig` when clean, otherwise per-row + global error
  * messages so the editor can surface them inline.
  */
-const validateRows = (rows: ReadonlyArray<Row>): ValidationResult => {
+const validateRows = (
+  rows: ReadonlyArray<Row>,
+  t: TFunction,
+): ValidationResult => {
   const rowErrors = new Map<string, string>();
   let globalError: string | null = null;
 
-  if (rows.length < 2) globalError = "Au moins 2 ports requis.";
+  if (rows.length < 2)
+    globalError = t("template.shellExecExitCodes.errors.minPorts");
 
   const seenNames = new Set<string>();
   const seenCodes = new Map<string, string>(); // code → first row id
@@ -112,12 +119,18 @@ const validateRows = (rows: ReadonlyArray<Row>): ValidationResult => {
     if (!PORT_NAME_RE.test(name)) {
       rowErrors.set(
         row.id,
-        "Nom invalide (lettres minuscules, chiffres, _ ou -, max 32).",
+        t("template.shellExecExitCodes.errors.invalidName"),
       );
     } else if (RESERVED_PORT_NAMES.has(name)) {
-      rowErrors.set(row.id, `"${name}" est réservé (stdout / stderr).`);
+      rowErrors.set(
+        row.id,
+        t("template.shellExecExitCodes.errors.reservedName", { name }),
+      );
     } else if (seenNames.has(name)) {
-      rowErrors.set(row.id, `Nom "${name}" déjà utilisé.`);
+      rowErrors.set(
+        row.id,
+        t("template.shellExecExitCodes.errors.duplicateName", { name }),
+      );
     } else {
       seenNames.add(name);
     }
@@ -127,7 +140,7 @@ const validateRows = (rows: ReadonlyArray<Row>): ValidationResult => {
       continue;
     }
 
-    const { values, errors } = parseCodesCell(row.codesText);
+    const { values, errors } = parseCodesCell(row.codesText, t);
     if (errors.length > 0) {
       const existing = rowErrors.get(row.id);
       rowErrors.set(row.id, existing ?? errors.join(" — "));
@@ -135,7 +148,10 @@ const validateRows = (rows: ReadonlyArray<Row>): ValidationResult => {
     }
     if (values.length === 0) {
       if (!rowErrors.has(row.id)) {
-        rowErrors.set(row.id, "Au moins un exit code requis.");
+        rowErrors.set(
+          row.id,
+          t("template.shellExecExitCodes.errors.minCodes"),
+        );
       }
       continue;
     }
@@ -143,7 +159,9 @@ const validateRows = (rows: ReadonlyArray<Row>): ValidationResult => {
       const key = String(v);
       const prior = seenCodes.get(key);
       if (prior !== undefined && prior !== row.id) {
-        const msg = `Code ${key} déjà mappé sur un autre port.`;
+        const msg = t("template.shellExecExitCodes.errors.codeMappedElsewhere", {
+          code: key,
+        });
         if (!rowErrors.has(row.id)) rowErrors.set(row.id, msg);
       } else {
         seenCodes.set(key, row.id);
@@ -152,9 +170,10 @@ const validateRows = (rows: ReadonlyArray<Row>): ValidationResult => {
   }
 
   if (catchAllCount === 0) {
-    globalError = globalError ?? "Un port catch-all (★) est obligatoire.";
+    globalError =
+      globalError ?? t("template.shellExecExitCodes.errors.catchAllRequired");
   } else if (catchAllCount > 1) {
-    globalError = "Un seul catch-all autorisé.";
+    globalError = t("template.shellExecExitCodes.errors.singleCatchAll");
   }
 
   if (rowErrors.size > 0 || globalError) {
@@ -167,13 +186,14 @@ const validateRows = (rows: ReadonlyArray<Row>): ValidationResult => {
     if (row.isCatchAll) {
       out[name] = "*";
     } else {
-      out[name] = parseCodesCell(row.codesText).values;
+      out[name] = parseCodesCell(row.codesText, t).values;
     }
   }
   return { kind: "ok", config: out };
 };
 
 const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
+  const t = useT();
   const headingId = useId();
   const [rows, setRows] = useState<Row[]>(() => configToRows(value));
 
@@ -181,7 +201,7 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
   // raw input; `onChange` fires only when validation passes — invalid edits
   // stay visible in the UI without writing a broken config to the step.
   useEffect(() => {
-    const result = validateRows(rows);
+    const result = validateRows(rows, t);
     if (result.kind === "ok") {
       onChange(result.config);
     }
@@ -190,7 +210,7 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
 
-  const validation = useMemo(() => validateRows(rows), [rows]);
+  const validation = useMemo(() => validateRows(rows, t), [rows, t]);
 
   const setRow = (id: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -230,10 +250,10 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th className="w-8 px-2 py-1.5 text-center font-medium">★</th>
-              <th className="px-2 py-1.5 text-left font-medium">Port</th>
-              <th className="px-2 py-1.5 text-left font-medium">Exit codes</th>
-              <th className="w-8 px-2 py-1.5" aria-label="Actions" />
+              <th className="w-8 px-2 py-1.5 text-center font-medium">{t("template.shellExecExitCodes.catchAllSymbol")}</th>
+              <th className="px-2 py-1.5 text-left font-medium">{t("template.shellExecExitCodes.portHeader")}</th>
+              <th className="px-2 py-1.5 text-left font-medium">{t("template.shellExecExitCodes.exitCodesHeader")}</th>
+              <th className="w-8 px-2 py-1.5" aria-label={t("template.shellExecExitCodes.actionsHeader")} />
             </tr>
           </thead>
           <tbody>
@@ -253,14 +273,14 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
                       name="shell-exec-exit-codes-catchall"
                       checked={row.isCatchAll}
                       onChange={() => promoteCatchAll(row.id)}
-                      aria-label="Définir ce port comme catch-all"
+                      aria-label={t("template.shellExecExitCodes.setCatchAll")}
                     />
                   </td>
                   <td className="px-2 py-1 align-middle">
                     <Input
                       className="h-7 font-mono"
                       value={row.name}
-                      placeholder="ok"
+                      placeholder={t("template.shellExecExitCodes.portNamePlaceholder")}
                       onChange={(e) =>
                         setRow(row.id, { name: e.target.value })
                       }
@@ -269,13 +289,13 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
                   <td className="px-2 py-1 align-middle">
                     {row.isCatchAll ? (
                       <span className="text-xs italic text-muted-foreground">
-                        catch-all (tout exit code non listé)
+                        {t("template.shellExecExitCodes.catchAllLabel")}
                       </span>
                     ) : (
                       <Input
                         className="h-7 font-mono"
                         value={row.codesText}
-                        placeholder="0, 1, timeout"
+                        placeholder={t("template.shellExecExitCodes.codesPlaceholder")}
                         onChange={(e) =>
                           setRow(row.id, { codesText: e.target.value })
                         }
@@ -289,7 +309,7 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
                       size="icon-xs"
                       onClick={() => removeRow(row.id)}
                       disabled={rows.length <= 2}
-                      aria-label="Supprimer le port"
+                      aria-label={t("template.shellExecExitCodes.removePort")}
                     >
                       <Trash2 />
                     </Button>
@@ -302,14 +322,8 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
       </div>
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-          <span>
-            Conventions usuelles : <code>ls</code> = 0/1/2,{" "}
-            <code>grep</code> = 0/1/2, <code>diff</code> = 0/1/2.
-          </span>
-          <span>
-            Séparer plusieurs codes par une virgule. Le token{" "}
-            <code>timeout</code> est autorisé.
-          </span>
+          <span>{t("template.shellExecExitCodes.conventions")}</span>
+          <span>{t("template.shellExecExitCodes.separator")}</span>
         </div>
         <Button
           type="button"
@@ -318,7 +332,7 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
           onClick={addRow}
         >
           <Plus />
-          Ajouter un port
+          {t("template.shellExecExitCodes.addPort")}
         </Button>
       </div>
       {globalError ? (
@@ -326,7 +340,7 @@ const ShellExecExitCodeEditor = ({ value, onChange }: Props) => {
       ) : null}
       {rowErrors.size > 0 && !globalError ? (
         <Callout tone="warning">
-          Corriger les lignes en rouge pour appliquer le mapping.
+          {t("template.shellExecExitCodes.fixRowsHint")}
         </Callout>
       ) : null}
     </div>

@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { RUN_STATUS_LABEL } from "@/components/ui/step-status";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 import type { InstanceStatus } from "../../../domain/workflow/types";
 import { formatRelative } from "../schedules/format-relative";
 import RunStatusGlyph from "../runs/RunStatusGlyph";
@@ -25,6 +26,7 @@ type Props = {
 };
 
 const OverviewRunCard = ({ card, now, onOpen }: Props) => {
+  const t = useT();
   const { instance, templateName } = card;
   return (
     <div
@@ -43,13 +45,16 @@ const OverviewRunCard = ({ card, now, onOpen }: Props) => {
       <div className="text-xs font-medium leading-snug">
         {templateName ?? (
           <span className="text-muted-foreground italic">
-            (template inconnu)
+            {t("overview.runCard.unknownTemplate")}
           </span>
         )}
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        #{instance.id.slice(0, 8)} · {instance.stepCount} étapes ·{" "}
-        {formatRelative(instance.updatedAt, now)}
+        {t("overview.runCard.meta", {
+          id: instance.id.slice(0, 8),
+          stepCount: instance.stepCount,
+          relative: formatRelative(instance.updatedAt, now),
+        })}
       </p>
     </div>
   );

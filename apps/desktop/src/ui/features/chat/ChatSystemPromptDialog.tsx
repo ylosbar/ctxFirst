@@ -12,6 +12,7 @@
  * ChatActivityView / ChatConversation), non migrée i18next.
  */
 import { useCallback, useEffect, useState } from "react";
+import { useT } from "@/ui/i18n";
 import { Dialog } from "@base-ui/react/dialog";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
 import Button from "@/components/ui/button";
@@ -29,6 +30,7 @@ type Props = {
 };
 
 const ChatSystemPromptDialog = ({ open, onOpenChange }: Props) => {
+  const t = useT();
   const { settingsGateway } = useServices();
   const [payload, setPayload] = useState<ChatSystemPrompt | null>(null);
   const [draft, setDraft] = useState("");
@@ -106,11 +108,12 @@ const ChatSystemPromptDialog = ({ open, onOpenChange }: Props) => {
           <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
             <div>
               <Dialog.Title className="text-sm font-semibold text-foreground">
-                Prompt système du chat
+                {t("chat.chatSystemPromptDialog.title")}
               </Dialog.Title>
               <p className="mt-1 text-xs text-muted-foreground">
-                Appliqué aux <span className="font-medium">nouvelles</span>{" "}
-                conversations. La conversation courante n'est pas affectée.
+                {t("chat.chatSystemPromptDialog.descriptionPrefix")}{" "}
+                <span className="font-medium">{t("chat.chatSystemPromptDialog.descriptionNew")}</span>{" "}
+                {t("chat.chatSystemPromptDialog.descriptionSuffix")}
               </p>
             </div>
             <Dialog.Close
@@ -118,7 +121,7 @@ const ChatSystemPromptDialog = ({ open, onOpenChange }: Props) => {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Fermer"
+                  aria-label={t("common.close")}
                   className="shrink-0"
                 >
                   <X className="size-4" />
@@ -130,7 +133,7 @@ const ChatSystemPromptDialog = ({ open, onOpenChange }: Props) => {
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
             {loading ? (
               <div className="py-8 text-center text-xs text-muted-foreground">
-                Chargement…
+                {t("common.loading")}
               </div>
             ) : payload ? (
               <>
@@ -148,7 +151,9 @@ const ChatSystemPromptDialog = ({ open, onOpenChange }: Props) => {
                   )}
                   title={
                     overLimit
-                      ? `Au-delà de ${maxChars} caractères, la valeur sera tronquée à l'enregistrement.`
+                      ? t("chat.chatSystemPromptDialog.overLimitTitle", {
+                          max: maxChars,
+                        })
                       : undefined
                   }
                 >
@@ -176,15 +181,15 @@ const ChatSystemPromptDialog = ({ open, onOpenChange }: Props) => {
               size="sm"
               onClick={handleReset}
               disabled={!payload || loading || saving}
-              title="Restaurer le préambule par défaut"
+              title={t("chat.chatSystemPromptDialog.resetTitle")}
             >
-              Réinitialiser au défaut
+              {t("chat.chatSystemPromptDialog.reset")}
             </Button>
             <div className="flex items-center gap-2">
               <Dialog.Close
                 render={
                   <Button variant="outline" size="sm" disabled={saving}>
-                    Annuler
+                    {t("common.cancel")}
                   </Button>
                 }
               />
@@ -194,7 +199,7 @@ const ChatSystemPromptDialog = ({ open, onOpenChange }: Props) => {
                 onClick={() => void handleSave()}
                 disabled={!payload || loading || saving}
               >
-                {saving ? "Enregistrement…" : "Enregistrer"}
+                {saving ? t("chat.chatSystemPromptDialog.saving") : t("common.save")}
               </Button>
             </div>
           </div>
@@ -219,7 +224,9 @@ const ToolsSectionPreview = ({
   toolsSection,
   open,
   onToggle,
-}: ToolsSectionPreviewProps) => (
+}: ToolsSectionPreviewProps) => {
+  const t = useT();
+  return (
   <div className="rounded-md border border-border bg-muted/30">
     <button
       type="button"
@@ -232,7 +239,7 @@ const ToolsSectionPreview = ({
       ) : (
         <ChevronRight className="size-3.5" />
       )}
-      <span>Section tools (ajoutée automatiquement)</span>
+      <span>{t("chat.chatSystemPromptDialog.toolsSection")}</span>
     </button>
     {open ? (
       <pre className="border-t border-border bg-background/40 px-3 py-2 text-2xs leading-relaxed text-muted-foreground whitespace-pre-wrap font-mono">
@@ -240,7 +247,8 @@ const ToolsSectionPreview = ({
       </pre>
     ) : null}
   </div>
-);
+  );
+};
 
 export default ChatSystemPromptDialog;
 

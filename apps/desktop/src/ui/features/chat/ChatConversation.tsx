@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useT } from "@/ui/i18n";
 import { Send, Settings2, Square } from "lucide-react";
 import Button from "@/components/ui/button";
 import Textarea from "@/components/ui/textarea";
@@ -33,6 +34,7 @@ type ChatConversationProps = {
 };
 
 const ChatConversation = ({ sessionId }: ChatConversationProps) => {
+  const t = useT();
   const { chatGateway, settingsGateway } = useServices();
   const {
     session,
@@ -150,12 +152,12 @@ const ChatConversation = ({ sessionId }: ChatConversationProps) => {
           <EmptyState
             title={
               <span className="inline-block animate-in fade-in-0 slide-in-from-bottom-1 duration-700">
-                Démarre la conversation
+                {t("chat.chatConversation.emptyTitle")}
               </span>
             }
             description={
               <span className="inline-block animate-in fade-in-0 slide-in-from-bottom-1 duration-700 delay-200">
-                {`Modèle : ${session?.model ?? "—"}`}
+                {t("chat.chatConversation.emptyModel", { model: session?.model ?? "—" })}
               </span>
             }
             className="flex-1"
@@ -194,7 +196,7 @@ const ChatConversation = ({ sessionId }: ChatConversationProps) => {
                     <ChatToolRow
                       key={`tr:${item.toolCallId}`}
                       toolCallId={item.toolCallId}
-                      name="(résultat orphelin)"
+                      name={t("chat.chatConversation.orphanResult")}
                       input={undefined}
                       status={item.isError ? "errored" : "completed"}
                       result={{ content: item.content, isError: item.isError }}
@@ -234,8 +236,8 @@ const ChatConversation = ({ sessionId }: ChatConversationProps) => {
             variant="ghost"
             size="icon-xs"
             onClick={() => setPromptDialogOpen(true)}
-            title="Prompt système — appliqué aux nouvelles conversations"
-            aria-label="Prompt système"
+            title={t("chat.chatConversation.systemPromptTitle")}
+            aria-label={t("chat.chatConversation.systemPromptLabel")}
           >
             <Settings2 />
           </Button>
@@ -245,7 +247,7 @@ const ChatConversation = ({ sessionId }: ChatConversationProps) => {
               value={currentModelId}
               onChange={(e) => void handleModelChange(e.target.value)}
               disabled={isStreaming || availableModels.length === 0}
-              title="Modèle utilisé pour la suite de la conversation"
+              title={t("chat.chatConversation.modelSelectTitle")}
               className="w-auto min-w-0 max-w-[60%] truncate font-mono"
             >
               {availableModels.map((m) => (
@@ -261,13 +263,13 @@ const ChatConversation = ({ sessionId }: ChatConversationProps) => {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Pose une question…"
+            placeholder={t("chat.chatConversation.inputPlaceholder")}
             className="min-h-10 max-h-40"
             size="sm"
             disabled={isStreaming}
           />
           {isStreaming ? (
-            <Button variant="outline" size="icon-sm" onClick={() => void abort()} title="Stop">
+            <Button variant="outline" size="icon-sm" onClick={() => void abort()} title={t("chat.chatConversation.stopTitle")}>
               <Square />
             </Button>
           ) : (
@@ -276,7 +278,7 @@ const ChatConversation = ({ sessionId }: ChatConversationProps) => {
               size="icon-sm"
               onClick={() => void handleSend()}
               disabled={!draft.trim()}
-              title="Envoyer (Entrée)"
+              title={t("chat.chatConversation.sendTitle")}
             >
               <Send />
             </Button>

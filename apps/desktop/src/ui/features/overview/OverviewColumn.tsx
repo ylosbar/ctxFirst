@@ -1,6 +1,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RUN_STATUS_STYLE } from "@/components/ui/step-status";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 import type { OverviewCard, OverviewColumn as Column } from "./overview-types";
 import type { OverviewColumnId } from "./overview-types";
 import OverviewRunCard from "./OverviewRunCard";
@@ -26,6 +27,7 @@ type Props = {
 };
 
 const OverviewColumn = ({ column, now, onOpenCard }: Props) => {
+  const t = useT();
   return (
     <div className="flex max-h-full w-72 shrink-0 flex-col rounded-lg border border-border bg-muted/40">
       <div className="flex items-center gap-2 px-2.5 py-2">
@@ -43,7 +45,7 @@ const OverviewColumn = ({ column, now, onOpenCard }: Props) => {
       <ScrollArea className="flex min-h-0 flex-1 flex-col gap-2 p-2">
         {column.cards.length === 0 ? (
           <div className="flex min-h-[60px] items-center justify-center rounded-md border border-dashed border-border text-[11px] text-muted-foreground">
-            Aucune carte
+            {t("overview.column.empty")}
           </div>
         ) : (
           column.cards.map((card) =>
@@ -66,7 +68,7 @@ const OverviewColumn = ({ column, now, onOpenCard }: Props) => {
         )}
         {column.overflowCount > 0 ? (
           <p className="px-1 py-1 text-center text-[11px] text-muted-foreground">
-            +{column.overflowCount} de plus
+            {t("overview.column.overflow", { count: column.overflowCount })}
           </p>
         ) : null}
       </ScrollArea>

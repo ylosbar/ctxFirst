@@ -2,6 +2,7 @@ import { LayoutGrid } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useT } from "../../i18n";
 import useInstanceList from "../../hooks/useInstanceList";
 import useSchedules from "../../hooks/useSchedules";
 import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
@@ -26,6 +27,7 @@ const toggle = <T,>(set: ReadonlySet<T>, value: T): Set<T> => {
 };
 
 const OverviewEditor = () => {
+  const t = useT();
   const { instances, loading: runsLoading, error: runsError } =
     useInstanceList("");
   const { schedules } = useSchedules();
@@ -97,7 +99,7 @@ const OverviewEditor = () => {
       <div className="flex h-full min-w-0 flex-col">
         <EmptyState
           icon={<LayoutGrid className="size-8 animate-pulse" />}
-          title="Chargement…"
+          title={t("common.loading")}
         />
       </div>
     );
@@ -108,7 +110,7 @@ const OverviewEditor = () => {
       <div className="flex h-full min-w-0 flex-col">
         <EmptyState
           icon={<LayoutGrid className="size-8" />}
-          title="Impossible de charger l'overview"
+          title={t("overview.editor.loadError")}
           description={runsError}
         />
       </div>
@@ -119,9 +121,12 @@ const OverviewEditor = () => {
     <div className="flex h-full min-w-0 flex-col">
       <div className="flex items-center gap-2 px-3 pt-3 text-sm font-medium">
         <LayoutGrid className="size-4" />
-        Overview
+        {t("overview.editor.title")}
         <span className="text-xs font-normal text-muted-foreground">
-          {instances.length} runs · {scheduledCount} planifiés
+          {t("overview.editor.subtitle", {
+            count: instances.length,
+            scheduledCount,
+          })}
         </span>
       </div>
       <OverviewFilterBar

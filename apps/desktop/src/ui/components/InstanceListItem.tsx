@@ -8,6 +8,7 @@ import {
 import { RUN_STATUS_STYLE } from "@/components/ui/step-status";
 import { cn } from "@/lib/utils";
 import type { InstanceSummaryView } from "../../domain/workflow/types";
+import { useT } from "../i18n";
 
 const formatRelative = (iso: string): string => {
   const then = new Date(iso).getTime();
@@ -40,6 +41,7 @@ const InstanceListItem = ({
   onPick,
   trailing,
 }: InstanceListItemProps) => {
+  const t = useT();
   const style = RUN_STATUS_STYLE[instance.status];
   return (
     <div
@@ -88,12 +90,12 @@ const InstanceListItem = ({
                 <TooltipTrigger
                   render={
                     <span
-                      aria-label="Ouvert"
+                      aria-label={t("components.instanceListItem.open")}
                       className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/70"
                     />
                   }
                 />
-                <TooltipContent>Ouvert</TooltipContent>
+                <TooltipContent>{t("components.instanceListItem.open")}</TooltipContent>
               </Tooltip>
             ) : null}
             {isPinned ? (
@@ -105,7 +107,7 @@ const InstanceListItem = ({
               {instance.id.slice(0, 6)}
             </span>
             <span aria-hidden className="text-muted-foreground/30">
-              ·
+              {t("components.instanceListItem.separator")}
             </span>
             <span className="shrink-0 tabular-nums">
               {formatRelative(instance.updatedAt)}
@@ -113,11 +115,10 @@ const InstanceListItem = ({
             {instance.stepCount > 0 ? (
               <>
                 <span aria-hidden className="text-muted-foreground/30">
-                  ·
+                  {t("components.instanceListItem.separator")}
                 </span>
                 <span className="shrink-0 tabular-nums">
-                  {instance.stepCount} étape
-                  {instance.stepCount > 1 ? "s" : ""}
+                  {t("components.instanceListItem.stepCount", { count: instance.stepCount })}
                 </span>
               </>
             ) : null}

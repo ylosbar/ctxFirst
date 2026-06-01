@@ -1,6 +1,7 @@
 import { Badge } from "../../components/ui/badge";
 import { totalTokens, type Usage } from "../../domain/chat";
 import { cn } from "@/lib/utils";
+import { useT } from "../i18n";
 
 const formatTokens = (n: number): string => {
   if (n < 1000) return String(n);
@@ -17,6 +18,7 @@ const UsageBadge = ({
   label?: string;
   className?: string;
 }) => {
+  const t = useT();
   const total = totalTokens(usage);
   const cache = (usage.cacheCreate ?? 0) + (usage.cacheRead ?? 0);
   const detail = cache > 0
@@ -31,7 +33,7 @@ const UsageBadge = ({
       className={cn("text-muted-foreground", className)}
     >
       {label && <span>{label}</span>}
-      <span>{formatTokens(total)} tok</span>
+      <span>{t("components.usageBadge.tokens", { tokens: formatTokens(total) })}</span>
     </Badge>
   );
 };

@@ -26,6 +26,8 @@ export default tseslint.config(
       "**/.vite/**",
       "**/.turbo/**",
       "apps/docs/**",
+      ".claude/worktrees/**",
+      "private/**",
     ],
   },
 

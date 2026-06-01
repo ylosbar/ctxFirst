@@ -11,6 +11,7 @@ import type {
   ScheduleDraftView,
   ScheduleView,
 } from "../../../domain/workflow/types";
+import { useT } from "../../i18n";
 import useSchedules from "../../hooks/useSchedules";
 import ExplorerSection from "../explorer/ExplorerSection";
 import { useTickingNow } from "../runs/useTickingNow";
@@ -37,6 +38,7 @@ type Group = {
 };
 
 const SchedulesView = () => {
+  const t = useT();
   const navigate = useNavigate();
   const {
     schedules,
@@ -56,8 +58,11 @@ const SchedulesView = () => {
   const [rawQuery, setRawQuery] = useState("");
   const [query, setQuery] = useState("");
   useEffect(() => {
-    const t = window.setTimeout(() => setQuery(rawQuery), SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(
+      () => setQuery(rawQuery),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(timer);
   }, [rawQuery]);
 
   const hasActive = useMemo(
@@ -89,7 +94,9 @@ const SchedulesView = () => {
       await save(draft);
       closeDialog();
       toast.success(
-        editing ? "Planification mise à jour" : "Planification créée",
+        editing
+          ? t("schedules.view.toastUpdated")
+          : t("schedules.view.toastCreated"),
       );
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));
@@ -97,18 +104,14 @@ const SchedulesView = () => {
   };
 
   const handleDelete = async (s: ScheduleView) => {
-    if (
-      !window.confirm(
-        `Supprimer la planification « ${s.name} » ?\nCette action est irréversible.`,
-      )
-    ) {
+    if (!window.confirm(t("schedules.view.deleteConfirm", { name: s.name }))) {
       return;
     }
     try {
       await remove(s.id);
-      toast.success("Planification supprimée");
+      toast.success(t("schedules.view.toastDeleted"));
     } catch (e) {
-      toast.error("Suppression impossible", {
+      toast.error(t("schedules.view.toastDeleteError"), {
         description: e instanceof Error ? e.message : String(e),
       });
     }
@@ -118,7 +121,7 @@ const SchedulesView = () => {
     try {
       await setEnabled(s.id, !s.enabled);
     } catch (e) {
-      toast.error("Mise à jour impossible", {
+      toast.error(t("schedules.view.toastToggleError"), {
         description: e instanceof Error ? e.message : String(e),
       });
     }
@@ -141,10 +144,14 @@ const SchedulesView = () => {
       .slice()
       .sort(sortByName);
     return [
-      { id: "active", label: "Actives", items: active },
-      { id: "disabled", label: "Désactivées", items: disabled },
+      { id: "active", label: t("schedules.view.groupActive"), items: active },
+      {
+        id: "disabled",
+        label: t("schedules.view.groupDisabled"),
+        items: disabled,
+      },
     ];
-  }, [schedules, query]);
+  }, [schedules, query, t]);
 
   const hasQuery = query.trim().length > 0;
   const totalCount = schedules.length;
@@ -158,7 +165,7 @@ const SchedulesView = () => {
       <div className="flex items-center gap-1.5 px-3 pb-2 pt-2">
         <div className="min-w-0 flex-1">
           <SearchInput
-            placeholder="Rechercher…"
+            placeholder={t("schedules.view.searchPlaceholder")}
             value={rawQuery}
             onChange={(e) => setRawQuery(e.target.value)}
           />
@@ -168,8 +175,8 @@ const SchedulesView = () => {
           variant="ghost"
           size="icon-sm"
           onClick={openCreate}
-          aria-label="Nouvelle planification"
-          title="Nouvelle planification"
+          aria-label={t("schedules.view.create")}
+          title={t("schedules.view.create")}
         >
           <Plus className="size-4" />
         </Button>
@@ -191,12 +198,12 @@ const SchedulesView = () => {
         ) : totalCount === 0 ? (
           <EmptyState
             icon={<Calendar />}
-            title="Aucune planification"
-            description="Crée-en une pour déclencher un workflow automatiquement."
+            title={t("schedules.view.emptyTitle")}
+            description={t("schedules.view.emptyDescription")}
             actions={
               <Button size="sm" variant="outline" onClick={openCreate}>
                 <Plus className="size-3.5" />
-                Nouvelle planification
+                {t("schedules.view.create")}
               </Button>
             }
           />
@@ -205,7 +212,9 @@ const SchedulesView = () => {
           <EmptyState
             size="sm"
             fill={false}
-            description={`Aucune planification pour « ${query.trim()} »`}
+            description={t("schedules.view.emptySearch", {
+              query: query.trim(),
+            })}
           />
         ) : (
           groups.map((group) =>
@@ -263,11 +272,11 @@ const SchedulesView = () => {
           ) : (
             <CalendarOff className="size-3 shrink-0" aria-hidden />
           )}
-          {totalCount} planification{totalCount > 1 ? "s" : ""}
+          {t("schedules.view.totalCount", { count: totalCount })}
         </span>
         {totalCount > 0 ? (
           <span className="tabular-nums">
-            {activeCount} active{activeCount > 1 ? "s" : ""}
+            {t("schedules.view.activeCount", { count: activeCount })}
           </span>
         ) : null}
       </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { Button } from "../../components/ui/button";
+import { useT } from "../i18n";
 import {
   EmptyState,
   LoadingState,
@@ -51,6 +52,7 @@ const getEntrySeedKind = (
 };
 
 const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
+  const t = useT();
   const services = useServices();
   const specs = useNodeSpecs();
   const published = useMemo(
@@ -150,7 +152,7 @@ const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
             onClick={onPickCwd}
             disabled={busy}
           >
-            Parcourir…
+            {t("components.workflowStartForm.browse")}
           </Button>
           {cwd ? (
             <Button
@@ -160,7 +162,7 @@ const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
               onClick={() => setCwd("")}
               disabled={busy}
             >
-              Effacer
+              {t("components.workflowStartForm.clear")}
             </Button>
           ) : null}
         </div>

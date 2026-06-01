@@ -1,6 +1,7 @@
 import type { Task } from "../../domain/task";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useT } from "../i18n";
 
 const TaskList = ({
   tasks,
@@ -11,6 +12,7 @@ const TaskList = ({
   selectedId: string | null;
   onSelect: (task: Task) => void;
 }) => {
+  const t = useT();
   return (
     <ul className="m-0 list-none p-0">
       {tasks.map((task) => {
@@ -37,7 +39,7 @@ const TaskList = ({
             </p>
             {subCount > 0 && (
               <Badge variant="secondary" className="mt-1.5">
-                {subCount} subtask{subCount > 1 ? "s" : ""}
+                {t("components.taskList.subtaskCount", { count: subCount })}
               </Badge>
             )}
           </li>

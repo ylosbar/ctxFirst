@@ -14,8 +14,10 @@ import {
   useTheme,
   useThemeVariant,
 } from "../stores/appearance-store";
+import { useT } from "../i18n";
 
 const ThemeToggle = () => {
+  const t = useT();
   const theme = useTheme();
   const variant = useThemeVariant();
   const setTheme = useSetTheme();
@@ -42,7 +44,7 @@ const ThemeToggle = () => {
             </MenuPrimitive.Trigger>
           }
         />
-        <TooltipContent>Theme</TooltipContent>
+        <TooltipContent>{t("components.themeToggle.title")}</TooltipContent>
       </Tooltip>
       <MenuPrimitive.Portal>
         <MenuPrimitive.Positioner side="right" sideOffset={8} align="end" className="z-50">
@@ -58,7 +60,7 @@ const ThemeToggle = () => {
             <MenuPrimitive.Group>
               <MenuPrimitive.GroupLabel className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 <Palette className="size-3.5" />
-                Theme
+                {t("components.themeToggle.title")}
               </MenuPrimitive.GroupLabel>
               {THEMES.map((t) => {
                 const selected = t.id === theme;

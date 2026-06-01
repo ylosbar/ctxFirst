@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useT } from "../../i18n";
 import type {
   NodeSpecView,
   PortKindMatcher,
@@ -103,6 +104,7 @@ const subWorkflowLabel = (config: Readonly<Record<string, unknown>>): string => 
 };
 
 const StepNode = ({ data, selected }: NodeProps) => {
+  const t = useT();
   const step = data as unknown as StepNodeData;
   const meta = getKindMeta(step.kind);
   const KindIcon = iconForKind(step.kind);
@@ -192,14 +194,14 @@ const StepNode = ({ data, selected }: NodeProps) => {
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-center gap-1">
             <span className="flex-1 truncate text-2xs font-medium leading-tight">
-              {step.name || "(sans nom)"}
+              {step.name || t("template.canvas.stepNode.unnamed")}
             </span>
             {step.humanGateRequired ? (
               <Badge
                 variant="secondary"
                 className="h-3.5 px-1 text-2xs leading-none"
               >
-                gate
+                {t("template.canvas.stepNode.gateBadge")}
               </Badge>
             ) : null}
             {isAwaitingHuman ? (
@@ -214,7 +216,7 @@ const StepNode = ({ data, selected }: NodeProps) => {
                     </Badge>
                   }
                 />
-                <TooltipContent>En attente de validation humaine</TooltipContent>
+                <TooltipContent>{t("template.canvas.stepNode.awaitingHuman")}</TooltipContent>
               </Tooltip>
             ) : null}
             {overlay && overlay.iterationCount > 1 ? (
@@ -229,7 +231,7 @@ const StepNode = ({ data, selected }: NodeProps) => {
                     </Badge>
                   }
                 />
-                <TooltipContent>{`${overlay.iterationCount} exécutions`}</TooltipContent>
+                <TooltipContent>{t("template.canvas.stepNode.executions", { count: overlay.iterationCount })}</TooltipContent>
               </Tooltip>
             ) : null}
           </div>
@@ -249,11 +251,11 @@ const StepNode = ({ data, selected }: NodeProps) => {
                 type="target"
                 position={Position.Left}
                 style={{ ...portHandleStyle(["*"]), left: -4 }}
-                title="passthrough (déclenchable depuis un node side-effect)"
-                aria-label="passthrough target"
+                title={t("template.canvas.stepNode.passthroughTargetTooltip")}
+                aria-label={t("template.canvas.stepNode.passthroughTargetAria")}
               />
               <span className="truncate text-2xs italic text-muted-foreground/60">
-                passthrough
+                {t("template.canvas.stepNode.passthrough")}
               </span>
             </div>
           ) : (
@@ -294,7 +296,7 @@ const StepNode = ({ data, selected }: NodeProps) => {
                       <span className="text-muted-foreground/60">?</span>
                     ) : null}
                     {port.isList ? (
-                      <span className="text-muted-foreground/60">[…]</span>
+                      <span className="text-muted-foreground/60">{t("template.canvas.stepNode.listMarker")}</span>
                     ) : null}
                   </span>
                   {readsFromVar ? (
@@ -313,14 +315,14 @@ const StepNode = ({ data, selected }: NodeProps) => {
             {hasPassthroughHandle ? (
               <div className="relative flex h-4 items-center justify-end px-2.5">
                 <span className="truncate text-2xs italic text-muted-foreground/60">
-                  passthrough
+                  {t("template.canvas.stepNode.passthrough")}
                 </span>
                 <Handle
                   type="source"
                   position={Position.Right}
                   style={{ ...portHandleStyle(["*"]), right: -4 }}
-                  title="passthrough (aucun artifact — déclenche l'étape suivante)"
-                  aria-label="passthrough source"
+                  title={t("template.canvas.stepNode.passthroughSourceTooltip")}
+                  aria-label={t("template.canvas.stepNode.passthroughSourceAria")}
                 />
               </div>
             ) : (

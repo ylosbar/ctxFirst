@@ -1,4 +1,5 @@
 import { Trash2 } from "lucide-react";
+import { useT } from "@/ui/i18n";
 import Button from "@/components/ui/button";
 import EmptyState from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -28,8 +29,9 @@ const ChatSessionList = ({
   onSelect,
   onDelete,
 }: ChatSessionListProps) => {
+  const t = useT();
   if (sessions.length === 0) {
-    return <EmptyState description="Aucune conversation pour l'instant." />;
+    return <EmptyState description={t("chat.chatSessionList.empty")} />;
   }
   return (
     <ul className="flex flex-col">
@@ -48,7 +50,7 @@ const ChatSessionList = ({
             >
               <span className="w-full truncate font-medium">{s.title}</span>
               <span className="w-full truncate text-xs text-muted-foreground">
-                {formatDate(s.createdAt)} · {s.model}
+                {t("chat.chatSessionList.sessionMeta", { date: formatDate(s.createdAt), model: s.model })}
               </span>
             </button>
             <Button
@@ -58,7 +60,7 @@ const ChatSessionList = ({
                 e.stopPropagation();
                 onDelete(s.id);
               }}
-              title="Supprimer cette conversation"
+              title={t("chat.chatSessionList.deleteTitle")}
               className="opacity-0 group-hover:opacity-100"
             >
               <Trash2 />

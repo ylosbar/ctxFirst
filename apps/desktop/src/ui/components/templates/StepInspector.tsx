@@ -131,10 +131,13 @@ const StepInspector = ({
     const current = (config["path"] as string | undefined) ?? "";
     const picked = await services.pickFile({
       defaultPath: current || undefined,
-      title: "Choisir un fichier Markdown",
+      title: t("template.stepInspector.markdownPicker.title"),
       filters: [
         { name: "Markdown", extensions: ["md", "markdown", "mdx"] },
-        { name: "Tous les fichiers", extensions: ["*"] },
+        {
+          name: t("template.stepInspector.markdownPicker.allFiles"),
+          extensions: ["*"],
+        },
       ],
     });
     if (picked) setConfig({ path: picked });
@@ -189,8 +192,8 @@ const StepInspector = ({
               <FormField
                 label={
                   polymorphism.kind === "outputKind"
-                    ? "Artifact en sortie"
-                    : "Artifact attendu en entrée"
+                    ? t("template.stepInspector.polymorphism.outputKindLabel")
+                    : t("template.stepInspector.polymorphism.inputKindLabel")
                 }
                 description={t("template.stepInspector.polymorphism.description")}
               >
@@ -651,7 +654,7 @@ const StepInspector = ({
                 onCheckedChange={(v) => {
                   if (v) {
                     setConfig({
-                      exitCodes: { ok: [0], other: "*" } as ExitCodesConfig,
+                      exitCodes: { ok: [0], other: "*" },
                     });
                   } else {
                     setConfig({ exitCodes: undefined });
@@ -721,7 +724,9 @@ const StepInspector = ({
               }}
             >
               <option value="">
-                {skillsLoading ? "— chargement…" : "— choisir une skill —"}
+                {skillsLoading
+                  ? t("template.stepInspector.skillLoader.loading")
+                  : t("template.stepInspector.skillLoader.choose")}
               </option>
               {skills.map((s) => (
                 <option key={s.ref} value={s.ref}>
@@ -1101,10 +1106,10 @@ const StepHeader = ({
 
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
           <Input
-            aria-label="Nom de l'étape"
+            aria-label={t("template.stepInspector.header.nameAriaLabel")}
             className="h-7 border-transparent bg-transparent px-1.5 text-sm font-semibold shadow-none hover:border-input"
             value={step.name}
-            placeholder="Nom de l'étape"
+            placeholder={t("template.stepInspector.header.namePlaceholder")}
             onChange={(e) => onChange({ ...step, name: e.target.value })}
           />
           <span className="px-1.5 text-2xs text-muted-foreground">
@@ -1116,20 +1121,24 @@ const StepHeader = ({
           {onEnterStudio ? (
             <HeaderAction
               icon={FlaskConical}
-              label="Tester la node"
+              label={t("template.stepInspector.header.testNode")}
               onClick={onEnterStudio}
             />
           ) : null}
           <HeaderAction
             icon={LogIn}
-            label={isEntry ? "Déjà le point d'entrée" : "Définir comme entrée"}
+            label={
+              isEntry
+                ? t("template.stepInspector.header.alreadyEntry")
+                : t("template.stepInspector.header.setAsEntry")
+            }
             onClick={onSetEntry}
             disabled={isEntry}
             activeColor={isEntry ? accent : undefined}
           />
           <HeaderAction
             icon={Trash2}
-            label="Supprimer l'étape"
+            label={t("template.stepInspector.header.deleteStep")}
             onClick={onDelete}
             danger
           />
@@ -1159,7 +1168,7 @@ const StepHeader = ({
         </span>
         {isEntry ? (
           <Badge tone="success" size="sm">
-            Entrée
+            {t("template.stepInspector.header.entryBadge")}
           </Badge>
         ) : null}
         <Badge tone="neutral" size="sm">
@@ -1167,7 +1176,7 @@ const StepHeader = ({
         </Badge>
         {step.humanGateRequired ? (
           <Badge tone="warning" size="sm">
-            Validation humaine
+            {t("template.stepInspector.header.humanValidationBadge")}
           </Badge>
         ) : null}
       </div>
@@ -1242,6 +1251,7 @@ const WorkflowCallConfig = ({
   variables,
   onChange,
 }: WorkflowCallConfigProps) => {
+  const t = useT();
   const { templates, loading } = useWorkflowTemplates();
   const workbench = useWorkbench();
 
@@ -1306,16 +1316,18 @@ const WorkflowCallConfig = ({
   return (
     <div className="flex flex-col gap-3">
       <FormField
-        label="Sous-template à inliner"
+        label={t("template.stepInspector.workflowCall.subTemplate.label")}
         description={
           passThrough
-            ? "Le graphe du template choisi est déplié dans ce run au démarrage (workflow.call). Seuls les templates publiés sans interface sont listés : ils sont connectés par le flux de contrôle uniquement, aucune donnée échangée."
-            : "Le graphe du template choisi est déplié dans ce run au démarrage (workflow.call). Seuls les templates publiés ayant une interface (variables input/output) sont listés."
+            ? t("template.stepInspector.workflowCall.subTemplate.descriptionPassThrough")
+            : t("template.stepInspector.workflowCall.subTemplate.description")
         }
       >
         <Select value={pickerValue} onChange={(e) => selectTemplate(e.target.value)}>
           <option value="">
-            {loading ? "Chargement…" : "— choisir un sous-template —"}
+            {loading
+              ? t("template.stepInspector.workflowCall.loading")
+              : t("template.stepInspector.workflowCall.choose")}
           </option>
           {invocable.map((t) => {
             const key = `${t.id}@${t.version}`;
@@ -1330,15 +1342,15 @@ const WorkflowCallConfig = ({
 
       <FormField
         orientation="inline"
-        label="Sous-routine sans interface (passThrough)"
-        description="Le sous-template est inliné comme effet de bord pur, connecté par le flux de contrôle. Aucune donnée échangée — les listes Reads from / Writes to sont masquées."
+        label={t("template.stepInspector.workflowCall.passThrough.label")}
+        description={t("template.stepInspector.workflowCall.passThrough.description")}
       >
         <Checkbox checked={passThrough} onCheckedChange={(v) => togglePassThrough(v === true)} />
       </FormField>
 
       {refKey && !selected ? (
         <p className="text-xs italic text-destructive">
-          Le sous-template {refKey} est introuvable ou n'est plus publié.
+          {t("template.stepInspector.workflowCall.notFound", { refKey })}
         </p>
       ) : null}
 
@@ -1350,13 +1362,13 @@ const WorkflowCallConfig = ({
           onClick={() => workbench.openEditor(templateUriFor(refKey), { focus: true })}
         >
           <ExternalLink className="size-3.5" />
-          Ouvrir le sous-template
+          {t("template.stepInspector.workflowCall.openSub")}
         </Button>
       ) : null}
 
       {!passThrough && inputVars.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <PortGroupLabel>Entrées (input du sous-template)</PortGroupLabel>
+          <PortGroupLabel>{t("template.stepInspector.workflowCall.inputsLabel")}</PortGroupLabel>
           {inputVars.map((iv) => {
             const candidates = variables.filter((v) => v.kind === iv.kind);
             return (
@@ -1365,7 +1377,7 @@ const WorkflowCallConfig = ({
                   value={step.readsFrom?.[iv.name] ?? ""}
                   onChange={(e) => bind("readsFrom", iv.name, e.target.value)}
                 >
-                  <option value="">— lier une variable —</option>
+                  <option value="">{t("template.stepInspector.workflowCall.bindVar")}</option>
                   {candidates.map((v) => (
                     <option key={v.name} value={v.name}>
                       {v.name} ({v.kind})
@@ -1380,7 +1392,7 @@ const WorkflowCallConfig = ({
 
       {!passThrough && outputVars.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <PortGroupLabel>Sorties (output du sous-template)</PortGroupLabel>
+          <PortGroupLabel>{t("template.stepInspector.workflowCall.outputsLabel")}</PortGroupLabel>
           {outputVars.map((ov) => {
             const candidates = variables.filter((v) => v.kind === ov.kind);
             return (
@@ -1389,7 +1401,7 @@ const WorkflowCallConfig = ({
                   value={step.writesTo?.[ov.name] ?? ""}
                   onChange={(e) => bind("writesTo", ov.name, e.target.value)}
                 >
-                  <option value="">— aucune —</option>
+                  <option value="">{t("template.stepInspector.wiring.none")}</option>
                   {candidates.map((v) => (
                     <option key={v.name} value={v.name}>
                       {v.name} ({v.kind})
@@ -1418,6 +1430,7 @@ const PortsWiring = ({
   variables,
   onChange,
 }: PortsWiringProps) => {
+  const t = useT();
   const writeTo = (port: string, variableName: string | "") => {
     const current = { ...(step.writesTo ?? {}) };
     if (variableName === "") {
@@ -1448,7 +1461,7 @@ const PortsWiring = ({
     <div className="flex flex-col gap-3">
       {spec.inputs.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <PortGroupLabel>Entrées</PortGroupLabel>
+          <PortGroupLabel>{t("template.stepInspector.wiring.inputs")}</PortGroupLabel>
           {spec.inputs.map((p) => {
             const candidates = variables.filter(
               (v) => p.kinds.includes("*") || p.kinds.includes(v.kind),
@@ -1465,7 +1478,7 @@ const PortsWiring = ({
                   value={current}
                   onChange={(e) => readFrom(p.name, e.target.value)}
                 >
-                  <option value="">— transition amont —</option>
+                  <option value="">{t("template.stepInspector.wiring.upstreamTransition")}</option>
                   {candidates.map((v) => (
                     <option key={v.name} value={v.name}>
                       {v.name} ({v.kind})
@@ -1480,7 +1493,7 @@ const PortsWiring = ({
 
       {spec.outputs.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <PortGroupLabel>Sorties</PortGroupLabel>
+          <PortGroupLabel>{t("template.stepInspector.wiring.outputs")}</PortGroupLabel>
           {spec.outputs.map((o) => {
             const candidates = variables.filter((v) => v.kind === o.kind);
             const current = step.writesTo?.[o.name] ?? "";
@@ -1495,7 +1508,7 @@ const PortsWiring = ({
                   value={current}
                   onChange={(e) => writeTo(o.name, e.target.value)}
                 >
-                  <option value="">— aucune —</option>
+                  <option value="">{t("template.stepInspector.wiring.none")}</option>
                   {candidates.map((v) => (
                     <option key={v.name} value={v.name}>
                       {v.name} ({v.kind})
@@ -1508,9 +1521,9 @@ const PortsWiring = ({
         </div>
       ) : spec.passthrough ? (
         <div className="flex flex-col gap-2">
-          <PortGroupLabel>Sorties</PortGroupLabel>
+          <PortGroupLabel>{t("template.stepInspector.wiring.outputs")}</PortGroupLabel>
           <p className="text-xs italic text-muted-foreground">
-            Passthrough — aucun artifact produit.
+            {t("template.stepInspector.wiring.passthrough")}
           </p>
         </div>
       ) : null}
@@ -1579,12 +1592,13 @@ const SuggestedNodes = ({ spec }: SuggestedNodesProps) => {
 };
 
 const SuggestedNodesForKind = ({ inputKind }: { inputKind: ArtifactKind }) => {
+  const t = useT();
   const { suggestions } = useStepKindSuggestions(inputKind);
   if (suggestions.length === 0) return null;
   return (
     <Section
-      title={`Suggestions pour ${inputKind}`}
-      description="Un plugin propose des nodes adaptés à ce kind. Insère-le manuellement dans le graphe si utile."
+      title={t("template.stepInspector.suggestions.title", { kind: inputKind })}
+      description={t("template.stepInspector.suggestions.description")}
       variant="panel"
       density="compact"
       collapsible
@@ -1600,7 +1614,7 @@ const SuggestedNodesForKind = ({ inputKind }: { inputKind: ArtifactKind }) => {
           >
             <span className="font-mono">{s.label}</span>
             <span className="rounded bg-muted px-1 text-2xs uppercase text-muted-foreground">
-              plugin:{s.pluginId}
+              {t("template.stepInspector.suggestions.pluginBadge", { pluginId: s.pluginId })}
             </span>
             {s.role ? (
               <span className="rounded bg-accent px-1 text-2xs text-accent-foreground">
@@ -1623,6 +1637,7 @@ type TransformRunConfigProps = {
 };
 
 const TransformRunConfig = ({ config, setConfig }: TransformRunConfigProps) => {
+  const t = useT();
   const { parsers, loading } = useParsers(null);
   const rawRef = config["transformRef"];
   const ref =
@@ -1636,8 +1651,8 @@ const TransformRunConfig = ({ config, setConfig }: TransformRunConfigProps) => {
 
   return (
     <FormField
-      label="Parser à appliquer"
-      description="Le parser saved transforme l'artefact d'entrée. Sa sortie doit conformer au kind sélectionné en `outputKind`."
+      label={t("template.stepInspector.transform.parser.label")}
+      description={t("template.stepInspector.transform.parser.description")}
     >
       <Select
         value={refKey}
@@ -1652,7 +1667,9 @@ const TransformRunConfig = ({ config, setConfig }: TransformRunConfigProps) => {
         }}
       >
         <option value="">
-          {loading ? "Chargement…" : "— choisir un parser —"}
+          {loading
+            ? t("template.stepInspector.transform.loading")
+            : t("template.stepInspector.transform.choose")}
         </option>
         {parsers.map((p) => {
           const key = `${p.id}@${p.version}`;
@@ -1663,7 +1680,7 @@ const TransformRunConfig = ({ config, setConfig }: TransformRunConfigProps) => {
               : "user";
           return (
             <option key={key} value={key}>
-              {key} · {target} · {sourceTag}
+              {t("template.stepInspector.transform.parserOption", { key, target, sourceTag })}
             </option>
           );
         })}
@@ -1687,6 +1704,7 @@ const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
  * port is left unwired.
  */
 const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
+  const t = useT();
   const method = (config["method"] as string | undefined) ?? "GET";
   const rawHeaders = config["headers"];
   const headers: Record<string, string> =
@@ -1723,7 +1741,7 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
 
   return (
     <>
-      <FormField label="Méthode HTTP">
+      <FormField label={t("template.stepInspector.webhook.method")}>
         <Select
           value={method}
           onChange={(e) => setConfig({ method: e.target.value })}
@@ -1737,12 +1755,13 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
       </FormField>
 
       <FormField
-        label="URL de fallback"
+        label={t("template.stepInspector.webhook.urlFallback.label")}
         description={
-          <>
-            Utilisée si l'input <code>url</code> n'est pas câblé. L'input a
-            priorité.
-          </>
+          <Trans
+            t={t}
+            i18nKey="template.stepInspector.webhook.urlFallback.description"
+            components={{ code: <code /> }}
+          />
         }
       >
         <Input
@@ -1754,21 +1773,21 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
       </FormField>
 
       <FormField
-        label="Headers statiques"
-        description="Ne pas y mettre un vrai secret : ils sont stockés en clair dans le template."
+        label={t("template.stepInspector.webhook.headers.label")}
+        description={t("template.stepInspector.webhook.headers.description")}
       >
         <div className="flex flex-col gap-1.5">
           {headerEntries.map(([key, value], i) => (
             <div key={i} className="flex items-center gap-2">
               <Input
                 className="font-mono text-xs"
-                placeholder="Header"
+                placeholder={t("template.stepInspector.webhook.headers.placeholder")}
                 value={key}
                 onChange={(e) => setHeaderKey(key, e.target.value)}
               />
               <Input
                 className="font-mono text-xs"
-                placeholder="valeur"
+                placeholder={t("template.stepInspector.webhook.headers.valuePlaceholder")}
                 value={value}
                 onChange={(e) => setHeaderValue(key, e.target.value)}
               />
@@ -1778,7 +1797,7 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
                 variant="ghost"
                 onClick={() => removeHeader(key)}
               >
-                Supprimer
+                {t("common.delete")}
               </Button>
             </div>
           ))}
@@ -1789,19 +1808,20 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
             onClick={addHeader}
             className="self-start"
           >
-            + Ajouter un header
+            {t("template.stepInspector.webhook.headers.add")}
           </Button>
         </div>
       </FormField>
 
       {bodyAllowed ? (
         <FormField
-          label="Corps de requête (fallback)"
+          label={t("template.stepInspector.webhook.body.label")}
           description={
-            <>
-              Utilisé si l'input <code>body</code> n'est pas câblé. Envoyé tel
-              quel (JSON conseillé).
-            </>
+            <Trans
+              t={t}
+              i18nKey="template.stepInspector.webhook.body.description"
+              components={{ code: <code /> }}
+            />
           }
         >
           <Textarea
@@ -1814,7 +1834,7 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
         </FormField>
       ) : null}
 
-      <FormField orientation="inline" label="Échouer si statut HTTP non-2xx">
+      <FormField orientation="inline" label={t("template.stepInspector.webhook.failOnError")}>
         <Checkbox
           checked={config["failOnError"] !== false}
           onCheckedChange={(v) => setConfig({ failOnError: v })}
@@ -1839,6 +1859,7 @@ type BranchCasesEditorProps = {
  * save instead of receiving a `StepFailed` at execution time.
  */
 const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
+  const t = useT();
   const raw = config["cases"];
   const cases: string[] = Array.isArray(raw)
     ? raw.filter((c): c is string => typeof c === "string")
@@ -1869,9 +1890,10 @@ const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
 
   const seen = new Set<string>();
   const validation: Array<string | null> = cases.map((c) => {
-    if (c.length === 0) return "Label vide";
-    if (!CASE_NAME_RE.test(c)) return `Doit matcher ${CASE_NAME_RE}`;
-    if (seen.has(c)) return "Doublon";
+    if (c.length === 0) return t("template.stepInspector.validation.emptyLabel");
+    if (!CASE_NAME_RE.test(c))
+      return t("template.stepInspector.validation.mustMatch", { pattern: String(CASE_NAME_RE) });
+    if (seen.has(c)) return t("template.stepInspector.validation.duplicate");
     seen.add(c);
     return null;
   });
@@ -1879,20 +1901,20 @@ const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
   return (
     <>
       <FormField
-        label="Kind du verdict"
-        description="Kind de l'artifact d'entrée que le runner inspectera (Markdown.body trimmed)."
+        label={t("template.stepInspector.branch.verdictKind.label")}
+        description={t("template.stepInspector.branch.verdictKind.description")}
       >
         <Select
           value={inputKind}
           onChange={(e) => setConfig({ inputKind: e.target.value })}
         >
-          <option value="Markdown">Markdown</option>
+          <option value="Markdown">{t("template.stepInspector.branch.verdictKind.markdownOption")}</option>
         </Select>
       </FormField>
 
       <FormField
-        label="Branches (cases)"
-        description="Chaque case devient un port de sortie ; une seule sera produite à l'exécution."
+        label={t("template.stepInspector.branch.cases.label")}
+        description={t("template.stepInspector.branch.cases.description")}
       >
         <div className="flex flex-col gap-1.5">
           {cases.map((c, i) => (
@@ -1910,7 +1932,7 @@ const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
                   onClick={() => removeCase(i)}
                   disabled={cases.length <= 2}
                 >
-                  Supprimer
+                  {t("common.delete")}
                 </Button>
               </div>
               {validation[i] ? (
@@ -1927,7 +1949,7 @@ const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
             onClick={addCase}
             className="self-start"
           >
-            + Ajouter une case
+            {t("template.stepInspector.branch.cases.add")}
           </Button>
         </div>
       </FormField>
@@ -1951,6 +1973,7 @@ const JsonTransformsEditor = ({
   config,
   setConfig,
 }: JsonTransformsEditorProps) => {
+  const t = useT();
   const raw = config["transformations"];
   const items: JsonTransformDraft[] = Array.isArray(raw)
     ? raw
@@ -1987,20 +2010,21 @@ const JsonTransformsEditor = ({
 
   const seen = new Set<string>();
   const portErrors: Array<string | null> = items.map((it) => {
-    if (it.port.length === 0) return "Nom vide";
-    if (!CASE_NAME_RE.test(it.port)) return `Doit matcher ${CASE_NAME_RE}`;
-    if (seen.has(it.port)) return "Doublon";
+    if (it.port.length === 0) return t("template.stepInspector.validation.emptyName");
+    if (!CASE_NAME_RE.test(it.port))
+      return t("template.stepInspector.validation.mustMatch", { pattern: String(CASE_NAME_RE) });
+    if (seen.has(it.port)) return t("template.stepInspector.validation.duplicate");
     seen.add(it.port);
     return null;
   });
   const exprErrors: Array<string | null> = items.map((it) =>
-    it.expression.length === 0 ? "Expression vide" : null,
+    it.expression.length === 0 ? t("template.stepInspector.validation.emptyExpression") : null,
   );
 
   return (
     <FormField
-      label="Projections JSONPath"
-      description="Chaque slot devient un port de sortie Json. Le résultat est toujours un tableau des matches."
+      label={t("template.stepInspector.jsonTransform.projections.label")}
+      description={t("template.stepInspector.jsonTransform.projections.description")}
     >
       <div className="flex flex-col gap-1.5">
         {items.map((it, i) => (
@@ -2025,7 +2049,7 @@ const JsonTransformsEditor = ({
                 onClick={() => removeItem(i)}
                 disabled={items.length <= 1}
               >
-                Supprimer
+                {t("common.delete")}
               </Button>
             </div>
             {portErrors[i] || exprErrors[i] ? (
@@ -2042,7 +2066,7 @@ const JsonTransformsEditor = ({
           onClick={addItem}
           className="self-start"
         >
-          + Ajouter une projection
+          {t("template.stepInspector.jsonTransform.projections.add")}
         </Button>
       </div>
     </FormField>
@@ -2070,6 +2094,7 @@ const BranchMatchTargetEditor = ({
   config,
   setConfig,
 }: BranchMatchTargetEditorProps) => {
+  const t = useT();
   const { types: artifactSchemas } = useArtifactSchemas();
   const dynamicKinds = artifactSchemas.map((t) => kindForArtifactSchema(t));
   const knownKinds = new Set<string>([...ARTIFACT_KINDS, ...dynamicKinds]);
@@ -2096,22 +2121,22 @@ const BranchMatchTargetEditor = ({
 
   const seen = new Set<string>();
   const validation: Array<string | null> = variants.map((v) => {
-    if (v.length === 0) return "Variant vide";
-    if (seen.has(v)) return "Doublon";
+    if (v.length === 0) return t("template.stepInspector.validation.emptyVariant");
+    if (seen.has(v)) return t("template.stepInspector.validation.duplicate");
     seen.add(v);
     return null;
   });
 
   return (
     <FormField
-      label="Sum type (OneOf<…>)"
+      label={t("template.stepInspector.branchMatch.sumType.label")}
       description={
-        <>
-          Chaque variant devient un port de sortie typé{" "}
-          <code>out_&lt;variant&gt;</code>. Le runner dispatche selon le
-          discriminator <code>variantKind</code> du payload. Au moins 2 variants,{" "}
-          {MAX_SUM_VARIANTS} au max.
-        </>
+        <Trans
+          t={t}
+          i18nKey="template.stepInspector.branchMatch.sumType.description"
+          values={{ variantPort: "out_<variant>", max: MAX_SUM_VARIANTS }}
+          components={{ code: <code /> }}
+        />
       }
     >
       <div className="flex flex-col gap-1.5">
@@ -2124,14 +2149,14 @@ const BranchMatchTargetEditor = ({
                   value={v}
                   onChange={(e) => setVariant(i, e.target.value)}
                 >
-                  <option value="">— choisir un kind —</option>
+                  <option value="">{t("template.stepInspector.kindSelect.choose")}</option>
                   {ARTIFACT_KINDS.map((k) => (
                     <option key={k} value={k}>
                       {k}
                     </option>
                   ))}
                   {dynamicKinds.length > 0 ? (
-                    <optgroup label="User / plugin">
+                    <optgroup label={t("template.stepInspector.kindSelect.userPlugin")}>
                       {dynamicKinds.map((k) => (
                         <option key={k} value={k}>
                           {k}
@@ -2140,7 +2165,7 @@ const BranchMatchTargetEditor = ({
                     </optgroup>
                   ) : null}
                   {showCurrentOption ? (
-                    <option value={v}>{v} (orphelin)</option>
+                    <option value={v}>{t("template.stepInspector.kindSelect.orphan", { kind: v })}</option>
                   ) : null}
                 </Select>
                 <Button
@@ -2150,7 +2175,7 @@ const BranchMatchTargetEditor = ({
                   onClick={() => removeVariant(i)}
                   disabled={variants.length <= 2}
                 >
-                  Supprimer
+                  {t("common.delete")}
                 </Button>
               </div>
               {validation[i] ? (
@@ -2169,7 +2194,7 @@ const BranchMatchTargetEditor = ({
           disabled={variants.length >= MAX_SUM_VARIANTS}
           className="self-start"
         >
-          + Ajouter un variant
+          {t("template.stepInspector.branchMatch.addVariant")}
         </Button>
       </div>
     </FormField>

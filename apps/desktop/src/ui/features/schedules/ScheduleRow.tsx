@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ScheduleView } from "../../../domain/workflow/types";
+import { useT } from "../../i18n";
 import { formatAbsolute, formatRelative } from "./format-relative";
 import { humanizeCron } from "./humanize-cron";
 import { ScheduleContextMenu, ScheduleDropdownMenu } from "./ScheduleLeafMenu";
@@ -68,6 +69,7 @@ const ScheduleRow = ({
   onToggle,
   onOpenLastRun,
 }: Props) => {
+  const t = useT();
   const human = humanizeCron(schedule.cron);
   const cadenceLabel = human ?? schedule.cron;
   const cadenceTitle = human ? `${human} (${schedule.cron})` : schedule.cron;
@@ -95,7 +97,7 @@ const ScheduleRow = ({
             {cadenceLabel}
           </span>
           <span aria-hidden className="text-muted-foreground/50">
-            ·
+            {"·"}
           </span>
           <span
             className="truncate font-mono text-muted-foreground/80"
@@ -119,16 +121,20 @@ const ScheduleRow = ({
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                Prochain : {formatAbsolute(schedule.nextRunAt)}
+                {t("schedules.row.nextTooltip", {
+                  date: formatAbsolute(schedule.nextRunAt),
+                })}
               </TooltipContent>
             </Tooltip>
           ) : schedule.enabled ? (
             <span className="inline-flex items-center gap-1 text-muted-foreground/60">
               <Clock aria-hidden className="size-3" />
-              prochain : —
+              {t("schedules.row.nextNone")}
             </span>
           ) : (
-            <span className="text-muted-foreground/60 italic">en pause</span>
+            <span className="text-muted-foreground/60 italic">
+              {t("schedules.row.paused")}
+            </span>
           )}
 
           {schedule.lastRunAt ? (
@@ -166,8 +172,13 @@ const ScheduleRow = ({
               </TooltipTrigger>
               <TooltipContent>
                 {schedule.lastStatus === "error" && schedule.lastError
-                  ? `Dernier : ${formatAbsolute(schedule.lastRunAt)} — ${schedule.lastError}`
-                  : `Dernier : ${formatAbsolute(schedule.lastRunAt)}`}
+                  ? t("schedules.row.lastTooltipError", {
+                      date: formatAbsolute(schedule.lastRunAt),
+                      error: schedule.lastError,
+                    })
+                  : t("schedules.row.lastTooltip", {
+                      date: formatAbsolute(schedule.lastRunAt),
+                    })}
               </TooltipContent>
             </Tooltip>
           ) : null}
@@ -191,7 +202,11 @@ const ScheduleRow = ({
                   onToggle();
                 }}
                 disabled={busy}
-                aria-label={schedule.enabled ? "Désactiver" : "Activer"}
+                aria-label={
+                  schedule.enabled
+                    ? t("schedules.row.disable")
+                    : t("schedules.row.enable")
+                }
                 className="inline-flex size-6 items-center justify-center rounded text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               />
             }
@@ -203,7 +218,9 @@ const ScheduleRow = ({
             )}
           </TooltipTrigger>
           <TooltipContent>
-            {schedule.enabled ? "Désactiver" : "Activer"}
+            {schedule.enabled
+              ? t("schedules.row.disable")
+              : t("schedules.row.enable")}
           </TooltipContent>
         </Tooltip>
 
@@ -217,14 +234,14 @@ const ScheduleRow = ({
                   onEdit();
                 }}
                 disabled={busy}
-                aria-label="Éditer"
+                aria-label={t("schedules.row.edit")}
                 className="inline-flex size-6 items-center justify-center rounded text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               />
             }
           >
             <Pencil className="size-3.5" />
           </TooltipTrigger>
-          <TooltipContent>Éditer</TooltipContent>
+          <TooltipContent>{t("schedules.row.edit")}</TooltipContent>
         </Tooltip>
 
         <ScheduleDropdownMenu
@@ -237,7 +254,7 @@ const ScheduleRow = ({
           trigger={
             <button
               type="button"
-              aria-label="Plus d'actions"
+              aria-label={t("schedules.row.moreActions")}
               onClick={(e) => e.stopPropagation()}
               className="inline-flex size-6 items-center justify-center rounded text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:bg-accent data-[popup-open]:text-foreground"
             >

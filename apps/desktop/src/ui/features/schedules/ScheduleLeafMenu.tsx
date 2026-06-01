@@ -8,11 +8,13 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
+import type { TFunction } from "i18next";
 import {
   menuItemClass,
   menuItemDestructiveClass,
   menuPopupClass,
 } from "../explorer/menus/menu-styles";
+import { useT } from "../../i18n";
 
 type Actions = {
   readonly enabled: boolean;
@@ -23,35 +25,35 @@ type Actions = {
   readonly onDelete: () => void;
 };
 
-const renderItems = (a: Actions): ReactNode => (
+const renderItems = (a: Actions, t: TFunction): ReactNode => (
   <>
     <Menu.Item className={menuItemClass} onClick={a.onEdit}>
       <Pencil className="size-4" />
-      Éditer
+      {t("schedules.leafMenu.edit")}
     </Menu.Item>
     <Menu.Item className={menuItemClass} onClick={a.onToggle}>
       {a.enabled ? (
         <>
           <Pause className="size-4" />
-          Désactiver
+          {t("schedules.leafMenu.disable")}
         </>
       ) : (
         <>
           <Play className="size-4" />
-          Activer
+          {t("schedules.leafMenu.enable")}
         </>
       )}
     </Menu.Item>
     {a.hasLastRun ? (
       <Menu.Item className={menuItemClass} onClick={a.onOpenLastRun}>
         <ExternalLink className="size-4" />
-        Ouvrir le dernier run
+        {t("schedules.leafMenu.openLastRun")}
       </Menu.Item>
     ) : null}
     <div className="my-1 h-px bg-border" aria-hidden />
     <Menu.Item className={menuItemDestructiveClass} onClick={a.onDelete}>
       <Trash2 className="size-4" />
-      Supprimer
+      {t("common.delete")}
     </Menu.Item>
   </>
 );
@@ -60,18 +62,21 @@ type ContextProps = Actions & {
   readonly trigger: ReactElement;
 };
 
-export const ScheduleContextMenu = ({ trigger, ...actions }: ContextProps) => (
-  <ContextMenu.Root>
-    <ContextMenu.Trigger render={trigger} />
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner sideOffset={4} className="z-50">
-        <ContextMenu.Popup className={menuPopupClass}>
-          {renderItems(actions)}
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
-  </ContextMenu.Root>
-);
+export const ScheduleContextMenu = ({ trigger, ...actions }: ContextProps) => {
+  const t = useT();
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger render={trigger} />
+      <ContextMenu.Portal>
+        <ContextMenu.Positioner sideOffset={4} className="z-50">
+          <ContextMenu.Popup className={menuPopupClass}>
+            {renderItems(actions, t)}
+          </ContextMenu.Popup>
+        </ContextMenu.Positioner>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
+  );
+};
 
 type DropdownProps = Actions & {
   readonly trigger: ReactElement;
@@ -80,15 +85,18 @@ type DropdownProps = Actions & {
 export const ScheduleDropdownMenu = ({
   trigger,
   ...actions
-}: DropdownProps) => (
-  <Menu.Root>
-    <Menu.Trigger render={trigger} />
-    <Menu.Portal>
-      <Menu.Positioner align="end" sideOffset={4} className="z-50">
-        <Menu.Popup className={menuPopupClass}>
-          {renderItems(actions)}
-        </Menu.Popup>
-      </Menu.Positioner>
-    </Menu.Portal>
-  </Menu.Root>
-);
+}: DropdownProps) => {
+  const t = useT();
+  return (
+    <Menu.Root>
+      <Menu.Trigger render={trigger} />
+      <Menu.Portal>
+        <Menu.Positioner align="end" sideOffset={4} className="z-50">
+          <Menu.Popup className={menuPopupClass}>
+            {renderItems(actions, t)}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+};
