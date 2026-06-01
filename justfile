@@ -35,6 +35,17 @@ api-build:
 api-start:
     yarn workspace @ctxfirst/api start
 
+# --- docs (Starlight) ---
+
+docs-dev:
+    yarn workspace @ctxfirst/docs dev
+
+docs-build:
+    yarn workspace @ctxfirst/docs build
+
+docs-preview:
+    yarn workspace @ctxfirst/docs preview
+
 # --- lint ---
 
 lint:

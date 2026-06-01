@@ -10,6 +10,7 @@
     "apps/desktop",
     "apps/web",
     "apps/api",
+    "apps/docs",
     "packages/*"
   ],
   "resolutions": {
@@ -26,6 +27,9 @@
     "api:dev": "yarn workspace @ctxfirst/api dev",
     "api:build": "yarn workspace @ctxfirst/api build",
     "api:start": "yarn workspace @ctxfirst/api start",
+    "docs:dev": "yarn workspace @ctxfirst/docs dev",
+    "docs:build": "yarn workspace @ctxfirst/docs build",
+    "docs:preview": "yarn workspace @ctxfirst/docs preview",
     "test": "yarn workspace @ctxfirst/desktop test",
     "test:watch": "yarn workspace @ctxfirst/desktop test:watch",
     "test:coverage": "yarn workspace @ctxfirst/desktop test:coverage",

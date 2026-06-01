@@ -25,6 +25,7 @@ export default tseslint.config(
       "apps/desktop/.storybook/**",
       "**/.vite/**",
       "**/.turbo/**",
+      "apps/docs/**",
     ],
   },
 
