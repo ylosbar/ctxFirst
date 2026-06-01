@@ -1,0 +1,142 @@
+[
+  {
+    "id": "TSK-001",
+    "title": "Fix login redirect loop on Safari",
+    "date": "2026-04-14",
+    "description": "Users on Safari 17 report an infinite redirect between /login and /dashboard after a successful OAuth callback. Session cookie appears to be stripped because of SameSite defaults. Needs a targeted fix for WebKit and a regression test.",
+    "subtasks": [
+      {
+        "id": "TSK-001-A",
+        "parentId": "TSK-001",
+        "title": "Reproduce on Safari 17 with clean profile",
+        "date": "2026-04-14",
+        "description": "Confirm the redirect loop reproduces reliably, capture network HAR and storage state for analysis."
+      },
+      {
+        "id": "TSK-001-B",
+        "parentId": "TSK-001",
+        "title": "Set SameSite=None; Secure on session cookie",
+        "date": "2026-04-15",
+        "description": "Update auth middleware to emit explicit SameSite attribute for WebKit user agents."
+      },
+      {
+        "id": "TSK-001-C",
+        "parentId": "TSK-001",
+        "title": "Add Playwright regression covering OAuth callback",
+        "date": "2026-04-16",
+        "description": "New e2e test that drives the full OAuth dance and asserts no intermediate redirect to /login."
+      }
+    ]
+  },
+  {
+    "id": "TSK-002",
+    "title": "Export CSV crashes on large accounts",
+    "date": "2026-04-15",
+    "description": "The CSV export endpoint returns a 502 when an account has more than 50k rows. Memory profile shows we are buffering the whole file before streaming. Switch to a streaming writer and add pagination at the DB layer."
+  },
+  {
+    "id": "TSK-003",
+    "title": "Add dark mode to invoice preview",
+    "date": "2026-04-12",
+    "description": "Marketing wants the invoice preview component to honor the system theme. Most styles rely on hardcoded hex values; migrate them to CSS variables and verify print stylesheet still renders in light mode.",
+    "subtasks": [
+      {
+        "id": "TSK-003-A",
+        "parentId": "TSK-003",
+        "title": "Extract color palette into CSS variables",
+        "date": "2026-04-12",
+        "description": "Replace hardcoded hex values with semantic tokens in invoice-preview.module.css."
+      },
+      {
+        "id": "TSK-003-B",
+        "parentId": "TSK-003",
+        "title": "Verify print stylesheet unaffected",
+        "date": "2026-04-13",
+        "description": "Run the print preview against several invoices to confirm light-mode rendering is preserved."
+      }
+    ]
+  },
+  {
+    "id": "TSK-004",
+    "title": "Stripe webhook signature mismatch",
+    "date": "2026-04-16",
+    "description": "Since the Stripe SDK upgrade, ~2% of webhooks fail signature verification. Suspect clock drift on the worker pod vs. timestamp tolerance. Confirm with logs and widen tolerance if clock source cannot be pinned."
+  },
+  {
+    "id": "TSK-005",
+    "title": "Improve onboarding empty states",
+    "date": "2026-04-08",
+    "description": "New users land on empty dashboards with no guidance. Design delivered mocks last sprint for placeholder cards with CTAs. Implement for Campaigns, Audiences, and Reports sections, with analytics events.",
+    "subtasks": [
+      {
+        "id": "TSK-005-A",
+        "parentId": "TSK-005",
+        "title": "Campaigns empty state",
+        "date": "2026-04-08",
+        "description": "Placeholder card with CTA 'Create your first campaign' and tracking event onboarding_campaigns_cta_clicked."
+      },
+      {
+        "id": "TSK-005-B",
+        "parentId": "TSK-005",
+        "title": "Audiences empty state",
+        "date": "2026-04-09",
+        "description": "Placeholder card with CTA 'Import contacts' wired to the import flow."
+      },
+      {
+        "id": "TSK-005-C",
+        "parentId": "TSK-005",
+        "title": "Reports empty state",
+        "date": "2026-04-10",
+        "description": "Placeholder linking to sample reports while no data is available."
+      },
+      {
+        "id": "TSK-005-D",
+        "parentId": "TSK-005",
+        "title": "Analytics events for all three states",
+        "date": "2026-04-11",
+        "description": "Fire view + click events using the shared tracking util."
+      }
+    ]
+  },
+  {
+    "id": "TSK-006",
+    "title": "Slow search on the influencer list",
+    "date": "2026-04-11",
+    "description": "Typing in the influencer list search field blocks the UI for ~600ms on accounts with 10k+ rows. Move filtering off the main thread or debounce and virtualize the list. Target p95 under 120ms."
+  },
+  {
+    "id": "TSK-007",
+    "title": "Typo in password reset email",
+    "date": "2026-04-13",
+    "description": "The French translation of the password reset email reads 'Réinitialisser' (double s). Fix the translation key and verify no other locale has a similar typo."
+  },
+  {
+    "id": "TSK-008",
+    "title": "Migrate analytics to new event schema",
+    "date": "2026-04-09",
+    "description": "Data team is deprecating the v1 analytics schema on 2026-05-01. Update all track() calls to v2 payload shape, write a compat layer for in-flight sessions, and coordinate the cutover with the warehouse team.",
+    "subtasks": [
+      {
+        "id": "TSK-008-A",
+        "parentId": "TSK-008",
+        "title": "Inventory existing track() call sites",
+        "date": "2026-04-09",
+        "description": "Produce a list of every track() invocation with its current payload shape."
+      },
+      {
+        "id": "TSK-008-B",
+        "parentId": "TSK-008",
+        "title": "Implement v2 payload adapter",
+        "date": "2026-04-14",
+        "description": "Central adapter transforms v1 payloads into v2 so call sites can migrate incrementally."
+      },
+      {
+        "id": "TSK-008-C",
+        "parentId": "TSK-008",
+        "title": "Coordinate warehouse cutover 2026-05-01",
+        "date": "2026-04-28",
+        "description": "Align with data team on dual-write window and schedule the final cutover."
+      }
+    ]
+  }
+]

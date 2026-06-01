@@ -1,0 +1,1108 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/montserrat";
+@import "@fontsource-variable/playfair-display";
+@import "@fontsource-variable/source-code-pro";
+@import "overlayscrollbars/overlayscrollbars.css";
+@import "dockview/dist/styles/dockview.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+
+  /* Atom One Light */
+  --background: #fafafa;
+  --foreground: #383a42;
+  --card: #f0f0f0;
+  --card-foreground: #383a42;
+  --popover: #fafafa;
+  --popover-foreground: #383a42;
+  --primary: #4078f2;
+  --primary-foreground: #ffffff;
+  --secondary: #e5e5e6;
+  --secondary-foreground: #383a42;
+  --muted: #f0f0f0;
+  --muted-foreground: #a0a1a7;
+  --accent: #e5e5e6;
+  --accent-foreground: #383a42;
+  --destructive: #e45649;
+  --border: #e5e5e6;
+  --input: #ffffff;
+  --ring: #4078f2;
+  --chart-1: #4078f2;
+  --chart-2: #50a14f;
+  --chart-3: #c18401;
+  --chart-4: #a626a4;
+  --chart-5: #0184bc;
+  --radius: 0.125rem;
+  --sidebar: #f0f0f0;
+  --sidebar-foreground: #383a42;
+  --sidebar-primary: #4078f2;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e5e5e6;
+  --sidebar-accent-foreground: #383a42;
+  --sidebar-border: #e5e5e6;
+  --sidebar-ring: #4078f2;
+
+  /* Font stacks — indirected so a theme can override them via the cascade.
+     `@theme inline` (see below) consumes these as `var(--app-font-*)`, which
+     keeps the override path open for `.font-sans`/`.font-mono`/`.font-serif`
+     utilities (Tailwind v4 would otherwise inline the literal value at build
+     and freeze the font stack). */
+  --app-font-sans: "Montserrat Variable", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", system-ui, "Ubuntu", "Droid Sans", sans-serif;
+  --app-font-serif: "Playfair Display Variable", Georgia, Cambria,
+    "Times New Roman", Times, serif;
+  --app-font-mono: "Source Code Pro Variable", "JetBrains Mono", "Fira Code",
+    "Cascadia Code", "SF Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  /* Lock document-level overflow. All scrolling happens inside ScrollArea
+     wrappers; allowing a body scrollbar produces a layout feedback loop at
+     threshold sizes (scrollbar appears → narrows viewport → content reflows
+     → fits → scrollbar disappears → loop), which shakes the whole UI on
+     window resize. */
+  overflow: hidden;
+}
+
+/* The BrowserWindow is frameless + transparent so the renderer controls the
+   visible shape. html/body/#root must stay transparent — the actual app
+   background lives on the Workbench root surface (which carries the
+   border-radius + overflow:hidden that gives the rounded corners). */
+html,
+body {
+  background: transparent !important;
+}
+#root {
+  background: transparent;
+}
+.app-rounded-surface {
+  border-radius: 10px;
+  overflow: hidden;
+  /* When maximized the WM already clips us to the screen rect — flatten the
+     radius so it doesn't carve transparent gaps in the screen corners. */
+}
+.app-rounded-surface[data-maximized="true"] {
+  border-radius: 0;
+}
+
+/* Barre de progression indéterminée du splash d'amorçage (SplashScreen.tsx) :
+   un segment qui balaie la piste de gauche à droite. */
+@keyframes splash-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+/* Curseur clignotant pendant la frappe de "CTX" (SplashScreen.tsx). */
+@keyframes splash-caret {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Draggable strip below the (hidden) native title bar. The window controls
+   overlay (min/max/close) is painted by the OS on top of this band, so we
+   reserve its height across the full width and mark the area as a drag
+   region. Interactive children inside this strip must opt out with
+   `-webkit-app-region: no-drag`. */
+.app-titlebar-drag {
+  -webkit-app-region: drag;
+}
+.app-titlebar-drag :where(button, a, input, [role="button"]) {
+  -webkit-app-region: no-drag;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgb(245 158 11 / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 0);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* "Node drop" landing burst : la node arrive depuis ~zéro, fait un léger
+   overshoot (effet rebond) et propage un halo coloré qui se dissipe vers
+   l'extérieur. Joué une fois quand `data.justDropped === true`. */
+@keyframes node-drop-pop {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+  55% {
+    transform: scale(1.08);
+    opacity: 1;
+    box-shadow: 0 0 0 16px color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+}
+
+.animate-node-drop-pop {
+  animation: node-drop-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: center center;
+}
+
+/* Tableau de bord — entrée en cascade des cartes/lignes. `both` fige l'état
+   initial avant le démarrage (pas de flash à 100% d'opacité), et le delay est
+   posé inline par chaque élément pour échelonner l'apparition. */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Shimmer des skeletons de chargement : un reflet qui balaie la surface.
+   Appliqué à un conteneur en `position: relative; overflow: hidden`. */
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--foreground) 7%, transparent),
+    transparent
+  );
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Accessibilité : on coupe toute la mise en mouvement pour les utilisateurs
+   qui la désactivent au niveau OS. Les éléments restent dans leur état final. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-pulse-ring,
+  .animate-node-drop-pop,
+  .skeleton-shimmer::after {
+    animation: none !important;
+  }
+  .animate-fade-in-up {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+@theme inline {
+  --font-heading: var(--app-font-sans);
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --font-mono: var(--app-font-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --text-3xs: 0.625rem;
+  --text-3xs--line-height: 0.875rem;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.625rem;
+  --text-lg: 1.1875rem;
+  --text-lg--line-height: 1.875rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 2.375rem;
+  --text-4xl--line-height: 2.75rem;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+}
+
+.dark {
+  /* VSCode Dark+ (default dark) */
+  --background: #1e1e1e;
+  --foreground: #cccccc;
+  --card: #252526;
+  --card-foreground: #cccccc;
+  --popover: #252526;
+  --popover-foreground: #cccccc;
+  --primary: #0e639c;
+  --primary-foreground: #ffffff;
+  --secondary: #3c3c3c;
+  --secondary-foreground: #cccccc;
+  --muted: #2d2d30;
+  --muted-foreground: #858585;
+  --accent: #094771;
+  --accent-foreground: #ffffff;
+  --destructive: #f14c4c;
+  --border: #2b2b2b;
+  --input: #3c3c3c;
+  --ring: #007acc;
+  --chart-1: #569cd6;
+  --chart-2: #4ec9b0;
+  --chart-3: #dcdcaa;
+  --chart-4: #c586c0;
+  --chart-5: #ce9178;
+  --sidebar: #252526;
+  --sidebar-foreground: #cccccc;
+  --sidebar-primary: #007acc;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #094771;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1e1e1e;
+  --sidebar-ring: #007acc;
+}
+
+.dark[data-theme="nocturne"] {
+  /* Nocturne — a soft, cool dark (not near-black) with an electric indigo
+     accent. Surfaces are layered (sidebar → background → muted/card →
+     popover) and borders kept low-contrast for the calm, premium depth of
+     modern app UIs (Tokyo Night / One Dark lineage). Corners are softened a
+     touch above the global 2px default to match that aesthetic. */
+  --background: #282a33;
+  --foreground: #e9eaf1;
+  --card: #2f313c;
+  --card-foreground: #e9eaf1;
+  --popover: #323441;
+  --popover-foreground: #e9eaf1;
+  --primary: #6457f5;
+  --primary-foreground: #ffffff;
+  --secondary: #393c48;
+  --secondary-foreground: #e9eaf1;
+  --muted: #2f313c;
+  --muted-foreground: #a2a6bb;
+  --accent: #3f4356;
+  --accent-foreground: #c7caff;
+  --destructive: #f4595f;
+  --border: #3d404e;
+  --input: #393c48;
+  --ring: #7c6cff;
+  --chart-1: #7c6cff;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #f472b6;
+  --chart-5: #38bdf8;
+  --sidebar: #23242d;
+  --sidebar-foreground: #cccedb;
+  --sidebar-primary: #7c6cff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #393c48;
+  --sidebar-accent-foreground: #e9eaf1;
+  --sidebar-border: #323441;
+  --sidebar-ring: #7c6cff;
+  --activity-bar: #24252e;
+  --radius: 0.375rem;
+}
+
+.dark[data-theme="nocturne"] [data-template-editor] [data-slot="section-title"] {
+  color: var(--primary);
+}
+
+.dark[data-theme="ayu-mirage"] {
+  /* Ayu Mirage — official palette (https://github.com/ayu-theme/ayu-colors) */
+  --background: #1f2430;
+  --foreground: #cccac2;
+  --card: #1c212b;
+  --card-foreground: #cccac2;
+  --popover: #1c212b;
+  --popover-foreground: #cccac2;
+  --primary: #ffcc66;
+  --primary-foreground: #1f2430;
+  --secondary: #232834;
+  --secondary-foreground: #cccac2;
+  --muted: #1c212b;
+  --muted-foreground: #707a8c;
+  --accent: #34455a;
+  --accent-foreground: #ffd580;
+  --destructive: #f28779;
+  --border: #1a1f29;
+  --input: #232834;
+  --ring: #ffcc66;
+  --chart-1: #ffcc66;
+  --chart-2: #bae67e;
+  --chart-3: #ffa759;
+  --chart-4: #5ccfe6;
+  --chart-5: #d4bfff;
+  --sidebar: #1c212b;
+  --sidebar-foreground: #cccac2;
+  --sidebar-primary: #ffcc66;
+  --sidebar-primary-foreground: #1f2430;
+  --sidebar-accent: #34455a;
+  --sidebar-accent-foreground: #ffd580;
+  --sidebar-border: #1a1f29;
+  --sidebar-ring: #ffcc66;
+  --activity-bar: #2a3040;
+}
+
+.dark[data-theme="ayu-mirage"] [data-template-editor] [data-slot="section-title"] {
+  color: var(--primary);
+}
+
+.dark[data-theme="terminal"] {
+  /* Terminal (Konsole / Breeze Dark) */
+  --background: #232629;
+  --foreground: #fcfcfc;
+  --card: #2a2e32;
+  --card-foreground: #fcfcfc;
+  --popover: #2a2e32;
+  --popover-foreground: #fcfcfc;
+  --primary: #3daee9;
+  --primary-foreground: #232629;
+  --secondary: #31363b;
+  --secondary-foreground: #eff0f1;
+  --muted: #2a2e32;
+  --muted-foreground: #7f8c8d;
+  --accent: #1d99f3;
+  --accent-foreground: #fcfcfc;
+  --destructive: #ed1515;
+  --border: #4d4d4d;
+  --input: #31363b;
+  --ring: #3daee9;
+  --chart-1: #3daee9;
+  --chart-2: #1cdc9a;
+  --chart-3: #fdbc4b;
+  --chart-4: #c0392b;
+  --chart-5: #8e44ad;
+  --sidebar: #1b1e20;
+  --sidebar-foreground: #eff0f1;
+  --sidebar-primary: #3daee9;
+  --sidebar-primary-foreground: #232629;
+  --sidebar-accent: #31363b;
+  --sidebar-accent-foreground: #fcfcfc;
+  --sidebar-border: #3a3f44;
+  --sidebar-ring: #3daee9;
+}
+
+.dark[data-theme="violet-dark"] {
+  /* Violet — palette tweakcn (light + dark). Variant sombre : fond bleu nuit
+     très désaturé, accent violet et secondary mauve profond. Les surfaces
+     (card / popover / muted / accent) reprennent volontairement la même
+     teinte que --background pour un rendu plat et aéré ; les séparations se
+     font via --border. */
+  --background: oklch(0.27 0.0125 264.2926);
+  --foreground: oklch(0.9219 0 0);
+  --card: oklch(0.27 0.0125 264.2926);
+  --card-foreground: oklch(0.9219 0 0);
+  --popover: oklch(0.27 0.0125 264.2926);
+  --popover-foreground: oklch(0.9219 0 0);
+  --primary: oklch(0.5676 0.2021 283.0838);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.339 0.1793 301.6848);
+  --secondary-foreground: oklch(0.9219 0 0);
+  --muted: oklch(0.27 0.0125 264.2926);
+  --muted-foreground: oklch(0.7155 0 0);
+  --accent: oklch(0.27 0.0125 264.2926);
+  --accent-foreground: oklch(0.6746 0.1414 261.338);
+  --destructive: oklch(0.6368 0.2078 25.3313);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.3867 0 0);
+  --input: oklch(0.3867 0 0);
+  --ring: oklch(0.5676 0.2021 283.0838);
+  --chart-1: oklch(0.5676 0.2021 283.0838);
+  --chart-2: oklch(0.5261 0.1705 314.6534);
+  --chart-3: oklch(0.339 0.1793 301.6848);
+  --chart-4: oklch(0.6746 0.1414 261.338);
+  --chart-5: oklch(0.588 0.0993 245.7394);
+  --sidebar: oklch(0.27 0.0125 264.2926);
+  --sidebar-foreground: oklch(0.9219 0 0);
+  --sidebar-primary: oklch(0.5676 0.2021 283.0838);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.27 0.0125 264.2926);
+  --sidebar-accent-foreground: oklch(0.9219 0 0);
+  --sidebar-border: oklch(0.3867 0 0);
+  --sidebar-ring: oklch(0.5676 0.2021 283.0838);
+  --radius: 0.5rem;
+}
+
+.dark[data-theme="devtools"] {
+  /* Google Dev Tools — palette du DevTools de Chrome (thème sombre).
+     Surfaces gris neutre très désaturées, accent bleu (`#8ab4f8` —
+     l'« accent-color » Material du DevTools moderne) et bordures
+     `#3c4043` fines pour la séparation des panneaux. */
+  --background: #1f1f1f;
+  --foreground: #e8eaed;
+  --card: #2b2b2b;
+  --card-foreground: #e8eaed;
+  --popover: #2d2d2d;
+  --popover-foreground: #e8eaed;
+  --primary: #8ab4f8;
+  --primary-foreground: #202124;
+  --secondary: #3c4043;
+  --secondary-foreground: #e8eaed;
+  --muted: #292a2d;
+  --muted-foreground: #9aa0a6;
+  --accent: #394457;
+  --accent-foreground: #8ab4f8;
+  --destructive: #f28b82;
+  --border: #3c4043;
+  --input: #292a2d;
+  --ring: #8ab4f8;
+  --chart-1: #8ab4f8;
+  --chart-2: #81c995;
+  --chart-3: #fdd663;
+  --chart-4: #f28b82;
+  --chart-5: #c58af9;
+  --sidebar: #282828;
+  --sidebar-foreground: #e8eaed;
+  --sidebar-primary: #8ab4f8;
+  --sidebar-primary-foreground: #202124;
+  --sidebar-accent: #394457;
+  --sidebar-accent-foreground: #8ab4f8;
+  --sidebar-border: #3c4043;
+  --sidebar-ring: #8ab4f8;
+  --activity-bar: #202124;
+}
+
+:root[data-theme="violet"] {
+  /* Violet — variante claire de la palette tweakcn. Fond neutre quasi-blanc,
+     primary violet, secondary lavande. Comme la variante sombre, surfaces
+     `card`/`popover`/`muted`/`accent` alignées sur `--background` pour un
+     aspect plat (les séparations passent par `--border`). */
+  --background: oklch(0.9821 0 0);
+  --foreground: oklch(0.3211 0 0);
+  --card: oklch(0.9821 0 0);
+  --card-foreground: oklch(0.3211 0 0);
+  --popover: oklch(0.9821 0 0);
+  --popover-foreground: oklch(0.3211 0 0);
+  --primary: oklch(0.5676 0.2021 283.0838);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.8214 0.072 249.3482);
+  --secondary-foreground: oklch(0.3211 0 0);
+  --muted: oklch(0.9821 0 0);
+  --muted-foreground: oklch(0.5382 0 0);
+  --accent: oklch(0.9821 0 0);
+  --accent-foreground: oklch(0.5676 0.2021 283.0838);
+  --destructive: oklch(0.6368 0.2078 25.3313);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.8699 0 0);
+  --input: oklch(0.8699 0 0);
+  --ring: oklch(0.5676 0.2021 283.0838);
+  --chart-1: oklch(0.5676 0.2021 283.0838);
+  --chart-2: oklch(0.5261 0.1705 314.6534);
+  --chart-3: oklch(0.339 0.1793 301.6848);
+  --chart-4: oklch(0.6746 0.1414 261.338);
+  --chart-5: oklch(0.588 0.0993 245.7394);
+  --sidebar: oklch(0.9821 0 0);
+  --sidebar-foreground: oklch(0.3211 0 0);
+  --sidebar-primary: oklch(0.5676 0.2021 283.0838);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.9821 0 0);
+  --sidebar-accent-foreground: oklch(0.5676 0.2021 283.0838);
+  --sidebar-border: oklch(0.8699 0 0);
+  --sidebar-ring: oklch(0.5676 0.2021 283.0838);
+  --radius: 0.5rem;
+}
+
+:root[data-theme="daylight"] {
+  /* Daylight — high-contrast light theme. A light variant never gets the
+     `.dark` class, so this overrides the `:root` defaults directly. Tuned for
+     visibility: pure-white surfaces, near-black text, crisp borders, and a
+     vivid accessible blue — the things faint light themes usually get wrong. */
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #f6f6f8;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #e6e6ea;
+  --secondary-foreground: #1f1f23;
+  --muted: #f1f1f4;
+  --muted-foreground: #4b4b55;
+  --accent: #dbeafe;
+  --accent-foreground: #1e40af;
+  --destructive: #dc2626;
+  --border: #c9c9d1;
+  --input: #ffffff;
+  --ring: #2563eb;
+  --chart-1: #2563eb;
+  --chart-2: #16a34a;
+  --chart-3: #d97706;
+  --chart-4: #9333ea;
+  --chart-5: #0891b2;
+  /* White sidebar surfaces (file explorer panel etc.) — separated from the
+     editor only by the `--border` right edge, not a fill contrast. */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #18181b;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dbeafe;
+  --sidebar-accent-foreground: #1e40af;
+  --sidebar-border: #c9c9d1;
+  --sidebar-ring: #2563eb;
+  --activity-bar: #e2e2e7;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Single source of truth for rendered Markdown across the app.
+   Used by the chat, the artefact viewer, the workflow LLM session panel,
+   and the MDXEditor `contentEditable` so every surface shares the exact
+   same typography. Values derive from the shadcn token set declared above
+   so the rendering follows the active theme (light/dark + data-theme).
+   Modifiers (`--compact`, `--doc`) tweak vertical rhythm per surface. */
+.markdown-body {
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.markdown-body p {
+  margin: 0 0 0.5rem 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem 0;
+}
+
+.markdown-body h1 {
+  font-size: 1rem;
+  margin: 0.5rem 0 0.5rem 0;
+}
+
+.markdown-body h2 {
+  font-size: 0.9375rem;
+  margin: 0.5rem 0 0.25rem 0;
+}
+
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  font-size: 0.875rem;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.markdown-body ul {
+  list-style: disc;
+}
+
+.markdown-body ol {
+  list-style: decimal;
+}
+
+.markdown-body li {
+  margin-bottom: 0.125rem;
+}
+
+/* A `<li>` whose only child is a `<p>` would otherwise double its
+   bottom margin (the `<p>` adds 0.5rem on top of the `<li>` rhythm). */
+.markdown-body li > p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-body blockquote {
+  margin: 0 0 0.5rem 0;
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+  font-style: italic;
+  color: var(--muted-foreground);
+}
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  background: var(--muted);
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius);
+  color: var(--foreground);
+}
+
+.markdown-body pre {
+  margin: 0 0 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--muted);
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: inherit;
+  overflow-wrap: inherit;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.5rem 0;
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+}
+
+.markdown-body th {
+  background: var(--muted);
+  text-align: left;
+  font-weight: 600;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Compact — used by chat bubbles and workflow step panels where vertical
+   space is shared with surrounding chrome but the content itself can still
+   be long-form (LLM responses, specs). Tighter than `--doc` but with real
+   breathing room between sections. */
+.markdown-body--compact p,
+.markdown-body--compact ul,
+.markdown-body--compact ol,
+.markdown-body--compact pre,
+.markdown-body--compact blockquote,
+.markdown-body--compact table {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-body--compact li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-body--compact hr {
+  margin: 1rem 0;
+}
+
+.markdown-body--compact h1 {
+  font-size: 1.0625rem;
+  margin: 1.5rem 0 0.5rem 0;
+}
+
+.markdown-body--compact h2 {
+  font-size: 0.9375rem;
+  margin: 1.25rem 0 0.375rem 0;
+}
+
+.markdown-body--compact h3,
+.markdown-body--compact h4,
+.markdown-body--compact h5,
+.markdown-body--compact h6 {
+  font-size: 0.875rem;
+  margin: 1rem 0 0.25rem 0;
+}
+
+.markdown-body--compact > *:first-child {
+  margin-top: 0;
+}
+
+/* Doc — used by long-form artefacts (Markdown, LinearTicket)
+   where reading comfort matters more than density. */
+.markdown-body--doc {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.markdown-body--doc p,
+.markdown-body--doc ul,
+.markdown-body--doc ol,
+.markdown-body--doc pre,
+.markdown-body--doc blockquote,
+.markdown-body--doc table {
+  margin-bottom: 1.5rem;
+}
+
+.markdown-body--doc li {
+  margin-bottom: 0.625rem;
+}
+
+.markdown-body--doc hr {
+  margin: 2rem 0;
+}
+
+.markdown-body--doc h1 {
+  font-size: 1.375rem;
+  margin: 4rem 0 1rem 0;
+  line-height: 1.3;
+}
+
+.markdown-body--doc h2 {
+  font-size: 1.125rem;
+  margin: 3.5rem 0 0.75rem 0;
+  line-height: 1.35;
+}
+
+.markdown-body--doc h3,
+.markdown-body--doc h4,
+.markdown-body--doc h5,
+.markdown-body--doc h6 {
+  font-size: 1rem;
+  margin: 2.75rem 0 0.5rem 0;
+  line-height: 1.4;
+}
+
+/* First child shouldn't push the whole document down with its heading
+   top margin — only inter-section gaps need the extra breathing room. */
+.markdown-body--doc > *:first-child {
+  margin-top: 0;
+}
+
+/* Dockview ships `.dv-view` (the split-view child that wraps each group's
+   tab strip + panel body) with `overflow: auto` as a safety net, but its
+   own JS already sizes views to their content host. At threshold sizes the
+   `auto` triggers a feedback loop (scrollbar appears → viewport narrows →
+   content reflows → scrollbar disappears → loop) that shakes the whole
+   panel and wraps the tab strip + panel body in a vertical scrollbar that
+   shouldn't be there. Hide overflow on the wrapping elements so the panel
+   body (which manages its own scroll regions) is the only thing that can
+   scroll. */
+.dv-split-view-container .dv-view-container .dv-view,
+.dv-groupview > .dv-content-container {
+  overflow: hidden;
+}
+
+/* Dockview theme bound to our design tokens */
+.dockview-theme-ctxfirst {
+  --dv-paneview-active-outline-color: var(--ring);
+  --dv-tabs-and-actions-container-font-size: 0.8125rem;
+  --dv-tabs-and-actions-container-height: 38px;
+  --dv-tab-close-icon-size: 12px;
+  --dv-tab-font-size: 0.8125rem;
+  --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  --dv-drag-over-border-color: var(--ring);
+  /* Strip behind the tabs: darkened a touch below --muted so every tab (active
+     = background, inactive = muted) reads as a raised surface against it
+     instead of melting into the strip. */
+  --dv-tabs-and-actions-container-background-color: color-mix(in srgb, var(--muted) 88%, black);
+  --dv-group-view-background-color: var(--background);
+  --dv-tabs-container-scrollbar-color: var(--muted-foreground);
+  --dv-icon-hover-background-color: var(--accent);
+  --dv-floating-box-shadow: 0 4px 16px color-mix(in srgb, var(--foreground) 18%, transparent);
+  --dv-active-sash-color: var(--ring);
+  --dv-separator-border: color-mix(in srgb, var(--muted-foreground) 10%, transparent);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-tab-divider-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-activegroup-visiblepanel-tab-color: var(--foreground);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--muted);
+  --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--background);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--muted);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--muted-foreground);
+  --dv-floating-group-border: 1px solid var(--border);
+  --dv-floating-border: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--foreground);
+}
+.dockview-theme-ctxfirst .dv-tab {
+  position: relative;
+  padding: 0;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+/* Vertical separator between adjacent tabs. Drawn as a centered 1px line
+   that doesn't span the full height — gives a clear seam without making the
+   strip feel boxed-in. Hidden on the active tab and the tab immediately
+   before it so the active tab's silhouette stays clean. */
+.dockview-theme-ctxfirst .dv-tab + .dv-tab::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: var(--dv-tab-divider-color);
+  pointer-events: none;
+}
+.dockview-theme-ctxfirst .dv-tab.dv-active-tab::before,
+.dockview-theme-ctxfirst .dv-tab.dv-active-tab + .dv-tab::before {
+  display: none;
+}
+
+/* Active-tab accent: a top stripe in the ring color when the group is
+   focused, muted when the group is not. Uses inset box-shadow rather than
+   ::after so it doesn't collide with dockview's focus-ring pseudo-element. */
+.dockview-theme-ctxfirst .dv-groupview.dv-active-group
+  > .dv-tabs-and-actions-container
+  .dv-tab.dv-active-tab {
+  box-shadow: inset 0 2px 0 0 var(--ring);
+}
+.dockview-theme-ctxfirst .dv-groupview.dv-inactive-group
+  > .dv-tabs-and-actions-container
+  .dv-tab.dv-active-tab {
+  box-shadow: inset 0 2px 0 0 color-mix(in srgb, var(--muted-foreground) 50%, transparent);
+}
+
+/* Dockview's default sash is a 4px hit-zone with a 1px translucent border on
+   one edge, which is nearly invisible when both panes share the same
+   background. Paint a centered 1px line across the full hit-zone so the
+   split is legible without enlarging the resize handle. */
+.dockview-theme-ctxfirst .dv-sash-container .dv-sash.dv-sash-vertical {
+  background:
+    linear-gradient(
+      to right,
+      transparent calc(50% - 0.5px),
+      var(--dv-separator-border) calc(50% - 0.5px),
+      var(--dv-separator-border) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+}
+.dockview-theme-ctxfirst .dv-sash-container .dv-sash.dv-sash-horizontal {
+  background:
+    linear-gradient(
+      to bottom,
+      transparent calc(50% - 0.5px),
+      var(--dv-separator-border) calc(50% - 0.5px),
+      var(--dv-separator-border) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+}
+.dockview-theme-ctxfirst .dv-sash-container .dv-sash:hover,
+.dockview-theme-ctxfirst .dv-sash-container .dv-sash.dv-active {
+  background: var(--dv-active-sash-color);
+}
+
+/* highlight.js theme — token classes bound to our design tokens so coloration
+   follows the active app theme (chart-1..5 are the syntax-accent slots). */
+.hljs {
+  color: var(--foreground);
+  background: transparent;
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-doctag {
+  color: var(--chart-4);
+}
+.hljs-string,
+.hljs-attr,
+.hljs-addition,
+.hljs-template-tag {
+  color: var(--chart-2);
+}
+.hljs-title,
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--chart-3);
+}
+.hljs-title.function_,
+.hljs-function .hljs-title {
+  color: var(--chart-1);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-meta,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-operator {
+  color: var(--chart-5);
+}
+.hljs-variable,
+.hljs-template-variable,
+.hljs-name,
+.hljs-tag,
+.hljs-regexp,
+.hljs-deletion {
+  color: var(--destructive);
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 600;
+}
+
+.react-flow__node-group {
+  background-color: transparent;
+}
+
+/* Port handles — the renderer sets background/border via inline styles so we
+   can color each handle by its port kind. These rules cover only chrome that
+   should be uniform across handles: a soft halo on hover/connecting and a
+   smooth transition. The `!important` is needed because xyflow re-applies its
+   own size/box-shadow at runtime. */
+.react-flow__handle {
+  transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 120ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.react-flow__handle:hover {
+  transform: translateY(-50%) scale(1.4) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--foreground) 18%, transparent) !important;
+}
+.react-flow__handle.connectingfrom,
+.react-flow__handle.connectingto {
+  transform: translateY(-50%) scale(1.5) !important;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--ring) 28%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--foreground) 22%, transparent) !important;
+}
+
+/* Selected edges/nodes pop a tiny bit on focus — gives the canvas a more
+   tactile, app-like feel without needing per-edge logic. */
+.react-flow__edge-path {
+  transition: stroke 120ms ease, stroke-width 120ms ease;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+/* Controls panel — xyflow ships white buttons with dark glyphs, which look
+   inverted in dark mode. Re-skin with the app's theme tokens so it matches the
+   rest of the canvas chrome in both themes. */
+.react-flow__controls {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px color-mix(in srgb, black 12%, transparent);
+}
+.react-flow__controls-button {
+  background-color: var(--card);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.react-flow__controls-button:hover {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+

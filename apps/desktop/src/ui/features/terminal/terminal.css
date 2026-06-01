@@ -1,0 +1,44 @@
+/*
+ * Cosmétique de la scrollbar xterm — aligne le look sur le thème
+ * `os-theme-dark` d'OverlayScrollbars utilisé partout ailleurs dans l'app.
+ * On reste sur la scrollbar native (xterm gère son propre viewport) et on
+ * la stylise via pseudo-éléments webkit + propriétés Firefox.
+ */
+
+.xterm .xterm-viewport {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent)
+    transparent;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: transparent;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--foreground) 18%, transparent);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+  transition: background-color 120ms ease;
+}
+
+.xterm .xterm-viewport:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--foreground) 32%, transparent);
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover,
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:active {
+  background-color: color-mix(in srgb, var(--foreground) 48%, transparent);
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-corner {
+  background: transparent;
+}

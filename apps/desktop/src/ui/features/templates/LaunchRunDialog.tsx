@@ -1,0 +1,120 @@
+import { Dialog } from "@base-ui/react/dialog";
+import { Play, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import type { ArtifactKind } from "../../../domain/workflow/types";
+
+type Props = {
+  readonly open: boolean;
+  readonly title: string;
+  readonly needsSeed: boolean;
+  readonly seedKind: ArtifactKind | null;
+  readonly text: string;
+  readonly busy: boolean;
+  readonly error: string | null;
+  readonly onTextChange: (text: string) => void;
+  readonly onSubmit: () => void;
+  readonly onClose: () => void;
+};
+
+const LaunchRunDialog = ({
+  open,
+  title,
+  needsSeed,
+  seedKind,
+  text,
+  busy,
+  error,
+  onTextChange,
+  onSubmit,
+  onClose,
+}: Props) => {
+  const canSubmit = !busy && (!needsSeed || text.trim().length > 0);
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && !busy) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xl outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
+            <Dialog.Title className="min-w-0 truncate text-sm font-semibold">
+              {title}
+            </Dialog.Title>
+            <Dialog.Close
+              aria-label="Fermer"
+              disabled={busy}
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+            >
+              <X className="size-4" />
+            </Dialog.Close>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
+            {needsSeed ? (
+              <>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-medium text-foreground">
+                    Contenu d'entrée
+                  </span>
+                  {seedKind ? (
+                    <span className="text-2xs uppercase tracking-wider text-muted-foreground">
+                      Entrée attendue :{" "}
+                      <span className="font-mono normal-case">{seedKind}</span>
+                    </span>
+                  ) : null}
+                </div>
+                <Textarea
+                  className="min-h-[220px] flex-1 font-mono text-sm"
+                  placeholder={`Contenu ${seedKind ?? "…"}…`}
+                  value={text}
+                  onChange={(e) => onTextChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      if (canSubmit) onSubmit();
+                    }
+                  }}
+                  disabled={busy}
+                  autoFocus
+                />
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Ce template ne nécessite pas d'entrée utilisateur — la première
+                étape se lance directement avec sa configuration.
+              </p>
+            )}
+            {error ? (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>
+              Annuler
+            </Button>
+            <Button size="sm" onClick={onSubmit} disabled={!canSubmit}>
+              {busy ? (
+                "Démarrage…"
+              ) : (
+                <>
+                  <Play data-icon="inline-start" className="size-3.5" />
+                  Démarrer
+                </>
+              )}
+            </Button>
+          </div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+};
+
+export default LaunchRunDialog;

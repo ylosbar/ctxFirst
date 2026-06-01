@@ -1,0 +1,68 @@
+{
+  "id": "linear",
+  "name": "Linear",
+  "version": "0.1.0",
+  "description": "Step kinds `linear.fetch` (resolve a ticket via the Linear GraphQL API and emit it as a structured Ticket payload), `linear.split` (project a Ticket into title + description Markdown) and `linear.set-status` (move a ticket to a new workflow state given as a string). Publishes the `plugin:linear:Ticket@v1` artifact kind consumed by downstream steps.",
+  "author": "CtxFirst team",
+  "main": "main.js",
+  "core": true,
+  "permissions": ["engine:steps"],
+  "contributions": {
+    "stepKinds": [
+      {
+        "id": "linear.fetch",
+        "label": "Linear: fetch ticket"
+      },
+      {
+        "id": "linear.split",
+        "label": "Linear: split ticket"
+      },
+      {
+        "id": "linear.set-status",
+        "label": "Linear: set status"
+      }
+    ],
+    "artifactSchemas": [
+      {
+        "id": "Ticket",
+        "version": "v1",
+        "name": "Linear Ticket",
+        "description": "Fully-resolved Linear issue with comments and a pre-rendered Markdown view.",
+        "simplifiedSchema": {
+          "type": "object",
+          "properties": {
+            "identifier": { "type": "string", "pattern": "^[A-Z]+-\\d+$" },
+            "title": { "type": "string" },
+            "state": { "type": "string" },
+            "priority": { "type": "integer" },
+            "url": { "type": "string", "format": "uri" },
+            "labels": { "type": "array", "items": { "type": "string" } },
+            "comments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "author": { "type": "string" },
+                  "body": { "type": "string" },
+                  "createdAt": { "type": "string" }
+                },
+                "required": ["author", "body", "createdAt"]
+              }
+            },
+            "renderedMarkdown": { "type": "string" }
+          },
+          "required": [
+            "identifier",
+            "title",
+            "state",
+            "priority",
+            "url",
+            "labels",
+            "comments",
+            "renderedMarkdown"
+          ]
+        }
+      }
+    ]
+  }
+}

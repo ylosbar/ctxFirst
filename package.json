@@ -1,0 +1,58 @@
+{
+  "name": "ctxfirst-desktop-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CtxFirst — drive LLM workflows step by step, with human validations at key moments and feedback loops to iterate without starting over.",
+  "license": "AGPL-3.0-or-later",
+  "author": "Yoann Losbar <yoann.losbar@gmail.com>",
+  "type": "module",
+  "workspaces": [
+    "apps/desktop",
+    "apps/web",
+    "apps/api",
+    "packages/*"
+  ],
+  "resolutions": {
+    "vite": "^6.0.3"
+  },
+  "scripts": {
+    "dev": "yarn workspace @ctxfirst/desktop dev",
+    "build": "yarn workspace @ctxfirst/desktop build",
+    "start": "yarn workspace @ctxfirst/desktop start",
+    "package": "yarn workspace @ctxfirst/desktop package",
+    "web:dev": "yarn workspace @ctxfirst/web dev",
+    "web:build": "yarn workspace @ctxfirst/web build",
+    "web:preview": "yarn workspace @ctxfirst/web preview",
+    "api:dev": "yarn workspace @ctxfirst/api dev",
+    "api:build": "yarn workspace @ctxfirst/api build",
+    "api:start": "yarn workspace @ctxfirst/api start",
+    "test": "yarn workspace @ctxfirst/desktop test",
+    "test:watch": "yarn workspace @ctxfirst/desktop test:watch",
+    "test:coverage": "yarn workspace @ctxfirst/desktop test:coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:changed": "eslint $(git diff --name-only --diff-filter=ACM main -- '*.ts' '*.tsx' '*.mts' '*.mjs')",
+    "arch:gen": "node scripts/architecture.js gen",
+    "arch:check": "node scripts/architecture.js check",
+    "arch:extract": "node scripts/architecture.js extract",
+    "arch:resolve": "node scripts/architecture.js resolve",
+    "audit-markdown-links": "node scripts/audit-markdown-links.js",
+    "audit-raw-jsx": "node scripts/audit-raw-jsx-elements.js",
+    "audit-large-components": "node scripts/audit-large-components.js",
+    "find-eslint-rule": "node scripts/find-eslint-rule.js",
+    "count-loc": "node scripts/count-loc.js",
+    "audit-untranslated-strings": "node scripts/audit-untranslated-strings.js",
+    "audit-untranslated-strings:strict": "node scripts/audit-untranslated-strings.js --strict"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "eslint-plugin-i18next": "^6.1.4",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "eslint-plugin-storybook": "^0.11.0",
+    "globals": "^15.14.0",
+    "typescript-eslint": "^8.20.0"
+  }
+}

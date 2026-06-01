@@ -1,0 +1,732 @@
+{
+  "common": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "delete": "Delete",
+    "add": "Add",
+    "copy": "Copy",
+    "copied": "Copied",
+    "loading": "Loading…",
+    "unknownError": "Unknown error",
+    "enabled": "On",
+    "disabled": "Off",
+    "showKey": "Show key",
+    "hideKey": "Hide key",
+    "keyEmpty": "The key cannot be empty."
+  },
+  "templates": {
+    "list": {
+      "title": "Templates",
+      "searchPlaceholder": "Search a template…",
+      "import": "Import",
+      "newTemplate": "New template",
+      "empty": {
+        "title": "No template",
+        "description": "Create a first template to get started."
+      },
+      "noResults": {
+        "title": "No result",
+        "clearSearch": "Clear search"
+      },
+      "columns": {
+        "name": "Name",
+        "status": "Status",
+        "steps": "Steps",
+        "entry": "Entry",
+        "reference": "Reference",
+        "actions": "Actions"
+      },
+      "toast": {
+        "exported": "Workflow exported as JSON",
+        "exportFailed": "Export failed",
+        "imported": "Workflow imported",
+        "importFailed": "Import failed"
+      },
+      "actions": {
+        "menuAriaLabel": "Template actions",
+        "edit": "Edit the template",
+        "rename": "Rename",
+        "duplicate": "Duplicate",
+        "exportJson": "Export as JSON"
+      }
+    }
+  },
+  "template": {
+    "untitled": "Untitled",
+    "editor": {
+      "toast": {
+        "saved": "Template saved",
+        "exportedSvg": "Workflow exported as SVG",
+        "exportSvgFailed": "SVG export failed",
+        "exportedPng": "Workflow exported as PNG",
+        "exportPngFailed": "PNG export failed",
+        "exportedJson": "Workflow exported as JSON",
+        "exportJsonFailed": "JSON export failed"
+      },
+      "specsError": "Unable to load the node catalog:",
+      "toolbar": {
+        "autoLayout": {
+          "vertical": "Stack vertically",
+          "horizontal": "Align horizontally",
+          "twoColumns": "Stack in two columns"
+        },
+        "grid": {
+          "chooseStepAriaLabel": "Choose the grid step",
+          "stepTooltip": "Grid step"
+        },
+        "export": {
+          "trigger": "Export the workflow",
+          "json": "Export as JSON",
+          "svg": "Export as SVG",
+          "png": "Export as PNG"
+        },
+        "clearAll": "Clear everything and start over"
+      },
+      "stickyNote": {
+        "add": "Add a note",
+        "placeholder": "Note…",
+        "ariaLabel": "Note content",
+        "delete": "Delete the note"
+      },
+      "layoutSaveError": "Layout not saved — will retry on the next move.",
+      "inspector": {
+        "resizeAriaLabel": "Resize the inspector"
+      }
+    },
+    "stepInspector": {
+      "sections": {
+        "configuration": { "title": "Configuration" },
+        "wiring": {
+          "title": "Wiring",
+          "description": "Wire the inputs and outputs to workflow variables."
+        },
+        "behavior": { "title": "Behavior" },
+        "advanced": { "title": "Advanced" }
+      },
+      "config": {
+        "noParams": "No specific parameter to configure for this step kind."
+      },
+      "browse": "Browse…",
+      "remove": "Remove",
+      "kindSelect": {
+        "choose": "— choose a kind —",
+        "userPlugin": "User / plugin",
+        "orphan": "{{kind}} (orphan)"
+      },
+      "polymorphism": {
+        "description": "Determines the port signature of this step."
+      },
+      "fields": {
+        "maxTokens": "Max tokens"
+      },
+      "claudeCode": {
+        "model": "Model"
+      },
+      "codex": {
+        "model": "Model"
+      },
+      "openrouter": {
+        "model": {
+          "label": "OpenRouter model",
+          "description": "OpenRouter slug, e.g. <code>openai/gpt-4o-mini</code> or <code>anthropic/claude-3.5-sonnet</code>.",
+          "placeholder": "openai/gpt-4o-mini"
+        }
+      },
+      "linear": {
+        "ticketRef": {
+          "label": "Ticket reference (fallback)",
+          "placeholder": "e.g. ENG-123 (otherwise read from the input)"
+        },
+        "actorRole": {
+          "label": "Role for validation",
+          "description": "Active only when human validation is required (see Behavior)."
+        }
+      },
+      "workspaceSet": {
+        "cwd": {
+          "label": "Working directory (CLI cwd)",
+          "description": "All subsequent <code>claude_code.invoke</code> steps will use this cwd until the next <code>workspace.set</code>."
+        }
+      },
+      "gitClone": {
+        "repoUrl": {
+          "label": "Repository URL (HTTPS)"
+        },
+        "baseDir": {
+          "label": "Clone root (baseDir)",
+          "description": "Authorized root for the clone — the wipe and clone can never escape it. Leave empty to use the managed default (<code>userData/clones</code>).",
+          "placeholder": "(managed default)"
+        },
+        "folder": {
+          "label": "Folder (sub-path in baseDir)"
+        },
+        "branch": {
+          "label": "Branch (optional)",
+          "placeholder": "remote default branch"
+        },
+        "cleanBefore": {
+          "label": "Wipe before cloning",
+          "description": "When on (default), the target folder is removed then re-cloned — replaying the step is idempotent. When off, the step fails if the target already exists and is not empty."
+        }
+      },
+      "gitlabMrCreate": {
+        "project": {
+          "label": "Project",
+          "description": "Numeric id or <code>group/project</code> path. Can also come from the wired input."
+        },
+        "sourceBranch": {
+          "label": "Source branch"
+        },
+        "targetBranch": {
+          "label": "Target branch"
+        },
+        "title": {
+          "label": "MR title"
+        },
+        "description": {
+          "label": "Description (optional)"
+        },
+        "baseUrl": {
+          "label": "GitLab base URL (optional)",
+          "description": "Leave empty for <code>https://gitlab.com</code>; set it for a self-hosted instance."
+        }
+      },
+      "gitlabMrMerge": {
+        "project": {
+          "label": "Project",
+          "description": "Numeric id or <code>group/project</code> path. Inferred from the wired MR input if left empty."
+        },
+        "iid": {
+          "label": "MR iid",
+          "description": "Internal id of the merge request. Inferred from the wired MR input if left empty."
+        },
+        "baseUrl": {
+          "label": "GitLab base URL (optional)",
+          "description": "Leave empty for <code>https://gitlab.com</code>; set it for a self-hosted instance."
+        }
+      },
+      "shellExec": {
+        "command": "Command",
+        "useShell": "Interpret via shell (pipes, redirects, glob)",
+        "subdir": {
+          "label": "Subdirectory (optional)",
+          "placeholder": "apps/desktop"
+        },
+        "timeout": "Timeout (ms)",
+        "maxOutput": {
+          "label": "Max captured size (KiB)",
+          "description": "Automatically branches on the exit code: outputs <code>success</code> (exit 0) / <code>failure</code> (exit ≠ 0, timeout included), plus <code>stdout</code> / <code>stderr</code> verbatim. Requires an upstream <code>workspace.set</code> step. No env variable from the Electron process is exposed by default."
+        },
+        "customExitCodes": {
+          "label": "Custom exit-code branches",
+          "description": "When enabled, replaces <code>success</code>/<code>failure</code> with named ports mapped to exit codes (with a required catch-all). The <code>stdout</code>/<code>stderr</code> ports remain unchanged."
+        }
+      },
+      "fileLoadMarkdown": {
+        "path": {
+          "label": "Markdown file path",
+          "description": "Absolute path picked via the file picker. The file content is exposed as a <code>Markdown</code> artifact output."
+        }
+      },
+      "skillLoader": {
+        "skill": {
+          "label": "Skill",
+          "description": "Saved skill whose <code>body</code> will be exposed as a <code>Markdown</code> artifact output."
+        },
+        "createNew": "+ Create a new skill…"
+      },
+      "concat": {
+        "mode": {
+          "label": "Mode",
+          "description": "In <code>template</code> mode, the <code>main</code> port is a template whose <code>{{example}}</code> placeholders are replaced by the other ports — addressed by variable via <code>readsFrom</code>, otherwise by port name.",
+          "concat": "Concat (concatenates)",
+          "template": "Template (substitutes placeholders)"
+        },
+        "separator": "Separator between parts",
+        "order": {
+          "label": "Concatenation order",
+          "topToBottom": "Top to bottom (main → markdown3)",
+          "bottomToTop": "Bottom to top (markdown3 → main)"
+        },
+        "onMissing": {
+          "label": "Unresolved placeholder",
+          "description": "Behavior if a {{example}} in the template has no value provided.",
+          "keep": "Keep literal (default)",
+          "empty": "Replace with empty",
+          "error": "Error (step fails)"
+        },
+        "onUnused": {
+          "label": "Wired port not referenced",
+          "description": "Behavior if a wired port doesn't appear in any placeholder of the template.",
+          "append": "Append at end (default)",
+          "ignore": "Ignore"
+        },
+        "header": "Header (optional)",
+        "footer": "Footer (optional)",
+        "perEntry": {
+          "title": "Prefix / suffix per entry",
+          "description": "Optional. Wraps each entry before concatenation. Empty ⇒ ignored.",
+          "header": "Header",
+          "footer": "Footer"
+        }
+      },
+      "humanGate": {
+        "role": "Expected role",
+        "prompt": "Prompt for the human"
+      },
+      "wiring": {
+        "loading": "Loading signature…",
+        "empty": "This step has neither input nor output.",
+        "inputs": "Inputs",
+        "outputs": "Outputs",
+        "none": "— none —",
+        "passthrough": "Passthrough — no artifact produced."
+      },
+      "behavior": {
+        "actor": "Actor",
+        "humanGateRequired": "Requires human validation",
+        "note": {
+          "label": "Note",
+          "description": "Free-form note attached to this step of the template.",
+          "placeholder": "Add a note about this step…"
+        }
+      },
+      "advanced": {
+        "id": {
+          "label": "Identifier",
+          "description": "Used in transitions and by the execution engine."
+        },
+        "kind": "Technical kind"
+      },
+      "header": {
+        "nameAriaLabel": "Step name",
+        "namePlaceholder": "Step name",
+        "testNode": "Test the node",
+        "deleteStep": "Delete the step",
+        "entryBadge": "Entry",
+        "humanValidationBadge": "Human validation"
+      },
+      "suggestions": {
+        "description": "A plugin offers nodes suited to this kind. Insert it manually into the graph if useful."
+      },
+      "transform": {
+        "parser": {
+          "label": "Parser to apply",
+          "description": "The saved parser transforms the input artifact. Its output must conform to the kind selected in `outputKind`."
+        }
+      },
+      "webhook": {
+        "method": "HTTP method",
+        "urlFallback": {
+          "label": "Fallback URL",
+          "description": "Used if the <code>url</code> input is not wired. The input takes priority."
+        },
+        "headers": {
+          "label": "Static headers",
+          "description": "Do not put a real secret here: they are stored in plaintext in the template.",
+          "placeholder": "Header",
+          "add": "+ Add a header"
+        },
+        "body": {
+          "label": "Request body (fallback)",
+          "description": "Used if the <code>body</code> input is not wired. Sent as-is (JSON recommended).",
+          "placeholder": "{ \"event\": \"done\" }"
+        },
+        "failOnError": "Fail on non-2xx HTTP status"
+      },
+      "branch": {
+        "verdictKind": {
+          "label": "Verdict kind",
+          "description": "Kind of the input artifact the runner will inspect (Markdown.body trimmed)."
+        },
+        "cases": {
+          "label": "Branches (cases)",
+          "description": "Each case becomes an output port; only one will be produced at runtime.",
+          "add": "+ Add a case"
+        }
+      },
+      "jsonTransform": {
+        "projections": {
+          "label": "JSONPath projections",
+          "description": "Each slot becomes a Json output port. The result is always an array of matches.",
+          "placeholder": "$.foo.bar[*]",
+          "add": "+ Add a projection"
+        }
+      },
+      "branchMatch": {
+        "sumType": {
+          "label": "Sum type (OneOf<…>)",
+          "description": "Each variant becomes a typed output port <code>{{variantPort}}</code>. The runner dispatches on the payload's <code>variantKind</code> discriminator. At least 2 variants, {{max}} max."
+        },
+        "addVariant": "+ Add a variant"
+      }
+    },
+    "stepInfoPanel": {
+      "errors": {
+        "execution": "Execution error"
+      },
+      "execution": {
+        "title": "Execution",
+        "kind": "Kind",
+        "startedAt": "Started",
+        "endedAt": "Ended",
+        "duration": "Duration"
+      },
+      "output": {
+        "title": "Output",
+        "artifact": "Artifact"
+      },
+      "humanFeedback": {
+        "title": "Human feedback",
+        "inlineComments_one": "{{count}} inline comment",
+        "inlineComments_other": "{{count}} inline comments"
+      },
+      "empty": {
+        "pending": "Step waiting to be started."
+      },
+      "slots": {
+        "title": "Input slots"
+      },
+      "inputs": {
+        "title": "Inputs"
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "options": "Options",
+    "categories": {
+      "appearance": "Appearance",
+      "channels": "Channels",
+      "integrations": "Integrations",
+      "llm": "LLM models",
+      "mcp": "MCP",
+      "plugins": "Plugins",
+      "general": "General"
+    },
+    "general": {
+      "resetAll": {
+        "title": "Reset all settings",
+        "description": "Permanently delete all user settings: API keys, LLM models, active channel, base prompt, theme, language and density. The app then restarts on its default values.",
+        "button": "Reset",
+        "confirm": "Reset all user settings?\n\nThis action is irreversible: API keys, models, active channel, base prompt and display preferences will be deleted. The app will reload.",
+        "success": "All settings have been deleted."
+      },
+      "wipeAll": {
+        "title": "Erase everything (settings + data)",
+        "description": "Permanently delete all user settings AND wipe the database: workflows, instances, artifacts, chat history, channels and plugin data. Everything is erased and the app restarts on a clean install.",
+        "button": "Erase everything",
+        "confirm": "Erase ALL settings and data?\n\nThis action is irreversible: every setting, all workflows, instances, artifacts, chat history and channels will be permanently deleted. The app will restart on a clean state."
+      }
+    },
+    "appearance": {
+      "language": {
+        "title": "Language",
+        "description": "User interface language."
+      },
+      "textSize": {
+        "title": "Text size",
+        "description": "Adjust the application's display density."
+      },
+      "panelShadows": {
+        "title": "Panel shadows",
+        "description": "Show the elevation shadow cast by the left and right side panels onto the editor."
+      }
+    },
+    "integrations": {
+      "linear": {
+        "title": "Linear — API key",
+        "description": "Used by the <code>linear.fetch</code> steps. Stored encrypted locally (OS keychain), never returned in plaintext to the UI.",
+        "configured": "A key is currently configured (ends with <mono>…{{lastFour}}</mono>). Enter a new key to replace it, or delete it.",
+        "notConfigured": "No key configured. Generate a <em>Personal API Key</em> from Linear (Settings → API).",
+        "updated": "Key updated."
+      },
+      "gitlab": {
+        "title": "GitLab — access token",
+        "description": "Used by the <code>git.clone</code> steps to clone private repositories. Stored encrypted locally (OS keychain), never returned in plaintext to the UI.",
+        "configured": "A token is currently configured (ends with <mono>…{{lastFour}}</mono>). Enter a new token to replace it, or delete it.",
+        "notConfigured": "No token configured. Generate a <em>Personal Access Token</em> from GitLab (Preferences → Access Tokens) with the <em>read_repository</em> scope.",
+        "updated": "Token updated."
+      }
+    },
+    "llm": {
+      "openRouter": {
+        "description": "Used by <code>openrouter.invoke</code> steps and by the chat (<code>openrouter/*</code> models). The key is encrypted locally (OS keychain), never returned in plaintext to the UI."
+      },
+      "apiKey": "API key",
+      "keyConfigured": "A key is currently configured (ends with <mono>…{{lastFour}}</mono>). Enter a new key to replace it, or delete it.",
+      "keyNotConfigured": "No key configured. Generate a key on <mono>openrouter.ai</mono> and paste it here.",
+      "modelExists": "This model is already in the list.",
+      "keepOneModel": "Keep at least one model in the list.",
+      "saved": "Saved.",
+      "models": {
+        "title": "Available models",
+        "description": "OpenRouter identifiers (e.g. <mono>openai/gpt-4o-mini</mono>, <mono>anthropic/claude-sonnet-4</mono>). The model marked as default is used for new conversations and by <code>openrouter.invoke</code> steps without a model in their config. The chat selector lets you choose among these models.",
+        "default": "default",
+        "setDefault": "Set as default model",
+        "isDefault": "Default model",
+        "remove": "Remove this model",
+        "keepOne": "Keep at least one model"
+      },
+      "test": {
+        "title": "Test the connection",
+        "description": "Sends a short message to OpenRouter with the configured key and model. No significant quota consumed.",
+        "run": "Run a test",
+        "running": "Testing…",
+        "ok": "OK · model <mono>{{model}}</mono> · {{latency}}ms"
+      }
+    },
+    "mcp": {
+      "serverTitle": "MCP server — {{name}}",
+      "description": "The app exposes a local MCP server over HTTP. Run the matching command in your terminal to declare it in Claude Code or Codex CLI. The app must be open for the server to respond.",
+      "endpoint": "Endpoint: <mono>{{url}}</mono>",
+      "toolsExposed": "Exposed tools",
+      "noTools": "No tool registered.",
+      "test": "Test",
+      "status": {
+        "online": "Online",
+        "offline": "Offline",
+        "checking": "Checking…",
+        "onlineTitle": "Server listening",
+        "offlineTitle": "Server stopped",
+        "offlineError": "Server stopped — {{error}}",
+        "checkingTitle": "Checking the server state"
+      },
+      "playground": {
+        "noParams": "No parameter — click Run to launch the call.",
+        "run": "Run",
+        "running": "Running…",
+        "duration": "duration: {{ms}} ms · ",
+        "ok": "OK",
+        "error": "error",
+        "result": "Result",
+        "invalidNumber": "{{name}}: invalid number",
+        "invalidJson": "{{name}}: invalid JSON ({{message}})"
+      },
+      "copy": {
+        "copy": "Copy the command",
+        "copied": "Command copied"
+      }
+    },
+    "plugins": {
+      "title": "Loaded plugins",
+      "description": "Built-in (shipped with the app) or user (dropped in the plugins folder). A user plugin requires an explicit authorization before its first load. Revocation is hot — the app does not need to be restarted.",
+      "openFolder": "Open the folder",
+      "empty": "No plugin loaded.",
+      "state": {
+        "active": "Active",
+        "pending": "Authorization required",
+        "disabled": "Disabled",
+        "failed": "Failed"
+      },
+      "reviewPermissions": "Review permissions…",
+      "permissions": "Permissions ({{granted}}/{{total}})",
+      "sensitive": "sensitive",
+      "grant": "Grant",
+      "revoke": "Revoke",
+      "allowedHosts": "Allowed hosts ({{count}}): <mono>{{hosts}}</mono>",
+      "stepKinds_one": "{{count}} step kind",
+      "stepKinds_other": "{{count}} step kinds",
+      "ipcMethods_one": "{{count}} IPC method",
+      "ipcMethods_other": "{{count}} IPC methods",
+      "folder": "Folder",
+      "reload": "Reload",
+      "coreTooltip": "Core plugin — required by templates and stored artifacts",
+      "disable": "Disable",
+      "enable": "Enable",
+      "authorize": {
+        "title": "Authorize {{name}}?",
+        "description": "This plugin requests the following permissions. Third-party code runs with the privileges of the main process — only authorize plugins you trust.",
+        "homepage": "Plugin page",
+        "allowedHosts": "Allowed hosts: <mono>{{hosts}}</mono>",
+        "later": "Later",
+        "deny": "Deny",
+        "grantAll": "Grant all & enable"
+      }
+    },
+    "channels": {
+      "title": "Channels",
+      "description": "Partition your templates, skills, artifact types, parsers and runs by context. Select a channel from the sidebar to rebind all the lists. The <mono>personal</mono> channel is the default and cannot be deleted.",
+      "new": "New channel",
+      "active": "active",
+      "default": "default",
+      "cannotDeleteDefault": "The default channel cannot be deleted.",
+      "deleteConfirm": "Delete the channel \"{{id}}\"?\n\nAttached entities will become global (channel_id = NULL).",
+      "deleted": "Channel \"{{id}}\" deleted"
+    }
+  },
+  "artifactSchemas": {
+    "parsers": {
+      "title": "Parsers",
+      "description": "Library of reusable transformations. Plug them into a graph via a `transform.run` node.",
+      "newParser": "New parser",
+      "empty": "No parser. Create one to reduce the payload, or leave empty to pass the raw data to the LLM.",
+      "pluginBadge": "plugin:{{pluginId}}",
+      "editAriaLabel": "Edit",
+      "deleteAriaLabel": "Delete",
+      "draft": {
+        "versionLabel": "Version",
+        "modeLabel": "Mode",
+        "modes": {
+          "declarative": "declarative",
+          "code": "code (QuickJS sandbox)"
+        }
+      },
+      "playground": {
+        "title": "Playground",
+        "run": "Run",
+        "simplifiedLabel": "Simplified"
+      }
+    },
+    "editor": {
+      "newTitle": "New artifact type",
+      "newDescription": "Define a simplified schema, then configure a parser to reduce the raw payload.",
+      "save": "Save",
+      "upToDate": "Up to date",
+      "delete": "Delete",
+      "notFoundTitle": "Type not found",
+      "notFoundDescription": "No artifact type matches {{ref}}.",
+      "source": {
+        "label": "Source: {{source}}",
+        "user": "user",
+        "builtin": "built-in",
+        "plugin": "plugin:{{pluginId}}"
+      },
+      "readonly": {
+        "title": "Read-only",
+        "body": "This type is read-only (source: {{source}}). To adapt it, copy it as a user type."
+      },
+      "collision": {
+        "title": "Duplicate schema",
+        "body": "Same structural hash as “{{name}}” ({{ref}}). Ports will treat it as equivalent — you can reference the existing type instead of saving a duplicate."
+      },
+      "sections": {
+        "identity": "Identity",
+        "schema": "Schema",
+        "example": "Sample & parsers"
+      },
+      "fields": {
+        "idLabel": "Identifier",
+        "idHint": "lowercase slug, e.g. `shopify-order`",
+        "versionLabel": "Version",
+        "versionHint": "form `v<n>`, e.g. `v1`",
+        "nameLabel": "Name",
+        "descriptionLabel": "Description",
+        "simplifiedLabel": "Simplified schema (JSON Schema)",
+        "simplifiedHint": "Shape that parsers must produce.",
+        "rawLabel": "Raw schema (optional)",
+        "rawHint": "JSON Schema describing the input payload. Leave empty if untyped.",
+        "sampleRawLabel": "Sample raw",
+        "sampleRawHint": "Example raw payload, used by the playground.",
+        "markdownTemplateLabel": "Markdown projection (optional)",
+        "markdownTemplateHint": "Human-friendly Markdown template using {{field}} placeholders for top-level fields. Used by `render.markdown` and the artifact preview. Leave empty to fall back to pretty-printed JSON."
+      },
+      "json": {
+        "valid": "Valid JSON",
+        "invalid": "Invalid JSON",
+        "format": "Format"
+      },
+      "preview": {
+        "title": "Properties",
+        "required": "required",
+        "empty": "No top-level property."
+      },
+      "errors": {
+        "idRequired": "The identifier is required.",
+        "idSlug": "The identifier must be a lowercase slug (a–z, 0–9, '.', '-').",
+        "versionFormat": "The version must have the form 'v<n>' (e.g. 'v1').",
+        "nameRequired": "The name is required.",
+        "simplifiedJson": "Invalid JSON: {{message}}",
+        "rawJson": "Invalid JSON: {{message}}"
+      }
+    }
+  },
+  "explorer": {
+    "resourceTree": {
+      "searchPlaceholder": "Search…",
+      "newFolder": "New folder",
+      "newResource": "New resource",
+      "menu": {
+        "newTemplate": "New template",
+        "newPrompt": "New prompt",
+        "newArtifactType": "New artifact type"
+      },
+      "toast": {
+        "deleteFailed": "Deletion failed",
+        "deleteFolderFailed": "Folder deletion failed",
+        "exported": "Workflow exported as JSON",
+        "exportFailed": "Export failed",
+        "moveFailed": "Move failed",
+        "moveFolderFailed": "Folder move failed"
+      }
+    }
+  },
+  "runs": {
+    "review": {
+      "invalidUri": "Invalid review URI:",
+      "stepGone": "This step no longer exists in the run.",
+      "notAwaiting": "This step is no longer awaiting validation.",
+      "noLoopTarget": "To send feedback and re-run this step, add a “Feedback loop” transition on this node (self-loop) in the template.",
+      "commentCount_one": "{{count}} comment",
+      "commentCount_other": "{{count}} comments",
+      "stepOutput": "Step output",
+      "noArtifact": "(no artifact to review — just enter a summary)",
+      "summaryLabel": "Summary (optional)",
+      "submit": "Send the review and re-run"
+    },
+    "iterations": {
+      "empty": "No active run.",
+      "noSelection": "(no step selected)"
+    },
+    "list": {
+      "groupBy": "Group by",
+      "filterByStatus": "Filter by status",
+      "showAll": "Show all",
+      "count_one": "{{count}} run",
+      "count_other": "{{count}} runs"
+    },
+    "timeline": {
+      "iteration": "(iter. {{n}})",
+      "iterationHeader": "Iteration {{index}}",
+      "loopIterationCount_one": "{{count}} iteration",
+      "loopIterationCount_other": "{{count}} iterations",
+      "feedbackComments_one": "{{count}} comment",
+      "feedbackComments_other": "{{count}} comments",
+      "subworkflowStepCount_one": "sub-workflow · {{count}} step",
+      "subworkflowStepCount_other": "sub-workflow · {{count}} steps",
+      "collapseAll": "Collapse all",
+      "expandAll": "Expand all"
+    },
+    "stats": {
+      "title": "Step timeline"
+    },
+    "tokens": {
+      "title": "Token usage",
+      "total": "Total",
+      "in": "Input",
+      "out": "Output",
+      "cost": "Cost",
+      "cumulative": "cumulative"
+    },
+    "skipped_one": "{{count}} step skipped",
+    "skipped_other": "{{count}} steps skipped",
+    "workspace": {
+      "zones": "Zones",
+      "reset": "Reset layout",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "invalidUri": "Invalid URI:",
+      "zone": {
+        "runs": "Runs",
+        "timeline": "Timeline",
+        "graph": "Graph",
+        "timelineGraph": "Timeline / Graph / Stats",
+        "iterations": "Iterations",
+        "artifact": "Artifact",
+        "stats": "Stats"
+      }
+    }
+  }
+}

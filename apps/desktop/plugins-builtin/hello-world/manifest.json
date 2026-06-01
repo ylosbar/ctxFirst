@@ -1,0 +1,18 @@
+{
+  "id": "hello-world",
+  "name": "Hello World",
+  "version": "0.1.0",
+  "description": "Reference built-in plugin. Registers a `hello.echo` step kind that uppercases the body of its Markdown input, and a `Hello` page contributed by the renderer half exercising the `plugin://` loader.",
+  "author": "CtxFirst team",
+  "main": "main.js",
+  "renderer": "renderer.js",
+  "permissions": ["engine:steps"],
+  "contributions": {
+    "stepKinds": [
+      {
+        "id": "hello.echo",
+        "label": "Hello: echo (uppercase)"
+      }
+    ]
+  }
+}

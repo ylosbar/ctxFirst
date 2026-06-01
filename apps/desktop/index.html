@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Content-Security-Policy — default (dev-friendly) values. The
+      `connect-src` allow-list is intentionally explicit: no blanket `https:`
+      is permitted (cf. ARCHITECTURE.md §10.3). When a remote backend joins
+      the multirepo setup, its origin must be added here AND in the main
+      process CSP override (`session.defaultSession.webRequest
+      .onHeadersReceived`) used in production builds to drop
+      `'unsafe-inline'` / `'unsafe-eval'`.
+
+      `ws://` and `wss://` plus `http://localhost:*` are required for the
+      Vite HMR socket. `'unsafe-inline'` / `'unsafe-eval'` in `script-src`
+      are required for Vite dev tooling and are stripped in production by the
+      main-process CSP override.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' 'unsafe-eval' plugin:; style-src 'self' file: 'unsafe-inline' plugin:; img-src 'self' file: data: blob: plugin:; font-src 'self' file: data: plugin:; connect-src 'self' ws: wss: http://localhost:* https://openrouter.ai https://*.ingest.us.sentry.io plugin:;"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CtxFirst</title>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

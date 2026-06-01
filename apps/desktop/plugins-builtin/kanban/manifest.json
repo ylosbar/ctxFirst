@@ -1,0 +1,11 @@
+{
+  "id": "kanban",
+  "name": "Kanban",
+  "version": "0.1.0",
+  "description": "Personal kanban board with columns, tickets, and drag-and-drop. State persisted as a single JSON file in the plugin's data directory.",
+  "author": "CtxFirst team",
+  "main": "main.js",
+  "renderer": "renderer.js",
+  "permissions": ["fs:read", "fs:write"],
+  "contributions": {}
+}

@@ -1,0 +1,732 @@
+{
+  "common": {
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "delete": "Supprimer",
+    "add": "Ajouter",
+    "copy": "Copier",
+    "copied": "Copié",
+    "loading": "Chargement…",
+    "unknownError": "Erreur inconnue",
+    "enabled": "Activé",
+    "disabled": "Désactivé",
+    "showKey": "Afficher la clé",
+    "hideKey": "Masquer la clé",
+    "keyEmpty": "La clé ne peut pas être vide."
+  },
+  "templates": {
+    "list": {
+      "title": "Templates",
+      "searchPlaceholder": "Rechercher un template…",
+      "import": "Importer",
+      "newTemplate": "Nouveau template",
+      "empty": {
+        "title": "Aucun template",
+        "description": "Crée un premier template pour démarrer."
+      },
+      "noResults": {
+        "title": "Aucun résultat",
+        "clearSearch": "Effacer la recherche"
+      },
+      "columns": {
+        "name": "Nom",
+        "status": "Statut",
+        "steps": "Étapes",
+        "entry": "Entrée",
+        "reference": "Référence",
+        "actions": "Actions"
+      },
+      "toast": {
+        "exported": "Workflow exporté en JSON",
+        "exportFailed": "Export impossible",
+        "imported": "Workflow importé",
+        "importFailed": "Import impossible"
+      },
+      "actions": {
+        "menuAriaLabel": "Actions sur le template",
+        "edit": "Éditer le template",
+        "rename": "Renommer",
+        "duplicate": "Dupliquer",
+        "exportJson": "Exporter en JSON"
+      }
+    }
+  },
+  "template": {
+    "untitled": "Sans nom",
+    "editor": {
+      "toast": {
+        "saved": "Template sauvegardé",
+        "exportedSvg": "Workflow exporté en SVG",
+        "exportSvgFailed": "Export SVG impossible",
+        "exportedPng": "Workflow exporté en PNG",
+        "exportPngFailed": "Export PNG impossible",
+        "exportedJson": "Workflow exporté en JSON",
+        "exportJsonFailed": "Export JSON impossible"
+      },
+      "specsError": "Impossible de charger le catalogue des nodes :",
+      "toolbar": {
+        "autoLayout": {
+          "vertical": "Empiler verticalement",
+          "horizontal": "Aligner horizontalement",
+          "twoColumns": "Empiler en deux colonnes"
+        },
+        "grid": {
+          "chooseStepAriaLabel": "Choisir le pas de la grille",
+          "stepTooltip": "Pas de la grille"
+        },
+        "export": {
+          "trigger": "Exporter le workflow",
+          "json": "Exporter en JSON",
+          "svg": "Exporter en SVG",
+          "png": "Exporter en PNG"
+        },
+        "clearAll": "Tout effacer et repartir de zéro"
+      },
+      "stickyNote": {
+        "add": "Ajouter une note",
+        "placeholder": "Note…",
+        "ariaLabel": "Contenu de la note",
+        "delete": "Supprimer la note"
+      },
+      "layoutSaveError": "Layout non sauvegardé — réessai au prochain mouvement.",
+      "inspector": {
+        "resizeAriaLabel": "Redimensionner l'inspecteur"
+      }
+    },
+    "stepInspector": {
+      "sections": {
+        "configuration": { "title": "Configuration" },
+        "wiring": {
+          "title": "Câblage",
+          "description": "Brancher les entrées et sorties à des variables du workflow."
+        },
+        "behavior": { "title": "Comportement" },
+        "advanced": { "title": "Avancé" }
+      },
+      "config": {
+        "noParams": "Aucun paramètre spécifique à configurer pour ce type d'étape."
+      },
+      "browse": "Parcourir…",
+      "remove": "Supprimer",
+      "kindSelect": {
+        "choose": "— choisir un kind —",
+        "userPlugin": "User / plugin",
+        "orphan": "{{kind}} (orphelin)"
+      },
+      "polymorphism": {
+        "description": "Détermine la signature des ports de cette étape."
+      },
+      "fields": {
+        "maxTokens": "Max tokens"
+      },
+      "claudeCode": {
+        "model": "Modèle"
+      },
+      "codex": {
+        "model": "Modèle"
+      },
+      "openrouter": {
+        "model": {
+          "label": "Modèle OpenRouter",
+          "description": "Slug OpenRouter, ex. <code>openai/gpt-4o-mini</code> ou <code>anthropic/claude-3.5-sonnet</code>.",
+          "placeholder": "openai/gpt-4o-mini"
+        }
+      },
+      "linear": {
+        "ticketRef": {
+          "label": "Référence du ticket (fallback)",
+          "placeholder": "ex. ENG-123 (sinon lu depuis l'input)"
+        },
+        "actorRole": {
+          "label": "Rôle pour la validation",
+          "description": "Active uniquement quand la validation humaine est requise (voir Comportement)."
+        }
+      },
+      "workspaceSet": {
+        "cwd": {
+          "label": "Répertoire de travail (cwd CLI)",
+          "description": "Toutes les étapes <code>claude_code.invoke</code> qui suivent utiliseront ce cwd jusqu'au prochain <code>workspace.set</code>."
+        }
+      },
+      "gitClone": {
+        "repoUrl": {
+          "label": "URL du repo (HTTPS)"
+        },
+        "baseDir": {
+          "label": "Racine des clones (baseDir)",
+          "description": "Racine autorisée du clone — le wipe et le clone ne peuvent jamais en sortir. Laisse vide pour utiliser le défaut managé (<code>userData/clones</code>).",
+          "placeholder": "(défaut managé)"
+        },
+        "folder": {
+          "label": "Dossier (sous-chemin dans baseDir)"
+        },
+        "branch": {
+          "label": "Branche (optionnel)",
+          "placeholder": "branche par défaut du remote"
+        },
+        "cleanBefore": {
+          "label": "Nettoyer avant de cloner",
+          "description": "Si activé (défaut), le dossier cible est supprimé puis recloné — rejouer le step est idempotent. Si désactivé, le step échoue si la cible existe déjà et n'est pas vide."
+        }
+      },
+      "gitlabMrCreate": {
+        "project": {
+          "label": "Projet",
+          "description": "Id numérique ou chemin <code>group/project</code>. Peut aussi venir de l'input branché."
+        },
+        "sourceBranch": {
+          "label": "Branche source"
+        },
+        "targetBranch": {
+          "label": "Branche cible"
+        },
+        "title": {
+          "label": "Titre de la MR"
+        },
+        "description": {
+          "label": "Description (optionnel)"
+        },
+        "baseUrl": {
+          "label": "URL de base GitLab (optionnel)",
+          "description": "Vide pour <code>https://gitlab.com</code> ; à renseigner pour une instance self-hosted."
+        }
+      },
+      "gitlabMrMerge": {
+        "project": {
+          "label": "Projet",
+          "description": "Id numérique ou chemin <code>group/project</code>. Déduit de l'input MR branché si laissé vide."
+        },
+        "iid": {
+          "label": "iid de la MR",
+          "description": "Id interne de la merge request. Déduit de l'input MR branché si laissé vide."
+        },
+        "baseUrl": {
+          "label": "URL de base GitLab (optionnel)",
+          "description": "Vide pour <code>https://gitlab.com</code> ; à renseigner pour une instance self-hosted."
+        }
+      },
+      "shellExec": {
+        "command": "Commande",
+        "useShell": "Interpréter via shell (pipes, redirections, glob)",
+        "subdir": {
+          "label": "Sous-répertoire (optionnel)",
+          "placeholder": "apps/desktop"
+        },
+        "timeout": "Timeout (ms)",
+        "maxOutput": {
+          "label": "Taille max capturée (KiB)",
+          "description": "Branche automatiquement sur l'exit code : sorties <code>success</code> (exit 0) / <code>failure</code> (exit ≠ 0, timeout inclus), plus <code>stdout</code> / <code>stderr</code> verbatim. Nécessite un step <code>workspace.set</code> en amont. Aucune variable d'env du process Electron n'est exposée par défaut."
+        },
+        "customExitCodes": {
+          "label": "Branches par exit code personnalisées",
+          "description": "Quand activé, remplace <code>success</code>/<code>failure</code> par des ports nommés mappés à des exit codes (avec un catch-all obligatoire). Les ports <code>stdout</code>/<code>stderr</code> restent inchangés."
+        }
+      },
+      "fileLoadMarkdown": {
+        "path": {
+          "label": "Chemin du fichier Markdown",
+          "description": "Chemin absolu choisi via le file picker. Le contenu du fichier est exposé en sortie comme artifact <code>Markdown</code>."
+        }
+      },
+      "skillLoader": {
+        "skill": {
+          "label": "Skill",
+          "description": "Skill sauvegardée dont le <code>body</code> sera exposé en sortie comme artifact <code>Markdown</code>."
+        },
+        "createNew": "+ Créer un nouveau skill…"
+      },
+      "concat": {
+        "mode": {
+          "label": "Mode",
+          "description": "En mode <code>template</code>, le port <code>main</code> est un gabarit dont les placeholders <code>{{example}}</code> sont remplacés par les autres ports — adressés par variable via <code>readsFrom</code>, sinon par nom de port.",
+          "concat": "Concat (concatène)",
+          "template": "Template (substitue les placeholders)"
+        },
+        "separator": "Séparateur entre parts",
+        "order": {
+          "label": "Ordre de concaténation",
+          "topToBottom": "Top to bottom (main → markdown3)",
+          "bottomToTop": "Bottom to top (markdown3 → main)"
+        },
+        "onMissing": {
+          "label": "Placeholder non résolu",
+          "description": "Comportement si un {{example}} du gabarit n'a aucune valeur fournie.",
+          "keep": "Garder littéral (défaut)",
+          "empty": "Remplacer par vide",
+          "error": "Erreur (échec du step)"
+        },
+        "onUnused": {
+          "label": "Port câblé non référencé",
+          "description": "Comportement si un port branché n'apparaît dans aucun placeholder du gabarit.",
+          "append": "Ajouter en fin (défaut)",
+          "ignore": "Ignorer"
+        },
+        "header": "Header (optionnel)",
+        "footer": "Footer (optionnel)",
+        "perEntry": {
+          "title": "Préfixe / suffixe par entrée",
+          "description": "Optionnel. Enveloppe chaque entrée avant la concaténation. Vide ⇒ ignoré.",
+          "header": "Header",
+          "footer": "Footer"
+        }
+      },
+      "humanGate": {
+        "role": "Rôle attendu",
+        "prompt": "Prompt pour l'humain"
+      },
+      "wiring": {
+        "loading": "Signature en cours de chargement…",
+        "empty": "Cette étape n'a ni entrée ni sortie.",
+        "inputs": "Entrées",
+        "outputs": "Sorties",
+        "none": "— aucune —",
+        "passthrough": "Passthrough — aucun artifact produit."
+      },
+      "behavior": {
+        "actor": "Acteur",
+        "humanGateRequired": "Requiert une validation humaine",
+        "note": {
+          "label": "Note",
+          "description": "Note libre attachée à cette étape du template.",
+          "placeholder": "Ajouter une note sur cette étape…"
+        }
+      },
+      "advanced": {
+        "id": {
+          "label": "Identifiant",
+          "description": "Utilisé dans les transitions et le moteur d'exécution."
+        },
+        "kind": "Kind technique"
+      },
+      "header": {
+        "nameAriaLabel": "Nom de l'étape",
+        "namePlaceholder": "Nom de l'étape",
+        "testNode": "Tester la node",
+        "deleteStep": "Supprimer l'étape",
+        "entryBadge": "Entrée",
+        "humanValidationBadge": "Validation humaine"
+      },
+      "suggestions": {
+        "description": "Un plugin propose des nodes adaptés à ce kind. Insère-le manuellement dans le graphe si utile."
+      },
+      "transform": {
+        "parser": {
+          "label": "Parser à appliquer",
+          "description": "Le parser saved transforme l'artefact d'entrée. Sa sortie doit conformer au kind sélectionné en `outputKind`."
+        }
+      },
+      "webhook": {
+        "method": "Méthode HTTP",
+        "urlFallback": {
+          "label": "URL de fallback",
+          "description": "Utilisée si l'input <code>url</code> n'est pas câblé. L'input a priorité."
+        },
+        "headers": {
+          "label": "Headers statiques",
+          "description": "Ne pas y mettre un vrai secret : ils sont stockés en clair dans le template.",
+          "placeholder": "Header",
+          "add": "+ Ajouter un header"
+        },
+        "body": {
+          "label": "Corps de requête (fallback)",
+          "description": "Utilisé si l'input <code>body</code> n'est pas câblé. Envoyé tel quel (JSON conseillé).",
+          "placeholder": "{ \"event\": \"done\" }"
+        },
+        "failOnError": "Échouer si statut HTTP non-2xx"
+      },
+      "branch": {
+        "verdictKind": {
+          "label": "Kind du verdict",
+          "description": "Kind de l'artifact d'entrée que le runner inspectera (Markdown.body trimmed)."
+        },
+        "cases": {
+          "label": "Branches (cases)",
+          "description": "Chaque case devient un port de sortie ; une seule sera produite à l'exécution.",
+          "add": "+ Ajouter une case"
+        }
+      },
+      "jsonTransform": {
+        "projections": {
+          "label": "Projections JSONPath",
+          "description": "Chaque slot devient un port de sortie Json. Le résultat est toujours un tableau des matches.",
+          "placeholder": "$.foo.bar[*]",
+          "add": "+ Ajouter une projection"
+        }
+      },
+      "branchMatch": {
+        "sumType": {
+          "label": "Sum type (OneOf<…>)",
+          "description": "Chaque variant devient un port de sortie typé <code>{{variantPort}}</code>. Le runner dispatche selon le discriminator <code>variantKind</code> du payload. Au moins 2 variants, {{max}} au max."
+        },
+        "addVariant": "+ Ajouter un variant"
+      }
+    },
+    "stepInfoPanel": {
+      "errors": {
+        "execution": "Erreur d'exécution"
+      },
+      "execution": {
+        "title": "Exécution",
+        "kind": "Kind",
+        "startedAt": "Démarrée",
+        "endedAt": "Terminée",
+        "duration": "Durée"
+      },
+      "output": {
+        "title": "Sortie",
+        "artifact": "Artefact"
+      },
+      "humanFeedback": {
+        "title": "Feedback humain",
+        "inlineComments_one": "{{count}} commentaire en ligne",
+        "inlineComments_other": "{{count}} commentaires en ligne"
+      },
+      "empty": {
+        "pending": "Étape en attente d'être démarrée."
+      },
+      "slots": {
+        "title": "Slots entrants"
+      },
+      "inputs": {
+        "title": "Entrées"
+      }
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "options": "Options",
+    "categories": {
+      "appearance": "Apparence",
+      "channels": "Channels",
+      "integrations": "Intégrations",
+      "llm": "Modèles LLM",
+      "mcp": "MCP",
+      "plugins": "Plugins",
+      "general": "Général"
+    },
+    "general": {
+      "resetAll": {
+        "title": "Réinitialiser tous les réglages",
+        "description": "Supprime définitivement tous les réglages utilisateur : clés API, modèles LLM, canal actif, prompt de base, thème, langue et densité. L'application redémarre ensuite sur les valeurs par défaut.",
+        "button": "Réinitialiser",
+        "confirm": "Réinitialiser tous les réglages utilisateur ?\n\nCette action est irréversible : clés API, modèles, canal actif, prompt de base et préférences d'affichage seront supprimés. L'application va recharger.",
+        "success": "Tous les réglages ont été supprimés."
+      },
+      "wipeAll": {
+        "title": "Tout effacer (réglages + données)",
+        "description": "Supprime définitivement tous les réglages utilisateur ET vide la base : workflows, instances, artefacts, historique de chat, channels et données de plugins. Tout est effacé et l'application redémarre comme une installation neuve.",
+        "button": "Tout effacer",
+        "confirm": "Effacer TOUS les réglages et données ?\n\nCette action est irréversible : tous les réglages, workflows, instances, artefacts, historique de chat et channels seront définitivement supprimés. L'application va redémarrer sur un état vierge."
+      }
+    },
+    "appearance": {
+      "language": {
+        "title": "Langue",
+        "description": "Langue de l'interface utilisateur."
+      },
+      "textSize": {
+        "title": "Taille du texte",
+        "description": "Ajuste la densité d'affichage de l'application."
+      },
+      "panelShadows": {
+        "title": "Ombres des panneaux",
+        "description": "Affiche l'ombre projetée par les panneaux latéraux gauche et droit sur l'éditeur."
+      }
+    },
+    "integrations": {
+      "linear": {
+        "title": "Linear — clé API",
+        "description": "Utilisée par les étapes <code>linear.fetch</code>. Stockée chiffrée localement (trousseau OS), jamais renvoyée en clair à l'interface.",
+        "configured": "Une clé est actuellement configurée (se termine par <mono>…{{lastFour}}</mono>). Saisis une nouvelle clé pour la remplacer, ou supprime-la.",
+        "notConfigured": "Aucune clé configurée. Génère un <em>Personal API Key</em> depuis Linear (Settings → API).",
+        "updated": "Clé mise à jour."
+      },
+      "gitlab": {
+        "title": "GitLab — access token",
+        "description": "Utilisé par les étapes <code>git.clone</code> pour cloner des repos privés. Stocké chiffré localement (trousseau OS), jamais renvoyé en clair à l'interface.",
+        "configured": "Un token est actuellement configuré (se termine par <mono>…{{lastFour}}</mono>). Saisis un nouveau token pour le remplacer, ou supprime-le.",
+        "notConfigured": "Aucun token configuré. Génère un <em>Personal Access Token</em> depuis GitLab (Préférences → Access Tokens) avec le scope <em>read_repository</em>.",
+        "updated": "Token mis à jour."
+      }
+    },
+    "llm": {
+      "openRouter": {
+        "description": "Utilisé par les steps <code>openrouter.invoke</code> et par le chat (modèles <code>openrouter/*</code>). La clé est chiffrée localement (trousseau OS), jamais renvoyée en clair à l'interface."
+      },
+      "apiKey": "Clé API",
+      "keyConfigured": "Une clé est actuellement configurée (se termine par <mono>…{{lastFour}}</mono>). Saisis une nouvelle clé pour la remplacer, ou supprime-la.",
+      "keyNotConfigured": "Aucune clé configurée. Génère une clé sur <mono>openrouter.ai</mono> et colle-la ici.",
+      "modelExists": "Ce modèle est déjà dans la liste.",
+      "keepOneModel": "Conserve au moins un modèle dans la liste.",
+      "saved": "Sauvegarde effectuée.",
+      "models": {
+        "title": "Modèles disponibles",
+        "description": "Identifiants OpenRouter (ex. <mono>openai/gpt-4o-mini</mono>, <mono>anthropic/claude-sonnet-4</mono>). Le modèle marqué par défaut est utilisé pour les nouvelles conversations et par les steps <code>openrouter.invoke</code> sans modèle dans leur config. Le sélecteur du chat permet de choisir parmi ces modèles.",
+        "default": "par défaut",
+        "setDefault": "Définir comme modèle par défaut",
+        "isDefault": "Modèle par défaut",
+        "remove": "Retirer ce modèle",
+        "keepOne": "Conserve au moins un modèle"
+      },
+      "test": {
+        "title": "Tester la connexion",
+        "description": "Envoie un message court à OpenRouter avec la clé et le modèle configurés. Pas de quota significatif consommé.",
+        "run": "Lancer un test",
+        "running": "Test en cours…",
+        "ok": "OK · modèle <mono>{{model}}</mono> · {{latency}}ms"
+      }
+    },
+    "mcp": {
+      "serverTitle": "Serveur MCP — {{name}}",
+      "description": "L'app expose un serveur MCP local en HTTP. Lance la commande correspondante dans ton terminal pour le déclarer dans Claude Code ou Codex CLI. L'app doit être ouverte pour que le serveur réponde.",
+      "endpoint": "Endpoint : <mono>{{url}}</mono>",
+      "toolsExposed": "Tools exposés",
+      "noTools": "Aucun tool enregistré.",
+      "test": "Tester",
+      "status": {
+        "online": "En ligne",
+        "offline": "Hors ligne",
+        "checking": "Vérification…",
+        "onlineTitle": "Serveur en écoute",
+        "offlineTitle": "Serveur arrêté",
+        "offlineError": "Serveur arrêté — {{error}}",
+        "checkingTitle": "Vérification de l'état du serveur"
+      },
+      "playground": {
+        "noParams": "Aucun paramètre — clique Exécuter pour lancer l'appel.",
+        "run": "Exécuter",
+        "running": "Exécution…",
+        "duration": "durée : {{ms}} ms · ",
+        "ok": "OK",
+        "error": "erreur",
+        "result": "Résultat",
+        "invalidNumber": "{{name}} : nombre invalide",
+        "invalidJson": "{{name}} : JSON invalide ({{message}})"
+      },
+      "copy": {
+        "copy": "Copier la commande",
+        "copied": "Commande copiée"
+      }
+    },
+    "plugins": {
+      "title": "Plugins chargés",
+      "description": "Built-in (livrés avec l'app) ou utilisateur (déposés dans le dossier plugins). Un plugin user demande une autorisation explicite avant son premier chargement. La révocation est à chaud — l'app n'a pas besoin d'être relancée.",
+      "openFolder": "Ouvrir le dossier",
+      "empty": "Aucun plugin chargé.",
+      "state": {
+        "active": "Actif",
+        "pending": "Autorisation requise",
+        "disabled": "Désactivé",
+        "failed": "Échec"
+      },
+      "reviewPermissions": "Examiner les permissions…",
+      "permissions": "Permissions ({{granted}}/{{total}})",
+      "sensitive": "sensible",
+      "grant": "Accorder",
+      "revoke": "Révoquer",
+      "allowedHosts": "Hôtes autorisés ({{count}}) : <mono>{{hosts}}</mono>",
+      "stepKinds_one": "{{count}} step kind",
+      "stepKinds_other": "{{count}} step kinds",
+      "ipcMethods_one": "{{count}} IPC method",
+      "ipcMethods_other": "{{count}} IPC methods",
+      "folder": "Dossier",
+      "reload": "Recharger",
+      "coreTooltip": "Plugin core — requis par les templates et les artifacts stockés",
+      "disable": "Désactiver",
+      "enable": "Activer",
+      "authorize": {
+        "title": "Autoriser {{name}} ?",
+        "description": "Ce plugin demande les permissions suivantes. Code tiers exécuté avec les privilèges du process principal — n'autorise que les plugins en lesquels tu as confiance.",
+        "homepage": "Page du plugin",
+        "allowedHosts": "Hôtes autorisés : <mono>{{hosts}}</mono>",
+        "later": "Plus tard",
+        "deny": "Refuser",
+        "grantAll": "Tout accorder & activer"
+      }
+    },
+    "channels": {
+      "title": "Channels",
+      "description": "Partitionne tes templates, skills, artifact types, parsers et runs par contexte. Sélectionne un channel depuis la barre latérale pour re-binder toutes les listes. Le channel <mono>personal</mono> est le défaut et ne peut pas être supprimé.",
+      "new": "Nouveau channel",
+      "active": "actif",
+      "default": "défaut",
+      "cannotDeleteDefault": "Le channel par défaut ne peut pas être supprimé.",
+      "deleteConfirm": "Supprimer le channel \"{{id}}\" ?\n\nLes entités attachées passeront en global (channel_id = NULL).",
+      "deleted": "Channel \"{{id}}\" supprimé"
+    }
+  },
+  "artifactSchemas": {
+    "parsers": {
+      "title": "Parsers",
+      "description": "Bibliothèque de transformations réutilisables. Branche-les dans un graphe via un node `transform.run`.",
+      "newParser": "Nouveau parser",
+      "empty": "Aucun parser. Crée-en un pour réduire la payload, ou laisse vide pour passer la donnée brute au LLM.",
+      "pluginBadge": "plugin:{{pluginId}}",
+      "editAriaLabel": "Éditer",
+      "deleteAriaLabel": "Supprimer",
+      "draft": {
+        "versionLabel": "Version",
+        "modeLabel": "Mode",
+        "modes": {
+          "declarative": "déclaratif",
+          "code": "code (QuickJS sandbox)"
+        }
+      },
+      "playground": {
+        "title": "Playground",
+        "run": "Exécuter",
+        "simplifiedLabel": "Simplified"
+      }
+    },
+    "editor": {
+      "newTitle": "Nouveau type d'artifact",
+      "newDescription": "Définis un schéma simplifié, puis configure un parser pour réduire la payload brute.",
+      "save": "Enregistrer",
+      "upToDate": "À jour",
+      "delete": "Supprimer",
+      "notFoundTitle": "Type introuvable",
+      "notFoundDescription": "Aucun type artifact ne correspond à {{ref}}.",
+      "source": {
+        "label": "Source : {{source}}",
+        "user": "utilisateur",
+        "builtin": "built-in",
+        "plugin": "plugin:{{pluginId}}"
+      },
+      "readonly": {
+        "title": "Lecture seule",
+        "body": "Ce type est en lecture seule (source : {{source}}). Pour l'adapter, copie-le en tant que type utilisateur."
+      },
+      "collision": {
+        "title": "Schéma en doublon",
+        "body": "Hash structurel identique à « {{name}} » ({{ref}}). Les ports le traiteront comme équivalent — tu peux référencer le type existant plutôt qu'en sauvegarder un doublon."
+      },
+      "sections": {
+        "identity": "Identité",
+        "schema": "Schéma",
+        "example": "Exemple & parsers"
+      },
+      "fields": {
+        "idLabel": "Identifiant",
+        "idHint": "slug minuscule, ex. `shopify-order`",
+        "versionLabel": "Version",
+        "versionHint": "forme `v<n>`, ex. `v1`",
+        "nameLabel": "Nom",
+        "descriptionLabel": "Description",
+        "simplifiedLabel": "Schéma simplifié (JSON Schema)",
+        "simplifiedHint": "Forme que les parsers doivent produire.",
+        "rawLabel": "Schéma brut (optionnel)",
+        "rawHint": "JSON Schema décrivant la payload entrée. Laisser vide si non typé.",
+        "sampleRawLabel": "Sample raw",
+        "sampleRawHint": "Exemple de payload brute, utilisé par le playground.",
+        "markdownTemplateLabel": "Projection Markdown (optionnel)",
+        "markdownTemplateHint": "Gabarit Markdown lisible utilisant des placeholders {{champ}} pour les champs de premier niveau. Consommé par `render.markdown` et l'aperçu d'artefact. Laisser vide pour retomber sur le JSON pretty-printé."
+      },
+      "json": {
+        "valid": "JSON valide",
+        "invalid": "JSON invalide",
+        "format": "Formater"
+      },
+      "preview": {
+        "title": "Propriétés",
+        "required": "requis",
+        "empty": "Aucune propriété de premier niveau."
+      },
+      "errors": {
+        "idRequired": "L'identifiant est requis.",
+        "idSlug": "L'identifiant doit être un slug minuscule (a–z, 0–9, '.', '-').",
+        "versionFormat": "La version doit avoir la forme 'v<n>' (ex. 'v1').",
+        "nameRequired": "Le nom est requis.",
+        "simplifiedJson": "JSON invalide : {{message}}",
+        "rawJson": "JSON invalide : {{message}}"
+      }
+    }
+  },
+  "explorer": {
+    "resourceTree": {
+      "searchPlaceholder": "Rechercher…",
+      "newFolder": "Nouveau dossier",
+      "newResource": "Nouvelle ressource",
+      "menu": {
+        "newTemplate": "Nouveau template",
+        "newPrompt": "Nouveau prompt",
+        "newArtifactType": "Nouveau artifact type"
+      },
+      "toast": {
+        "deleteFailed": "Suppression impossible",
+        "deleteFolderFailed": "Suppression du dossier impossible",
+        "exported": "Workflow exporté en JSON",
+        "exportFailed": "Export impossible",
+        "moveFailed": "Déplacement impossible",
+        "moveFolderFailed": "Déplacement du dossier impossible"
+      }
+    }
+  },
+  "runs": {
+    "review": {
+      "invalidUri": "URI de review invalide :",
+      "stepGone": "Cette étape n'existe plus dans le run.",
+      "notAwaiting": "Cette étape n'attend plus de validation.",
+      "noLoopTarget": "Pour envoyer un feedback et relancer ce step, ajoute une transition « Boucle de feedback » sur ce nœud (auto-boucle) dans le template.",
+      "commentCount_one": "{{count}} commentaire",
+      "commentCount_other": "{{count}} commentaires",
+      "stepOutput": "Sortie du step",
+      "noArtifact": "(pas d'artifact à relire — saisis seulement un résumé)",
+      "summaryLabel": "Résumé (optionnel)",
+      "submit": "Envoyer la review et relancer"
+    },
+    "iterations": {
+      "empty": "Aucun run actif.",
+      "noSelection": "(aucune étape sélectionnée)"
+    },
+    "list": {
+      "groupBy": "Grouper par",
+      "filterByStatus": "Filtrer par statut",
+      "showAll": "Tout afficher",
+      "count_one": "{{count}} run",
+      "count_other": "{{count}} runs"
+    },
+    "timeline": {
+      "iteration": "(itér. {{n}})",
+      "iterationHeader": "Itération {{index}}",
+      "loopIterationCount_one": "{{count}} itération",
+      "loopIterationCount_other": "{{count}} itérations",
+      "feedbackComments_one": "{{count}} commentaire",
+      "feedbackComments_other": "{{count}} commentaires",
+      "subworkflowStepCount_one": "sous-workflow · {{count}} étape",
+      "subworkflowStepCount_other": "sous-workflow · {{count}} étapes",
+      "collapseAll": "Tout replier",
+      "expandAll": "Tout déplier"
+    },
+    "stats": {
+      "title": "Chronologie des étapes"
+    },
+    "tokens": {
+      "title": "Consommation de tokens",
+      "total": "Total",
+      "in": "Entrée",
+      "out": "Sortie",
+      "cost": "Coût",
+      "cumulative": "cumul"
+    },
+    "skipped_one": "{{count}} étape ignorée",
+    "skipped_other": "{{count}} étapes ignorées",
+    "workspace": {
+      "zones": "Zones",
+      "reset": "Réinitialiser la disposition",
+      "collapse": "Replier",
+      "expand": "Déplier",
+      "invalidUri": "URI invalide :",
+      "zone": {
+        "runs": "Runs",
+        "timeline": "Timeline",
+        "graph": "Graphe",
+        "timelineGraph": "Timeline / Graphe / Stats",
+        "iterations": "Itérations",
+        "artifact": "Artefact",
+        "stats": "Stats"
+      }
+    }
+  }
+}

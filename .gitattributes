@@ -1,0 +1,35 @@
+# Normalize line endings across platforms (Tauri builds on Win/macOS/Linux).
+* text=auto eol=lf
+
+# Force LF on text files that Windows tooling might otherwise convert.
+*.rs         text eol=lf
+*.toml       text eol=lf
+*.sh         text eol=lf
+*.ts         text eol=lf
+*.tsx        text eol=lf
+*.js         text eol=lf
+*.jsx        text eol=lf
+*.json       text eol=lf
+*.md         text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+justfile     text eol=lf
+Dockerfile   text eol=lf
+
+# Binary assets — never touch.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.icns binary
+*.webp binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.pdf   binary
+
+# Generated / lock files — mark as generated so GitHub collapses diffs.
+yarn.lock       linguist-generated=true
+Cargo.lock      linguist-generated=true
