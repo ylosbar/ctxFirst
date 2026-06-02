@@ -1015,13 +1015,16 @@
       "menu": {
         "newTemplate": "Nouveau template",
         "newPrompt": "Nouveau prompt",
-        "newArtifactType": "Nouveau artifact type"
+        "newArtifactType": "Nouveau artifact type",
+        "importWorkflow": "Importer un workflow…"
       },
       "toast": {
         "deleteFailed": "Suppression impossible",
         "deleteFolderFailed": "Suppression du dossier impossible",
         "exported": "Workflow exporté en JSON",
         "exportFailed": "Export impossible",
+        "imported": "Workflow importé",
+        "importFailed": "Import impossible",
         "moveFailed": "Déplacement impossible",
         "moveFolderFailed": "Déplacement du dossier impossible"
       },

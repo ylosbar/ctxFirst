@@ -1,5 +1,5 @@
 import { Menu } from "@base-ui/react/menu";
-import { Network, ShieldCheck, Variable } from "lucide-react";
+import { Network, ShieldCheck, Upload, Variable } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,8 @@ type NewResourceMenuProps = {
   readonly align?: "start" | "center" | "end";
   readonly side?: "top" | "right" | "bottom" | "left";
   readonly sideOffset?: number;
+  /** When provided, surfaces an "import a workflow" entry below the create items. */
+  readonly onImportWorkflow?: () => void;
 };
 
 const iconClass = "size-4";
@@ -33,6 +35,7 @@ const NewResourceMenu = ({
   align = "end",
   side,
   sideOffset = 4,
+  onImportWorkflow,
 }: NewResourceMenuProps) => {
   const wb = useWorkbench();
   const { t } = useTranslation();
@@ -82,6 +85,15 @@ const NewResourceMenu = ({
               />
               {t("explorer.resourceTree.menu.newArtifactType")}
             </Menu.Item>
+            {onImportWorkflow ? (
+              <>
+                <Menu.Separator className="my-1 h-px bg-border" />
+                <Menu.Item className={menuItemClass} onClick={onImportWorkflow}>
+                  <Upload className={iconClass} />
+                  {t("explorer.resourceTree.menu.importWorkflow")}
+                </Menu.Item>
+              </>
+            ) : null}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
