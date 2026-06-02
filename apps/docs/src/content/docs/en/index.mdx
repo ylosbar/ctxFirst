@@ -1,0 +1,38 @@
+---
+title: CtxFirst
+description: Drive your LLM workflows step by step, with human validations at key moments and feedback loops to iterate without starting over.
+template: splash
+hero:
+  tagline: Drive your LLM workflows step by step — human validations at key moments, feedback loops to iterate without starting over.
+  actions:
+    - text: Get started
+      link: /en/guides/introduction/
+      icon: right-arrow
+    - text: Architecture
+      link: /en/architecture/overview/
+      icon: open-book
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components"
+
+## Why CtxFirst?
+
+<CardGrid stagger>
+  <Card title="Step by step" icon="list-format">
+    Break an LLM workflow into explicit steps instead of one big opaque
+    prompt.
+  </Card>
+  <Card title="Human validations" icon="approve-check">
+    Insert checkpoints at key moments: a human approves or corrects before
+    moving on.
+  </Card>
+  <Card title="Feedback loops" icon="random">
+    Iterate on a step without rerunning everything — the context from previous
+    steps is preserved.
+  </Card>
+  <Card title="Extensible via plugins" icon="puzzle">
+    Extend the app with plugins (Kanban, Linear, …) built with the
+    `@ctxfirst/plugin-sdk`.
+  </Card>
+</CardGrid>
