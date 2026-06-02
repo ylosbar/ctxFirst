@@ -1,6 +1,9 @@
 import {
   createContext,
   useContext,
+  useEffect,
+  useRef,
+  useState,
   type ChangeEvent,
   type PointerEvent,
 } from "react";
@@ -50,8 +53,28 @@ const StickyNoteNode = ({ id, data, selected }: NodeProps) => {
   const d = data as StickyNoteNodeData;
   const readOnly = actions?.readOnly ?? false;
 
+  // La note vit dans le store interne de React Flow, qui n'est synchronisé
+  // depuis la prop `nodes` qu'au layout-effect — soit un commit de retard sur
+  // la frappe. Brancher `value` directement sur `d.text` réécrit alors la
+  // textarea avec une valeur en décalage et repositionne le caret en fin de
+  // texte (visible dès qu'on édite au milieu). On rend donc depuis un state
+  // local mis à jour synchroniquement, et on ne resynchronise que sur un
+  // changement externe (chargement, undo…), en ignorant l'écho de nos propres
+  // éditions via `lastSent`.
+  const [text, setText] = useState(d.text);
+  const lastSent = useRef(d.text);
+  useEffect(() => {
+    if (d.text !== lastSent.current) {
+      lastSent.current = d.text;
+      setText(d.text);
+    }
+  }, [d.text]);
+
   const onChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    actions?.onTextChange(id, e.target.value);
+    const next = e.target.value;
+    lastSent.current = next;
+    setText(next);
+    actions?.onTextChange(id, next);
   };
 
   // Empêche le drag de la note quand on clique dans le textarea pour
@@ -110,7 +133,7 @@ const StickyNoteNode = ({ id, data, selected }: NodeProps) => {
         ) : null}
       </div>
       <Textarea
-        value={d.text}
+        value={text}
         onChange={onChange}
         onPointerDown={stopDrag}
         onBlur={() => actions?.onCommit()}
