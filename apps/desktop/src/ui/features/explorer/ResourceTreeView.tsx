@@ -40,6 +40,7 @@ import {
   useToggleSubtitles,
 } from "../../stores/explorer-view-store";
 import { NEW_TEMPLATE_URI, templateUriFor } from "../templates/template-uri";
+import { postImportStore } from "../templates/post-import-store";
 import type { ExplorerFolderView } from "../../../domain/explorer/folder";
 import { buildUnifiedTree } from "./build-tree";
 import NewResourceMenu from "./menus/NewResourceMenu";
@@ -112,7 +113,11 @@ const ResourceTreeView = () => {
     return () => clearTimeout(timeoutId);
   }, [rawQuery]);
 
-  const { templates, error: templatesError } = useWorkflowTemplates();
+  const {
+    templates,
+    error: templatesError,
+    refresh: refreshTemplates,
+  } = useWorkflowTemplates();
   const { skills, error: skillsError, refresh: refreshSkills } = useSkills();
   const { types, error: typesError, refresh: refreshTypes } = useArtifactSchemas();
 
@@ -191,6 +196,28 @@ const ResourceTreeView = () => {
       }
     } catch (e) {
       toast.error(t("explorer.resourceTree.toast.exportFailed"), {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+
+  const handleImportWorkflow = async () => {
+    const existingRefs = new Set(
+      templates.map((tpl) => `${tpl.id}@${tpl.version}`),
+    );
+    try {
+      const outcome = await services.importWorkflowTemplate({ existingRefs });
+      if (outcome.kind === "cancelled") return;
+      postImportStore.markFresh(outcome.templateRef);
+      await refreshTemplates();
+      wb.openEditor(templateUriFor(outcome.templateRef), { focus: true });
+      const parts = [outcome.templateRef];
+      if (outcome.renamed) parts.push(`renommé depuis ${outcome.originalRef}`);
+      toast.success(t("explorer.resourceTree.toast.imported"), {
+        description: parts.join(" · "),
+      });
+    } catch (e) {
+      toast.error(t("explorer.resourceTree.toast.importFailed"), {
         description: e instanceof Error ? e.message : String(e),
       });
     }
@@ -476,7 +503,10 @@ const ResourceTreeView = () => {
           >
             <FolderPlus className="size-4" />
           </button>
-          <NewResourceMenu triggerClassName="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:bg-accent data-[popup-open]:text-foreground">
+          <NewResourceMenu
+            onImportWorkflow={() => void handleImportWorkflow()}
+            triggerClassName="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:bg-accent data-[popup-open]:text-foreground"
+          >
             <Plus className="size-4" />
             <ChevronDown className="-ml-0.5 size-3" aria-hidden />
           </NewResourceMenu>

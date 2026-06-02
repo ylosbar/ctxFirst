@@ -614,6 +614,12 @@
           "add": "+ Add a case"
         }
       },
+      "branchJson": {
+        "path": {
+          "label": "JSONPath",
+          "description": "JSONPath into the input JSON, pointing at a single scalar. Its value (coerced to a string) is matched against the cases below. Note: an upstream JSON Transform wraps its output in an array, so target the element (e.g. <code>$[0].flag</code>) rather than the root <code>$.flag</code>."
+        }
+      },
       "jsonTransform": {
         "projections": {
           "label": "JSONPath projections",
@@ -1009,13 +1015,16 @@
       "menu": {
         "newTemplate": "New template",
         "newPrompt": "New prompt",
-        "newArtifactType": "New artifact type"
+        "newArtifactType": "New artifact type",
+        "importWorkflow": "Import a workflow…"
       },
       "toast": {
         "deleteFailed": "Deletion failed",
         "deleteFolderFailed": "Folder deletion failed",
         "exported": "Workflow exported as JSON",
         "exportFailed": "Export failed",
+        "imported": "Workflow imported",
+        "importFailed": "Import failed",
         "moveFailed": "Move failed",
         "moveFolderFailed": "Folder move failed"
       },

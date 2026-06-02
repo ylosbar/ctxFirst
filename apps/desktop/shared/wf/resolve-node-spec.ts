@@ -277,6 +277,27 @@ export const resolveNodeSpec = (
         })),
       };
     }
+    case "branch.json": {
+      // Mirrors `createBranchJsonRunner.resolveSpec` (plugins/branch-json.ts):
+      // reads `cases` (≥2 unique port-safe labels) + optional `inputKind`
+      // (default Json), one passthrough port per case. The `json` input accepts
+      // any kind. Falls back to permissive base when `cases` is malformed.
+      const cases = readCases(config.cases);
+      if (!cases) return base;
+      const passthroughKind = readStr(config.inputKind) ?? "Json";
+      const path = readStr(config.path);
+      return {
+        ...base,
+        inputs: [{ name: "json", kinds: ["*"], primary: true }],
+        outputs: cases.map((c) => ({
+          name: c,
+          kind: passthroughKind,
+          description: path
+            ? `Branch when ${path} equals "${c}".`
+            : `Branch when the JSON field equals "${c}".`,
+        })),
+      };
+    }
     case "branch.match": {
       // Mirrors `createBranchMatchRunner.resolveSpec` (plugins/branch-match.ts).
       // `targetKind` is a `OneOf<A,B,…>` sum; each variant becomes an

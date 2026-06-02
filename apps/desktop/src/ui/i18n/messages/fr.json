@@ -614,6 +614,12 @@
           "add": "+ Ajouter une case"
         }
       },
+      "branchJson": {
+        "path": {
+          "label": "JSONPath",
+          "description": "JSONPath dans le JSON d'entrée, pointant vers un scalaire unique. Sa valeur (coercée en string) est comparée aux cases ci-dessous. Note : un JSON Transform en amont enveloppe sa sortie dans un tableau — cible donc l'élément (ex. <code>$[0].flag</code>) plutôt que la racine <code>$.flag</code>."
+        }
+      },
       "jsonTransform": {
         "projections": {
           "label": "Projections JSONPath",
@@ -1009,13 +1015,16 @@
       "menu": {
         "newTemplate": "Nouveau template",
         "newPrompt": "Nouveau prompt",
-        "newArtifactType": "Nouveau artifact type"
+        "newArtifactType": "Nouveau artifact type",
+        "importWorkflow": "Importer un workflow…"
       },
       "toast": {
         "deleteFailed": "Suppression impossible",
         "deleteFolderFailed": "Suppression du dossier impossible",
         "exported": "Workflow exporté en JSON",
         "exportFailed": "Export impossible",
+        "imported": "Workflow importé",
+        "importFailed": "Import impossible",
         "moveFailed": "Déplacement impossible",
         "moveFolderFailed": "Déplacement du dossier impossible"
       },

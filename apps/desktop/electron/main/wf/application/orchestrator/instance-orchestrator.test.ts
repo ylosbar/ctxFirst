@@ -494,6 +494,68 @@ describe("InstanceOrchestrator — branching", () => {
     expect(gateYes?.status).toBe("awaitingHuman");
     expect(gateNo?.status).toBe("skipped");
   });
+
+  it("branch.json routes on a JSON field, skips the other branch, reconverges the diamond", async () => {
+    const template = buildTemplate(
+      "branch-json-tpl",
+      [
+        {
+          id: "input",
+          kind: "user.input",
+          humanGateRequired: false,
+          config: { outputKind: "Json" },
+        },
+        {
+          id: "br",
+          kind: "branch.json",
+          humanGateRequired: false,
+          config: { path: "$.flag", cases: ["true", "false"], inputKind: "Json" },
+        },
+        {
+          // Only reachable via the `false` port → must be skipped when `true`
+          // is chosen.
+          id: "only-false",
+          kind: "human.gate",
+          humanGateRequired: true,
+          config: { inputKind: "Json" },
+        },
+        {
+          // Reached by BOTH branch ports (each into a distinct input port) →
+          // reconverges the diamond: even though the `false` edge is
+          // skip-propagated, the `true` edge feeds `main`, so this step runs.
+          id: "merge",
+          kind: "concat.markdown",
+          humanGateRequired: false,
+        },
+      ],
+      [
+        { from: "input", to: "br" },
+        { from: "br", to: "only-false", fromPort: "false" },
+        { from: "br", to: "merge", fromPort: "true", toPort: "main" },
+        { from: "br", to: "merge", fromPort: "false", toPort: "markdown1" },
+      ],
+      { exitSteps: ["only-false", "merge"] },
+    );
+
+    harness = createOrchestratorHarness({ templates: [template] });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Json", content: '{"flag":true}' }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    const skipped = harness.fakes.bus.ofType("StepSkipped");
+    expect(skipped).toHaveLength(1);
+    expect(skipped[0].stepId).toBe(asStepId("only-false"));
+    expect(skipped[0].cause.chosenPort).toBe("true");
+
+    const inst = harness.state.getInstance(instanceId)!;
+    const statusOf = (id: string) =>
+      inst.executions.find((e) => e.stepId === asStepId(id))?.status;
+    expect(statusOf("only-false")).toBe("skipped");
+    // Diamond reconvergence: reached by the taken `true` edge → not skipped, runs.
+    expect(statusOf("merge")).toBe("validated");
+  });
 });
 
 // ---------------------------------------------------------------------------
