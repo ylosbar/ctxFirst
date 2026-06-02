@@ -93,12 +93,12 @@ export const createConcatMarkdownRunner = (): StepRunner => ({
     return {
       title: "Concat Markdown",
       description:
-        "Concatène un Markdown principal (`main`) avec jusqu'à 3 Markdown additionnels optionnels — ou, en mode template, utilise `main` comme gabarit dont les `{{name}}` sont substitués.",
+        "Concatène un Markdown principal (`main`) avec jusqu'à 3 fragments additionnels optionnels (Markdown ou JSON, ex. exemple inséré dans un prompt) — ou, en mode template, utilise `main` comme gabarit dont les `{{name}}` sont substitués. La sortie reste du Markdown.",
       inputs: [
-        { name: "main", kinds: ["Markdown"], primary: true },
-        { name: "markdown1", kinds: ["Markdown"], optional: true },
-        { name: "markdown2", kinds: ["Markdown"], optional: true },
-        { name: "markdown3", kinds: ["Markdown"], optional: true },
+        { name: "main", kinds: ["Markdown", "Json"], primary: true },
+        { name: "markdown1", kinds: ["Markdown", "Json"], optional: true },
+        { name: "markdown2", kinds: ["Markdown", "Json"], optional: true },
+        { name: "markdown3", kinds: ["Markdown", "Json"], optional: true },
       ],
       outputs: [{ name: "out", kind: "Markdown", primary: true }],
     };

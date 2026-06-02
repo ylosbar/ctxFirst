@@ -55,6 +55,14 @@ const md = (port: string, body: string): RunContextInput => ({
   artifactId: asArtifactId(`artifact-${port}`),
 });
 
+const json = (port: string, body: string): RunContextInput => ({
+  port,
+  kind: "Json",
+  content: JSON.stringify({ format: "json", body }),
+  payload: { format: "json", body },
+  artifactId: asArtifactId(`artifact-${port}`),
+});
+
 const buildCtx = (params: {
   config: Readonly<Record<string, unknown>>;
   inputs: ReadonlyArray<RunContextInput>;
@@ -114,6 +122,18 @@ describe("concat.markdown — mode concat (legacy)", () => {
     });
     await runner.run(ctx);
     expect(bodyOfStored(store.all()[0])).toBe("M\n\nA\n\nB\n\nC");
+  });
+
+  it("concatenates a Json fragment into the Markdown output (e.g. example in a prompt)", async () => {
+    const store = createStubArtifactStore();
+    const ctx = buildCtx({
+      config: {},
+      inputs: [md("main", "Prompt:"), json("markdown1", '{"k":"v"}')],
+      store,
+    });
+    await runner.run(ctx);
+    expect(store.all()[0].kind).toBe("Markdown");
+    expect(bodyOfStored(store.all()[0])).toBe('Prompt:\n\n{"k":"v"}');
   });
 
   it("reverses the order under order=bottom-to-top", async () => {

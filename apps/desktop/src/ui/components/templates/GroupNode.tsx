@@ -1,4 +1,11 @@
-import { createContext, useContext, type ChangeEvent } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import { NodeResizer, type NodeProps } from "@xyflow/react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,8 +49,27 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
   const d = data as GroupNodeData;
   const isDrawing = Boolean(d.isDrawing);
 
+  // Le label vit dans le store interne de React Flow, synchronisé depuis la
+  // prop `nodes` seulement au layout-effect — un commit de retard sur la
+  // frappe. Brancher `value` directement sur `d.label` réécrit l'input avec
+  // une valeur en décalage et repositionne le caret en fin de texte (visible
+  // dès qu'on édite au milieu). On rend depuis un state local mis à jour
+  // synchroniquement, et on ne resynchronise que sur un changement externe
+  // (chargement, undo…), en ignorant l'écho de nos propres éditions.
+  const [label, setLabel] = useState(d.label);
+  const lastSent = useRef(d.label);
+  useEffect(() => {
+    if (d.label !== lastSent.current) {
+      lastSent.current = d.label;
+      setLabel(d.label);
+    }
+  }, [d.label]);
+
   const onLabelChange = (e: ChangeEvent<HTMLInputElement>) => {
-    actions?.onLabelChange(id, e.target.value);
+    const next = e.target.value;
+    lastSent.current = next;
+    setLabel(next);
+    actions?.onLabelChange(id, next);
   };
 
   return (
@@ -76,7 +102,7 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
           />
           <Input
             type="text"
-            value={d.label}
+            value={label}
             placeholder={t("template.canvas.groupNode.labelPlaceholder")}
             onChange={onLabelChange}
             className="nodrag h-5 w-auto max-w-[80%] truncate border-transparent bg-transparent px-1 text-2xs font-semibold uppercase tracking-wide text-primary placeholder:text-primary/40 focus:border-transparent focus:bg-background focus:ring-1 focus:ring-primary/40"

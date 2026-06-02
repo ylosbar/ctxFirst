@@ -466,6 +466,19 @@
           "description": "Type of the produced artifact. A file is text, so only <code>Markdown</code> and <code>Json</code> are available; a Json file is parsed to fail early on malformed content."
         }
       },
+      "filesLoad": {
+        "basePath": {
+          "label": "Base directory",
+          "description": "Absolute path of the root folder, picked here or received on the <code>path</code> input (the input wins). Each slot reads a file under this directory."
+        },
+        "slots": {
+          "label": "Files (slots)",
+          "description": "Each slot becomes a named output port reading the <code>subpath</code> file under the base directory. The subpath cannot escape outside the base.",
+          "add": "+ Add a slot",
+          "portPlaceholder": "port",
+          "subpathPlaceholder": "subfolder/file.md"
+        }
+      },
       "fileLoadMarkdown": {
         "path": {
           "label": "Markdown file path",
@@ -647,6 +660,7 @@
         "emptyExpression": "Empty expression",
         "emptyLabel": "Empty label",
         "emptyName": "Empty name",
+        "emptySubpath": "Empty subpath",
         "emptyVariant": "Empty variant",
         "mustMatch": "Must match {{pattern}}"
       }

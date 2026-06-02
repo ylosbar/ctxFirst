@@ -101,6 +101,66 @@ describe("resolveNodeSpec — file.load", () => {
   });
 });
 
+describe("resolveNodeSpec — files.load", () => {
+  // Base spec as `listNodeSpecs()` returns it for `files.load`: the static
+  // `path` input plus empty outputs (the runner resolves outputs to [] until a
+  // valid slot exists). The mirror must re-derive one port per slot.
+  const filesLoadBase: NodeSpecView = {
+    kind: "files.load",
+    title: "Load Files",
+    inputs: [
+      {
+        name: "path",
+        kinds: ["Path", "String", "Markdown", "*"],
+        optional: true,
+        primary: true,
+      },
+    ],
+    outputs: [],
+  };
+
+  it("emits one output port per slot, in order, first marked primary", () => {
+    const spec = resolveNodeSpec(
+      "files.load",
+      {
+        path: "/base",
+        slots: [
+          { port: "spec", subpath: "spec.md", outputKind: "Markdown" },
+          { port: "data", subpath: "data.json", outputKind: "Json" },
+        ],
+      },
+      filesLoadBase,
+    );
+    expect(spec.outputs).toEqual([
+      {
+        name: "spec",
+        kind: "Markdown",
+        primary: true,
+        description: "spec.md → Markdown",
+      },
+      {
+        name: "data",
+        kind: "Json",
+        primary: false,
+        description: "data.json → Json",
+      },
+    ]);
+    // The static `path` input is preserved from base.
+    expect(spec.inputs).toEqual(filesLoadBase.inputs);
+  });
+
+  it("skips invalid slots and falls back to base when none remain", () => {
+    expect(resolveNodeSpec("files.load", {}, filesLoadBase).outputs).toEqual([]);
+    expect(
+      resolveNodeSpec(
+        "files.load",
+        { slots: [{ port: "out", subpath: "x", outputKind: "Path" }] },
+        filesLoadBase,
+      ).outputs,
+    ).toEqual([]);
+  });
+});
+
 describe("resolveNodeSpec — workflow.call", () => {
   const base: NodeSpecView = {
     kind: "workflow.call",

@@ -67,6 +67,7 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "gitlab.mr.create",
   "gitlab.mr.merge",
   "file.load",
+  "files.load",
   "file.load-markdown",
   "skill.loader",
   "concat.markdown",
@@ -132,6 +133,14 @@ const StepInspector = ({
       defaultPath: current || undefined,
     });
     if (picked) setConfig({ cwd: picked });
+  };
+
+  const pickBasePath = async () => {
+    const current = (config["path"] as string | undefined) ?? "";
+    const picked = await services.pickDirectory({
+      defaultPath: current || undefined,
+    });
+    if (picked) setConfig({ path: picked });
   };
 
   const pickMarkdownPath = async () => {
@@ -749,6 +758,39 @@ const StepInspector = ({
                 />
               ) : null}
             </FormField>
+          </>
+        ) : null}
+
+        {step.kind === "files.load" ? (
+          <>
+            <FormField
+              label={t("template.stepInspector.filesLoad.basePath.label")}
+              description={
+                <Trans
+                  t={t}
+                  i18nKey="template.stepInspector.filesLoad.basePath.description"
+                  components={{ code: <code /> }}
+                />
+              }
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  className="font-mono"
+                  placeholder="/chemin/absolu/vers/dossier"
+                  value={(config["path"] as string | undefined) ?? ""}
+                  onChange={(e) => setConfig({ path: e.target.value })}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={pickBasePath}
+                >
+                  {t("template.stepInspector.browse")}
+                </Button>
+              </div>
+            </FormField>
+            <FilesLoadSlotsEditor config={config} setConfig={setConfig} />
           </>
         ) : null}
 
@@ -2147,6 +2189,152 @@ const JsonTransformsEditor = ({
           className="self-start"
         >
           {t("template.stepInspector.jsonTransform.projections.add")}
+        </Button>
+      </div>
+    </FormField>
+  );
+};
+
+type FilesLoadSlotsEditorProps = {
+  config: Readonly<Record<string, unknown>>;
+  setConfig: (patch: Record<string, unknown>) => void;
+};
+
+type FilesLoadSlotDraft = {
+  port: string;
+  subpath: string;
+  outputKind: string;
+};
+
+/**
+ * Inline editor for `files.load.slots`. Each entry materializes one named
+ * output port reading the file at `path.resolve(base, subpath)` and exposing it
+ * with the chosen text-envelope kind. Order is preserved so the canvas handles
+ * match the editor. Mirrors {@link JsonTransformsEditor}, plus a `subpath`
+ * column and an `outputKind` select.
+ */
+const FilesLoadSlotsEditor = ({
+  config,
+  setConfig,
+}: FilesLoadSlotsEditorProps) => {
+  const t = useT();
+  const raw = config["slots"];
+  const items: FilesLoadSlotDraft[] = Array.isArray(raw)
+    ? raw
+        .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
+        .map((s) => ({
+          port: typeof s.port === "string" ? s.port : "",
+          subpath: typeof s.subpath === "string" ? s.subpath : "",
+          outputKind:
+            typeof s.outputKind === "string" ? s.outputKind : "Markdown",
+        }))
+    : [];
+
+  const update = (next: FilesLoadSlotDraft[]) => setConfig({ slots: next });
+
+  const setItem = (index: number, patch: Partial<FilesLoadSlotDraft>) => {
+    const next = items.map((it, i) =>
+      i === index ? { ...it, ...patch } : it,
+    );
+    update(next);
+  };
+  const removeItem = (index: number) => {
+    if (items.length <= 1) return;
+    update(items.filter((_, i) => i !== index));
+  };
+  const addItem = () => {
+    let n = items.length;
+    let candidate = `out_${n}`;
+    const used = new Set(items.map((it) => it.port));
+    while (used.has(candidate)) {
+      n += 1;
+      candidate = `out_${n}`;
+    }
+    update([
+      ...items,
+      { port: candidate, subpath: "", outputKind: "Markdown" },
+    ]);
+  };
+
+  const seen = new Set<string>();
+  const portErrors: Array<string | null> = items.map((it) => {
+    if (it.port.length === 0)
+      return t("template.stepInspector.validation.emptyName");
+    if (!CASE_NAME_RE.test(it.port))
+      return t("template.stepInspector.validation.mustMatch", {
+        pattern: String(CASE_NAME_RE),
+      });
+    if (seen.has(it.port)) return t("template.stepInspector.validation.duplicate");
+    seen.add(it.port);
+    return null;
+  });
+  const subpathErrors: Array<string | null> = items.map((it) =>
+    it.subpath.trim().length === 0
+      ? t("template.stepInspector.validation.emptySubpath")
+      : null,
+  );
+
+  return (
+    <FormField
+      label={t("template.stepInspector.filesLoad.slots.label")}
+      description={t("template.stepInspector.filesLoad.slots.description")}
+    >
+      <div className="flex flex-col gap-1.5">
+        {items.map((it, i) => (
+          <div key={i} className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <Input
+                className="w-28 font-mono text-xs"
+                placeholder={t(
+                  "template.stepInspector.filesLoad.slots.portPlaceholder",
+                )}
+                value={it.port}
+                onChange={(e) => setItem(i, { port: e.target.value })}
+              />
+              <Input
+                className="flex-1 font-mono text-xs"
+                placeholder={t(
+                  "template.stepInspector.filesLoad.slots.subpathPlaceholder",
+                )}
+                value={it.subpath}
+                onChange={(e) => setItem(i, { subpath: e.target.value })}
+              />
+              <Select
+                className="w-28"
+                value={it.outputKind}
+                onChange={(e) => setItem(i, { outputKind: e.target.value })}
+              >
+                {FILE_LOAD_OUTPUT_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => removeItem(i)}
+                disabled={items.length <= 1}
+              >
+                {t("common.delete")}
+              </Button>
+            </div>
+            {portErrors[i] || subpathErrors[i] ? (
+              <span className="text-2xs text-destructive">
+                {[portErrors[i], subpathErrors[i]].filter(Boolean).join(" · ")}
+              </span>
+            ) : null}
+          </div>
+        ))}
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={addItem}
+          className="self-start"
+        >
+          {t("template.stepInspector.filesLoad.slots.add")}
         </Button>
       </div>
     </FormField>

@@ -466,6 +466,19 @@
           "description": "Type de l'artifact produit. Un fichier étant du texte, seuls <code>Markdown</code> et <code>Json</code> sont proposés ; un fichier Json est parsé pour échouer tôt en cas de contenu malformé."
         }
       },
+      "filesLoad": {
+        "basePath": {
+          "label": "Répertoire de base",
+          "description": "Chemin absolu du dossier racine, choisi ici ou reçu sur l'input <code>path</code> (l'input l'emporte). Chaque slot lit un fichier sous ce répertoire."
+        },
+        "slots": {
+          "label": "Fichiers (slots)",
+          "description": "Chaque slot devient un port de sortie nommé qui lit le fichier <code>subpath</code> sous le répertoire de base. Le subpath ne peut pas s'évader hors de la base.",
+          "add": "+ Ajouter un slot",
+          "portPlaceholder": "port",
+          "subpathPlaceholder": "sous-dossier/fichier.md"
+        }
+      },
       "fileLoadMarkdown": {
         "path": {
           "label": "Chemin du fichier Markdown",
@@ -647,6 +660,7 @@
         "emptyExpression": "Expression vide",
         "emptyLabel": "Label vide",
         "emptyName": "Nom vide",
+        "emptySubpath": "Sous-chemin vide",
         "emptyVariant": "Variant vide",
         "mustMatch": "Doit matcher {{pattern}}"
       }

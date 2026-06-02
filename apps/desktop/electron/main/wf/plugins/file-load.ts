@@ -20,6 +20,7 @@ import {
   type StepRunner,
 } from "../application/step-runner";
 import type { ArtifactPayload } from "../domain/artifact-schemas";
+import type { Artifact } from "../domain/artifact";
 import type { PathPort } from "../application/ports/outbound/path";
 
 /**
@@ -77,15 +78,18 @@ const resolvePath = (ctx: RunContext): string => {
 };
 
 /**
- * Cœur partagé : lit le fichier au `kind` demandé et stocke l'artifact. Réutilisé
- * par le runner `file.load` et par l'alias deprecated `file.load-markdown`.
+ * Cœur partagé bas niveau : lit le fichier au `kind` demandé, valide (JSON
+ * parsé pour échouer tôt) et stocke l'artifact, qu'il **retourne brut**.
+ * Réutilisé par {@link loadFileArtifact} (forme `StepOutcome` mono-port) et par
+ * `files.load`, qui route plusieurs artifacts vers leurs ports nommés et a donc
+ * besoin de l'`Artifact` sans l'enveloppe `produced`.
  */
-export const loadFileArtifact = async (
+export const readFileToArtifact = async (
   ctx: RunContext,
   rawPath: string,
   outputKind: FileLoadKind,
   source: string,
-): Promise<StepOutcome> => {
+): Promise<Artifact> => {
   const absolutePath = assertAbsolute(rawPath, ctx.deps.path);
   const body = await ctx.deps.fs.readTextFile(absolutePath);
   if (body.length === 0) {
@@ -105,16 +109,24 @@ export const loadFileArtifact = async (
     body,
   } as ArtifactPayload<FileLoadKind>;
 
-  const artifact = await putArtifactPayload(
-    ctx.deps.artifactStore,
-    outputKind,
-    payload,
-    {
-      source,
-      path: absolutePath,
-      byteLength: String(Buffer.byteLength(body, "utf-8")),
-    },
-  );
+  return putArtifactPayload(ctx.deps.artifactStore, outputKind, payload, {
+    source,
+    path: absolutePath,
+    byteLength: String(Buffer.byteLength(body, "utf-8")),
+  });
+};
+
+/**
+ * Cœur partagé : lit le fichier au `kind` demandé et stocke l'artifact. Réutilisé
+ * par le runner `file.load` et par l'alias deprecated `file.load-markdown`.
+ */
+export const loadFileArtifact = async (
+  ctx: RunContext,
+  rawPath: string,
+  outputKind: FileLoadKind,
+  source: string,
+): Promise<StepOutcome> => {
+  const artifact = await readFileToArtifact(ctx, rawPath, outputKind, source);
   return { kind: "produced", artifact };
 };
 

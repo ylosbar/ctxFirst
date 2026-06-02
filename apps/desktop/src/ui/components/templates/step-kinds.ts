@@ -5,6 +5,7 @@ import {
   FileJson,
   FileText,
   FolderCog,
+  FolderDown,
   FolderMinus,
   Gavel,
   GitBranch,
@@ -300,6 +301,21 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     buildDefaultConfig: () => ({
       path: "",
       outputKind: "Markdown",
+    }),
+  },
+  {
+    id: "files.load",
+    label: "Load Files",
+    description:
+      "Lit N fichiers sous un répertoire de base et expose chacun sur son port (Markdown ou Json).",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: FolderDown,
+    family: "input",
+    category: "source",
+    buildDefaultConfig: () => ({
+      path: "",
+      slots: [{ port: "out", subpath: "", outputKind: "Markdown" }],
     }),
   },
   {
