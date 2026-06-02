@@ -13,5 +13,6 @@ Commencez par le plus simple, puis montez en complexité.
 
 - **[Prompt → réponse](/fr/tutorials/user-input-claude-invoke/)** — le workflow minimal : une saisie utilisateur envoyée à un modèle. Deux nodes, [User Input](/fr/nodes/user-input/) et [Claude Code Invoke](/fr/nodes/claude-code-invoke/).
 - **[Génération avec boucle de validation](/fr/tutorials/human-validation-loop/)** — le même flux, avec la validation humaine cochée sur le node de génération et une boucle qui le ré-invoque tant que l'humain n'a pas validé.
+- **[Fusionner deux fichiers pour Claude](/fr/tutorials/concat-files-claude/)** — charger deux fichiers dans des variables, les fusionner avec [Concat Markdown](/fr/nodes/concat-markdown/), puis envoyer le résultat au modèle.
 
 > D'autres exemples viendront s'ajouter ici, chacun dans sa propre page sous `src/content/docs/fr/tutorials/`.
