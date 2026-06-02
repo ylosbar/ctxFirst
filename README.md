@@ -10,6 +10,10 @@ yarn dev         # launches the app (renderer HMR)
 yarn build       # production bundle
 ```
 
+## Documentation
+
+Full documentation is at **[ylosbar.github.io/ctxFirst](https://ylosbar.github.io/ctxFirst/)** — start with the [Introduction](https://ylosbar.github.io/ctxFirst/en/guides/introduction/).
+
 ## License
 
 CtxFirst is **dual-licensed**:

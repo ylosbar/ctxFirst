@@ -11,6 +11,33 @@ const base = process.env.NODE_ENV === "production" ? "/ctxFirst" : "/"
 // donc nous-mêmes pour que la racine pointe vers la bonne locale en dev ET en prod.
 const localeRoot = base === "/" ? "/fr/" : `${base}/fr/`
 
+// Starlight préfixe le `base` sur ses liens générés (sidebar, prev/next…), mais
+// PAS sur les liens racine écrits à la main dans le markdown (`](/fr/...)`). En
+// prod (base=`/ctxFirst`) ces liens tombent en 404. Ce plugin rehype préfixe la
+// base aux liens internes racine du corps des pages, ce qui laisse les sources
+// en `/fr/...` (lisibles, valides en dev où base=`/`). Sans dépendance externe :
+// on marche l'arbre HAST à la main.
+const rehypeBaseLinks = () => {
+  if (base === "/") return () => {}
+  /** @param {any} node */
+  const prefix = (node) => {
+    if (node.type === "element" && node.tagName === "a") {
+      const href = node.properties?.href
+      if (
+        typeof href === "string" &&
+        href.startsWith("/") &&
+        !href.startsWith("//") &&
+        !href.startsWith(`${base}/`)
+      ) {
+        node.properties.href = `${base}${href}`
+      }
+    }
+    if (Array.isArray(node.children)) node.children.forEach(prefix)
+  }
+  /** @param {any} tree */
+  return (tree) => prefix(tree)
+}
+
 // https://starlight.astro.build/reference/configuration/
 export default defineConfig({
   site: "https://ylosbar.github.io",
@@ -19,6 +46,9 @@ export default defineConfig({
   // racine vers la locale par défaut pour éviter un 404 sur l'entrée du site.
   redirects: {
     "/": localeRoot,
+  },
+  markdown: {
+    rehypePlugins: [rehypeBaseLinks],
   },
   integrations: [
     starlight({
