@@ -26,7 +26,10 @@ export const createHumanGateRunner = (): StepRunner => ({
       title: "Human Gate",
       description: "Pauses the workflow until a human validates the upstream artifact.",
       inputs: [{ name: "artifact", kinds: [inputKind] }],
+      // No artifact of its own: once validated, downstream steps resolve their
+      // input from the gated upstream artifact (passthrough / previousDataStepId).
       outputs: [],
+      passthrough: true,
     };
   },
 

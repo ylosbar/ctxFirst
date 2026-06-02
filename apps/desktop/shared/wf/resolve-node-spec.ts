@@ -228,10 +228,13 @@ export const resolveNodeSpec = (
     case "human.gate": {
       const inputKind = readStr(config.inputKind);
       if (!inputKind) return base;
+      // Produces no artifact of its own, but stays chainable: downstream steps
+      // resolve their input from the gated upstream artifact (passthrough).
       return {
         ...base,
         inputs: [{ name: "artifact", kinds: [inputKind] }],
         outputs: [],
+        passthrough: true,
       };
     }
     case "shell.exec": {
