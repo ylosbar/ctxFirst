@@ -1,0 +1,20 @@
+/* Tables de référence des nodes (Ports / Configuration).
+ *
+ * Par défaut Starlight autorise la césure des mots longs (overflow-wrap) :
+ * dans une colonne étroite, un code inline comme `config.inputKind` se coupe
+ * au milieu (« config.inpu↵tKind »). On désactive cette césure pour le code
+ * inline : un token reste insécable, mais le texte à espaces continue de
+ * passer à la ligne normalement (ex. le prompt par défaut).
+ */
+.sl-markdown-content table code {
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: nowrap;
+}
+
+/* Filet de sécurité : si une ligne devient plus large que le contenu (token
+ * très long), la table défile horizontalement au lieu de déborder la page. */
+.sl-markdown-content table {
+  display: block;
+  overflow-x: auto;
+}
