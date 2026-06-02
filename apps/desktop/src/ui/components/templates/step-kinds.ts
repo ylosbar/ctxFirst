@@ -244,6 +244,22 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     }),
   },
   {
+    id: "branch.json",
+    label: "Branch (JSON)",
+    description:
+      "Route le workflow selon un champ JSON de l'artifact d'entrée (JSONPath déterministe, aucun LLM).",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: GitFork,
+    family: "transform",
+    category: "control",
+    buildDefaultConfig: () => ({
+      path: "$.flag",
+      cases: ["true", "false"],
+      inputKind: "Json",
+    }),
+  },
+  {
     id: "workspace.set",
     label: "Workspace Set",
     description:

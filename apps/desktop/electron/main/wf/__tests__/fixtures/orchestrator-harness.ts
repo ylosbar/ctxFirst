@@ -21,6 +21,7 @@ import type { InstanceStatus } from "../../domain/instance";
 import type { WorkflowTemplate } from "../../domain/template";
 
 import { createBranchBoolRunner } from "../../plugins/branch-bool";
+import { createBranchJsonRunner } from "../../plugins/branch-json";
 import { createConcatMarkdownRunner } from "../../plugins/concat-markdown";
 import { createHumanGateRunner } from "../../plugins/human-gate";
 import { createLlmJudgeRunner } from "../../plugins/llm-judge";
@@ -142,6 +143,7 @@ const registerBuiltinRunners = (registry: StepRunnerRegistry): void => {
   registry.register(createUserInputRunner());
   registry.register(createHumanGateRunner());
   registry.register(createBranchBoolRunner());
+  registry.register(createBranchJsonRunner());
   registry.register(createConcatMarkdownRunner());
   registry.register(createLlmJudgeRunner());
   registry.register(createLoopForeachRunner());

@@ -117,6 +117,7 @@ import { createFileLoadRunner } from "./plugins/file-load";
 import { createFilesLoadRunner } from "./plugins/files-load";
 import { createHumanGateRunner } from "./plugins/human-gate";
 import { createBranchBoolRunner } from "./plugins/branch-bool";
+import { createBranchJsonRunner } from "./plugins/branch-json";
 import { createBranchMatchRunner } from "./plugins/branch-match";
 import { createClaudeCodeInvokeRunner } from "./plugins/claude-code-invoke";
 import { createCodexInvokeRunner } from "./plugins/codex-invoke";
@@ -488,6 +489,7 @@ export const buildWfEngine = async ({
   // access the engine's Linear gateway and artifact store through `ctx.deps`,
   // so no host-level wiring is needed beyond the existing orchestrator.
   runners.register(createBranchBoolRunner());
+  runners.register(createBranchJsonRunner());
   runners.register(createBranchMatchRunner());
   runners.register(createWorkspaceSetRunner());
   runners.register(createShellExecRunner());

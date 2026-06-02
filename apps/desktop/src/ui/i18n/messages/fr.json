@@ -614,6 +614,12 @@
           "add": "+ Ajouter une case"
         }
       },
+      "branchJson": {
+        "path": {
+          "label": "JSONPath",
+          "description": "JSONPath dans le JSON d'entrée, pointant vers un scalaire unique. Sa valeur (coercée en string) est comparée aux cases ci-dessous. Note : un JSON Transform en amont enveloppe sa sortie dans un tableau — cible donc l'élément (ex. <code>$[0].flag</code>) plutôt que la racine <code>$.flag</code>."
+        }
+      },
       "jsonTransform": {
         "projections": {
           "label": "Projections JSONPath",

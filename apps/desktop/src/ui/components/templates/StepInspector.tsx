@@ -76,6 +76,7 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "human.gate",
   "branch.bool",
   "branch.match",
+  "branch.json",
   "json.transform",
   "workflow.call",
 ]);
@@ -1054,6 +1055,10 @@ const StepInspector = ({
           <BranchCasesEditor config={config} setConfig={setConfig} />
         ) : null}
 
+        {step.kind === "branch.json" ? (
+          <BranchJsonConfigEditor config={config} setConfig={setConfig} />
+        ) : null}
+
         {step.kind === "branch.match" ? (
           <BranchMatchTargetEditor config={config} setConfig={setConfig} />
         ) : null}
@@ -1969,6 +1974,12 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
 type BranchCasesEditorProps = {
   config: Readonly<Record<string, unknown>>;
   setConfig: (patch: Record<string, unknown>) => void;
+  /**
+   * Whether to render the "Verdict kind" select (Markdown-only). `branch.bool`
+   * reads a Markdown verdict so it shows it; `branch.json` reuses this editor
+   * for the cases list only (its input is JSON), so it hides it.
+   */
+  showVerdictKind?: boolean;
 };
 
 /**
@@ -1980,7 +1991,11 @@ type BranchCasesEditorProps = {
  * Validation matches the runner-side regex so the user is corrected before
  * save instead of receiving a `StepFailed` at execution time.
  */
-const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
+const BranchCasesEditor = ({
+  config,
+  setConfig,
+  showVerdictKind = true,
+}: BranchCasesEditorProps) => {
   const t = useT();
   const raw = config["cases"];
   const cases: string[] = Array.isArray(raw)
@@ -2022,17 +2037,19 @@ const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
 
   return (
     <>
-      <FormField
-        label={t("template.stepInspector.branch.verdictKind.label")}
-        description={t("template.stepInspector.branch.verdictKind.description")}
-      >
-        <Select
-          value={inputKind}
-          onChange={(e) => setConfig({ inputKind: e.target.value })}
+      {showVerdictKind ? (
+        <FormField
+          label={t("template.stepInspector.branch.verdictKind.label")}
+          description={t("template.stepInspector.branch.verdictKind.description")}
         >
-          <option value="Markdown">{t("template.stepInspector.branch.verdictKind.markdownOption")}</option>
-        </Select>
-      </FormField>
+          <Select
+            value={inputKind}
+            onChange={(e) => setConfig({ inputKind: e.target.value })}
+          >
+            <option value="Markdown">{t("template.stepInspector.branch.verdictKind.markdownOption")}</option>
+          </Select>
+        </FormField>
+      ) : null}
 
       <FormField
         label={t("template.stepInspector.branch.cases.label")}
@@ -2075,6 +2092,49 @@ const BranchCasesEditor = ({ config, setConfig }: BranchCasesEditorProps) => {
           </Button>
         </div>
       </FormField>
+    </>
+  );
+};
+
+type BranchJsonConfigEditorProps = {
+  config: Readonly<Record<string, unknown>>;
+  setConfig: (patch: Record<string, unknown>) => void;
+};
+
+/**
+ * Inline editor for a `branch.json` step: a JSONPath (`path`) read from the
+ * input artifact plus the `cases[]` that materialize the output ports. The
+ * extracted scalar is coerced to a string and compared against each case —
+ * exactly one port is produced at runtime.
+ *
+ * Cases reuse the same `cases: string[]` shape and validation as
+ * {@link BranchCasesEditor}; the JSONPath field is added on top.
+ */
+const BranchJsonConfigEditor = ({
+  config,
+  setConfig,
+}: BranchJsonConfigEditorProps) => {
+  const t = useT();
+  const path = (config["path"] as string | undefined) ?? "";
+
+  return (
+    <>
+      <FormField
+        label={t("template.stepInspector.branchJson.path.label")}
+        description={t("template.stepInspector.branchJson.path.description")}
+      >
+        <Input
+          className="font-mono text-xs"
+          placeholder="$.flag"
+          value={path}
+          onChange={(e) => setConfig({ path: e.target.value })}
+        />
+      </FormField>
+      <BranchCasesEditor
+        config={config}
+        setConfig={setConfig}
+        showVerdictKind={false}
+      />
     </>
   );
 };

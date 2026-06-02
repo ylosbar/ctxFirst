@@ -204,3 +204,44 @@ describe("resolveNodeSpec — workflow.call", () => {
     ).toEqual([]);
   });
 });
+
+describe("resolveNodeSpec — branch.json", () => {
+  const base: NodeSpecView = {
+    kind: "branch.json",
+    title: "Branch (JSON)",
+    inputs: [{ name: "json", kinds: ["*"], primary: true }],
+    outputs: [],
+  };
+
+  it("emits one passthrough port per case (default Json) with a wildcard input", () => {
+    const spec = resolveNodeSpec(
+      "branch.json",
+      { path: "$.flag", cases: ["true", "false"] },
+      base,
+    );
+    expect(spec.inputs).toEqual([{ name: "json", kinds: ["*"], primary: true }]);
+    expect(spec.outputs).toEqual([
+      { name: "true", kind: "Json", description: 'Branch when $.flag equals "true".' },
+      { name: "false", kind: "Json", description: 'Branch when $.flag equals "false".' },
+    ]);
+  });
+
+  it("honors a custom inputKind for the passthrough ports", () => {
+    const spec = resolveNodeSpec(
+      "branch.json",
+      { path: "$.flag", cases: ["a", "b"], inputKind: "Markdown" },
+      base,
+    );
+    expect(spec.outputs.map((o) => o.kind)).toEqual(["Markdown", "Markdown"]);
+  });
+
+  it("falls back to the permissive base when cases is malformed", () => {
+    expect(resolveNodeSpec("branch.json", { path: "$.flag" }, base).outputs).toEqual(
+      [],
+    );
+    expect(
+      resolveNodeSpec("branch.json", { path: "$.flag", cases: ["only"] }, base)
+        .outputs,
+    ).toEqual([]);
+  });
+});
