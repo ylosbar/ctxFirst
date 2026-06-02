@@ -105,6 +105,7 @@ export default defineConfig({
               items: [
                 { label: "User Input", slug: "nodes/user-input" },
                 { label: "Skill Loader", slug: "nodes/skill-loader" },
+                { label: "Load File", slug: "nodes/file-load" },
               ],
             },
             {
@@ -126,6 +127,15 @@ export default defineConfig({
               translations: { en: "Human validation" },
               items: [
                 { label: "Human Gate", slug: "nodes/human-gate" },
+              ],
+            },
+            {
+              label: "Système / Exécution",
+              translations: { en: "System / Execution" },
+              items: [
+                { label: "Workspace Set", slug: "nodes/workspace-set" },
+                { label: "Git Clone", slug: "nodes/git-clone" },
+                { label: "Git Commit & Push", slug: "nodes/git-commit-push" },
               ],
             },
           ],

@@ -29,7 +29,7 @@ Nodes are wired together through their ports: one node's output feeds the next n
 
 ### Files & content
 
-- **Load File** (`file.load`) — read a single file.
+- **[Load File](/en/nodes/file-load/)** (`file.load`) — read a single file.
 - **Load Files** (`files.load`) — read N files under a base directory.
 - **Concat Markdown** (`concat.markdown`) — concatenate several Markdown fragments.
 - **Render Markdown** (`render.markdown`) — render a Markdown template.
@@ -38,8 +38,8 @@ Nodes are wired together through their ports: one node's output feeds the next n
 
 ### Git & forge
 
-- **Git Clone** (`git.clone`) — clone a repository.
-- **Git Commit & Push** (`git.commit_push`) — commit and push changes.
+- **[Git Clone](/en/nodes/git-clone/)** (`git.clone`) — clone a repository.
+- **[Git Commit & Push](/en/nodes/git-commit-push/)** (`git.commit_push`) — commit and push changes.
 - **Git Worktree Create / Remove** (`git.worktree.create`, `git.worktree.remove`) — manage an isolated worktree.
 - **GitLab: create MR / merge MR / wait for pipeline** (`gitlab.mr.create`, `gitlab.mr.merge`, `gitlab.pipeline.wait`) — GitLab operations.
 
@@ -57,7 +57,7 @@ Nodes are wired together through their ports: one node's output feeds the next n
 - **[User Input](/en/nodes/user-input/)** (`user.input`) — collect user input.
 - **Webhook: HTTP call** (`webhook.call`) — call an HTTP endpoint.
 - **Shell Exec** (`shell.exec`) — run a shell command.
-- **Workspace Set** (`workspace.set`) — set the working directory.
+- **[Workspace Set](/en/nodes/workspace-set/)** (`workspace.set`) — set the working directory.
 - **Export Run** (`export_run`) — export a run's artifacts.
 
 > To detail: for each node, create a dedicated page in `src/content/docs/en/nodes/` (it will appear automatically in the sidebar).

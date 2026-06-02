@@ -29,7 +29,7 @@ Les nodes se câblent entre eux via leurs ports : la sortie d'un node alimente l
 
 ### Fichiers & contenu
 
-- **Load File** (`file.load`) — lit un fichier unique.
+- **[Load File](/fr/nodes/file-load/)** (`file.load`) — lit un fichier unique.
 - **Load Files** (`files.load`) — lit N fichiers sous un répertoire de base.
 - **Concat Markdown** (`concat.markdown`) — concatène plusieurs fragments Markdown.
 - **Render Markdown** (`render.markdown`) — rend un gabarit Markdown.
@@ -38,8 +38,8 @@ Les nodes se câblent entre eux via leurs ports : la sortie d'un node alimente l
 
 ### Git & forge
 
-- **Git Clone** (`git.clone`) — clone un dépôt.
-- **Git Commit & Push** (`git.commit_push`) — commite et pousse des changements.
+- **[Git Clone](/fr/nodes/git-clone/)** (`git.clone`) — clone un dépôt.
+- **[Git Commit & Push](/fr/nodes/git-commit-push/)** (`git.commit_push`) — commite et pousse des changements.
 - **Git Worktree Create / Remove** (`git.worktree.create`, `git.worktree.remove`) — gère un worktree isolé.
 - **GitLab: create MR / merge MR / wait for pipeline** (`gitlab.mr.create`, `gitlab.mr.merge`, `gitlab.pipeline.wait`) — opérations GitLab.
 
@@ -57,7 +57,7 @@ Les nodes se câblent entre eux via leurs ports : la sortie d'un node alimente l
 - **[User Input](/fr/nodes/user-input/)** (`user.input`) — collecte une saisie utilisateur.
 - **Webhook: HTTP call** (`webhook.call`) — appelle un endpoint HTTP.
 - **Shell Exec** (`shell.exec`) — exécute une commande shell.
-- **Workspace Set** (`workspace.set`) — fixe le répertoire de travail.
+- **[Workspace Set](/fr/nodes/workspace-set/)** (`workspace.set`) — fixe le répertoire de travail.
 - **Export Run** (`export_run`) — exporte les artifacts d'un run.
 
 > À détailler : pour chaque node, créer une page dédiée dans `src/content/docs/fr/nodes/` (elle apparaîtra automatiquement dans la sidebar).
