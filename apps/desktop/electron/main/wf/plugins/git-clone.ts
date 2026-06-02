@@ -24,6 +24,7 @@ import type {
   StepOutcome,
   StepRunner,
 } from "../application/step-runner";
+import { putArtifactPayload } from "../application/artifact-io";
 import {
   DEFAULT_GIT_TIMEOUT_MS,
   DEFAULT_MAX_OUTPUT_BYTES,
@@ -179,9 +180,10 @@ export const createGitCloneRunner = (deps: Deps = {}): StepRunner => ({
     });
     ctx.deps.logger.info(`[git.clone] clone completed: ${target}`);
 
-    const artifact = await ctx.deps.artifactStore.put(
+    const artifact = await putArtifactPayload(
+      ctx.deps.artifactStore,
       "Path",
-      JSON.stringify({ path: target }),
+      { path: target },
       {
         provider: "git",
         repoUrl: redactToken(cfg.repoUrl),
