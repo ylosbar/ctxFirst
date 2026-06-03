@@ -21,6 +21,8 @@ export interface TemplateRegistry {
   save(tpl: WorkflowTemplate): Promise<void>;
   /** Renames a template in place. */
   rename(id: TemplateId, version: TemplateVersion, newName: string): Promise<void>;
+  /** Deletes a template by (id, version). Idempotent: no-op if absent. */
+  remove(id: TemplateId, version: TemplateVersion): Promise<void>;
   /**
    * Reads the editor layout (positions + viewport) stored alongside the
    * template row. Returns `null` if no layout has been saved yet, or if the

@@ -1083,7 +1083,8 @@
         "open": "Open",
         "duplicate": "Duplicate",
         "exportJson": "Export as JSON",
-        "rename": "Rename"
+        "rename": "Rename",
+        "confirmDelete": "Delete the template {{templateRef}}? This action is permanent."
       }
     },
     "tree": {

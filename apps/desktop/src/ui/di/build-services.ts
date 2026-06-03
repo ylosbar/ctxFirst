@@ -10,6 +10,7 @@ import { makeListWorkflowTemplates } from "../../application/use-cases/list-work
 import { makeListNodeSpecs } from "../../application/use-cases/list-node-specs";
 import { makeSaveWorkflowTemplate } from "../../application/use-cases/save-workflow-template";
 import { makeRenameWorkflowTemplate } from "../../application/use-cases/rename-workflow-template";
+import { makeDeleteWorkflowTemplate } from "../../application/use-cases/delete-workflow-template";
 import { makeGetTemplateLayout } from "../../application/use-cases/get-template-layout";
 import { makeSaveTemplateLayout } from "../../application/use-cases/save-template-layout";
 import { makeListSkills } from "../../application/use-cases/list-skills";
@@ -89,6 +90,7 @@ export const buildServices = (): Services => {
     listNodeSpecs: makeListNodeSpecs(workflowGateway),
     saveWorkflowTemplate: makeSaveWorkflowTemplate(workflowGateway),
     renameWorkflowTemplate: makeRenameWorkflowTemplate(workflowGateway),
+    deleteWorkflowTemplate: makeDeleteWorkflowTemplate(workflowGateway),
     exportWorkflowTemplate: makeExportWorkflowTemplate({
       workflows: workflowGateway,
       system: systemGateway,

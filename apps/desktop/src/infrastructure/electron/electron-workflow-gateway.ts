@@ -60,6 +60,9 @@ export const createElectronWorkflowGateway = (): WorkflowGateway => ({
   async renameTemplate(input) {
     await window.api.wf.renameTemplate(input);
   },
+  async deleteTemplate(templateRef) {
+    await window.api.wf.deleteTemplate({ templateRef });
+  },
   async getTemplateLayout(templateRef) {
     const raw = (await window.api.wf.getTemplateLayout({ templateRef })) as
       | TemplateLayout

@@ -104,6 +104,9 @@ export const createFakeTemplateRegistry = (
       if (!cur) throw new Error(`[fake-templates] unknown template ${id}@${version}`);
       byKey.set(key(id, version), { ...cur, name: newName });
     },
+    async remove(id, version) {
+      byKey.delete(key(id, version));
+    },
     async getLayout(id, version) {
       return layouts.get(key(id, version)) ?? null;
     },

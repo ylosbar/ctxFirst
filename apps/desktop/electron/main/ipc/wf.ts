@@ -205,6 +205,19 @@ export const registerWfHandlers = (win: BrowserWindow, engine: WfEngine) => {
     },
   );
 
+  ipcMain.handle(
+    "wf:deleteTemplate",
+    async (_e, args: { templateRef: string }) => {
+      console.log(`[wf:ipc] deleteTemplate ref=${args.templateRef}`);
+      try {
+        await engine.deleteTemplate(args.templateRef);
+      } catch (err) {
+        console.error("[wf:ipc] deleteTemplate failed:", err);
+        throw err;
+      }
+    },
+  );
+
   ipcMain.handle("wf:listSkills", async () => {
     const skills = await engine.listSkills();
     console.log(`[wf:ipc] listSkills → ${skills.length} skills`);

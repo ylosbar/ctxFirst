@@ -183,6 +183,19 @@ const ResourceTreeView = () => {
     }
   };
 
+  const handleDeleteTemplate = async (ref: string) => {
+    try {
+      await services.deleteWorkflowTemplate(ref);
+      // Close the template editor if it's open — its underlying row is gone.
+      wb.closeEditor(templateUriFor(ref));
+      await refreshTemplates();
+    } catch (e) {
+      toast.error(t("explorer.resourceTree.toast.deleteFailed"), {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+
   const handleDuplicateTemplate = (ref: string) => {
     const url = `${NEW_TEMPLATE_URI}?from=${encodeURIComponent(ref)}`;
     wb.openEditor(url, { focus: true });
@@ -330,9 +343,11 @@ const ResourceTreeView = () => {
         <TemplateLeafMenu
           key={node.id}
           trigger={triggerEl}
+          templateRef={ref}
           onOpen={() => wb.openEditor(templateUriFor(ref), { focus: true })}
           onDuplicate={() => handleDuplicateTemplate(ref)}
           onExport={() => void handleExportTemplate(ref)}
+          onDelete={() => void handleDeleteTemplate(ref)}
         />
       );
     }

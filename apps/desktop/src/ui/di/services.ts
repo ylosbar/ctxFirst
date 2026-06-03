@@ -10,6 +10,7 @@ import type { ListWorkflowTemplates } from "../../application/use-cases/list-wor
 import type { ListNodeSpecs } from "../../application/use-cases/list-node-specs";
 import type { SaveWorkflowTemplate } from "../../application/use-cases/save-workflow-template";
 import type { RenameWorkflowTemplate } from "../../application/use-cases/rename-workflow-template";
+import type { DeleteWorkflowTemplate } from "../../application/use-cases/delete-workflow-template";
 import type { GetTemplateLayout } from "../../application/use-cases/get-template-layout";
 import type { SaveTemplateLayout } from "../../application/use-cases/save-template-layout";
 import type { ListSkills } from "../../application/use-cases/list-skills";
@@ -78,6 +79,7 @@ export type Services = {
   listNodeSpecs: ListNodeSpecs;
   saveWorkflowTemplate: SaveWorkflowTemplate;
   renameWorkflowTemplate: RenameWorkflowTemplate;
+  deleteWorkflowTemplate: DeleteWorkflowTemplate;
   exportWorkflowTemplate: ExportWorkflowTemplate;
   importWorkflowTemplate: ImportWorkflowTemplate;
   getTemplateLayout: GetTemplateLayout;
