@@ -403,6 +403,12 @@
           "description": "When on (default), the target folder is removed then re-cloned — replaying the step is idempotent. When off, the step fails if the target already exists and is not empty."
         }
       },
+      "loopForeach": {
+        "sequential": {
+          "label": "Sequential execution (one iteration at a time)",
+          "description": "Wait for each iteration to fully complete — including sub-workflows and human reviews — before starting the next one. By default, iterations run in parallel."
+        }
+      },
       "gitlabMrCreate": {
         "project": {
           "label": "Project",

@@ -197,6 +197,54 @@ describe("InstanceOrchestrator — port-based wiring", () => {
 });
 
 // ---------------------------------------------------------------------------
+// humanGateRequired on a single-`produced` step
+// ---------------------------------------------------------------------------
+
+describe("InstanceOrchestrator — humanGateRequired on a single-produced step", () => {
+  // Regression: the plain `produced` branch (single artifact) used to emit
+  // neither `StepValidated` nor `StepAwaitingHumanGate` when the step had
+  // `humanGateRequired: true`, leaving it stuck in `running` forever. The
+  // `produced-many` / `produced-on-port` branches already handled it; this
+  // pins the third branch to the same behavior. `concat.markdown` returns a
+  // single `produced` outcome, so it exercises exactly that path.
+  it("opens the human gate, then advances after validation", async () => {
+    const template = buildTemplate(
+      "gated-produced",
+      [
+        {
+          id: "src",
+          kind: "user.input",
+          humanGateRequired: false,
+          config: { outputKind: "Markdown" },
+        },
+        { id: "gated", kind: "concat.markdown", humanGateRequired: true },
+      ],
+      [{ from: "src", to: "gated", fromPort: "out", toPort: "main" }],
+      { exitSteps: ["gated"] },
+    );
+
+    harness = createOrchestratorHarness({ templates: [template] });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "hello" }],
+    });
+    await harness.waitForStatus(instanceId, "awaitingHuman");
+
+    expect(harness.fakes.bus.ofType("StepAwaitingHumanGate")).toHaveLength(1);
+    const inst = harness.state.getInstance(instanceId)!;
+    const gated = inst.executions.find((e) => e.status === "awaitingHuman")!;
+    expect(gated.stepId).toBe(asStepId("gated"));
+
+    await harness.submitHumanDecision({
+      instanceId,
+      stepExecId: gated.id,
+      by: "alice",
+    });
+    await harness.waitForStatus(instanceId, "completed");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Submit + advance
 // ---------------------------------------------------------------------------
 
@@ -830,6 +878,293 @@ describe("InstanceOrchestrator — iteration scopes", () => {
         { format: "json", body: "2" },
       ],
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Sequential foreach (config.sequential === true)
+// ---------------------------------------------------------------------------
+
+describe("InstanceOrchestrator — sequential foreach", () => {
+  // Body chain fe → A → B → col, so iteration i+1's first body step (A) can be
+  // observed to start only after iteration i's last body step (B) validates.
+  const chainTemplate = (opts: { sequential: boolean; items: string[] }) =>
+    buildTemplate(
+      "seq-foreach",
+      [
+        {
+          id: "fe",
+          kind: "loop.foreach",
+          humanGateRequired: false,
+          config: {
+            items: opts.items,
+            itemKind: "Markdown",
+            sequential: opts.sequential,
+          },
+        },
+        { id: "A", kind: "concat.markdown", humanGateRequired: false },
+        { id: "B", kind: "concat.markdown", humanGateRequired: false },
+        {
+          id: "col",
+          kind: "loop.collect",
+          humanGateRequired: false,
+          config: { itemKind: "Markdown" },
+        },
+      ],
+      [
+        { from: "fe", to: "A", fromPort: "item", toPort: "main" },
+        { from: "A", to: "B", fromPort: "out", toPort: "main" },
+        { from: "B", to: "col", fromPort: "out", toPort: "item" },
+      ],
+      { exitSteps: ["col"] },
+    );
+
+  /**
+   * Linear trace of `start <step>@<key>` / `valid <step>@<key>` over the
+   * published events. `StepValidated` carries only a `stepExecId`, so we map it
+   * back to its `StepStarted` (which carries `stepId` + `iterationKey`).
+   */
+  const trace = (bus: OrchestratorHarness["fakes"]["bus"]): string[] => {
+    const meta = new Map<string, { stepId: string; key: string }>();
+    for (const e of bus.published) {
+      if (e.type === "StepStarted") {
+        meta.set(e.stepExecId, {
+          stepId: String(e.stepId),
+          key: e.iterationKey ?? "-",
+        });
+      }
+    }
+    const out: string[] = [];
+    for (const e of bus.published) {
+      if (e.type === "StepStarted") {
+        out.push(`start ${String(e.stepId)}@${e.iterationKey ?? "-"}`);
+      } else if (e.type === "StepValidated") {
+        const m = meta.get(e.stepExecId);
+        if (m) out.push(`valid ${m.stepId}@${m.key}`);
+      }
+    }
+    return out;
+  };
+
+  it("runs iterations strictly one at a time, in index order", async () => {
+    const template = chainTemplate({
+      sequential: true,
+      items: ["a", "b", "c"],
+    });
+    harness = createOrchestratorHarness({ templates: [template] });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    const t = trace(harness.fakes.bus);
+    const at = (label: string) => t.indexOf(label);
+
+    // Iteration i+1's body cannot start before iteration i's body fully
+    // validated (B is the last body step).
+    expect(at("valid B@fe:0")).toBeLessThan(at("start A@fe:1"));
+    expect(at("valid B@fe:1")).toBeLessThan(at("start A@fe:2"));
+    // No overlap of iteration keys: A@fe:1 starts after B@fe:0 even started.
+    expect(at("start B@fe:0")).toBeLessThan(at("start A@fe:1"));
+    expect(at("start B@fe:1")).toBeLessThan(at("start A@fe:2"));
+    expect(harness.fakes.bus.ofType("IterationStarted")).toHaveLength(3);
+  });
+
+  it("fan-out (flag absent) keeps the current interleaved behavior", async () => {
+    const template = chainTemplate({
+      sequential: false,
+      items: ["a", "b", "c"],
+    });
+    harness = createOrchestratorHarness({ templates: [template] });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    const t = trace(harness.fakes.bus);
+    const at = (label: string) => t.indexOf(label);
+    // In fan-out every iteration's first body step starts before any second
+    // body step runs — the discriminating non-regression assertion.
+    expect(at("start A@fe:2")).toBeLessThan(at("start B@fe:0"));
+  });
+
+  it("empty array starts no iteration body (sequential short-circuit)", async () => {
+    const template = chainTemplate({ sequential: true, items: [] });
+    harness = createOrchestratorHarness({ templates: [template] });
+    await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    // The foreach validates (it produced its — empty — list) then takes the
+    // short-circuit branch instead of fanning out. `slice(0, 1)` of an empty
+    // record set stays empty, so no iteration body starts.
+    await harness.waitForEvent("StepValidated");
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(harness.fakes.bus.ofType("IterationStarted")).toHaveLength(0);
+    const aStarted = harness.fakes.bus
+      .ofType("StepStarted")
+      .some((e) => e.stepId === asStepId("A"));
+    expect(aStarted).toBe(false);
+  });
+
+  it("a single item behaves identically in sequential mode", async () => {
+    const template = chainTemplate({ sequential: true, items: ["only"] });
+    harness = createOrchestratorHarness({ templates: [template] });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    expect(harness.fakes.bus.ofType("IterationStarted")).toHaveLength(1);
+    expect(harness.fakes.bus.ofType("InstanceCompleted")).toHaveLength(1);
+  });
+
+  it("pauses on a human.gate per iteration and only advances after validation", async () => {
+    // Body fe → A → gate. The gate is the boundary step before collect; we
+    // assert the pause/advance mechanics (we do not drive to completion — a
+    // passthrough gate before a collect is orthogonal to this spec).
+    const template = buildTemplate(
+      "seq-gate",
+      [
+        {
+          id: "fe",
+          kind: "loop.foreach",
+          humanGateRequired: false,
+          config: { items: ["x", "y"], itemKind: "Markdown", sequential: true },
+        },
+        { id: "A", kind: "concat.markdown", humanGateRequired: false },
+        {
+          id: "gate",
+          kind: "human.gate",
+          humanGateRequired: true,
+          config: { inputKind: "Markdown" },
+        },
+        {
+          id: "col",
+          kind: "loop.collect",
+          humanGateRequired: false,
+          config: { itemKind: "Markdown" },
+        },
+      ],
+      [
+        { from: "fe", to: "A", fromPort: "item", toPort: "main" },
+        { from: "A", to: "gate", fromPort: "out", toPort: "artifact" },
+        { from: "gate", to: "col", toPort: "item" },
+      ],
+      { exitSteps: ["col"] },
+    );
+
+    harness = createOrchestratorHarness({ templates: [template] });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "awaitingHuman");
+
+    const startedBefore = harness.fakes.bus
+      .ofType("StepStarted")
+      .filter((e) => e.stepId === asStepId("A"))
+      .map((e) => e.iterationKey);
+    // Only iteration 0's body has started.
+    expect(startedBefore).toEqual(["fe:0"]);
+    expect(harness.fakes.bus.ofType("StepAwaitingHumanGate")).toHaveLength(1);
+
+    // Validate iteration 0's gate → iteration 1's body must start.
+    const inst = harness.state.getInstance(instanceId)!;
+    const gate0 = inst.executions.find((e) => e.status === "awaitingHuman")!;
+    expect(gate0.iterationKey).toBe("fe:0");
+    await harness.submitHumanDecision({
+      instanceId,
+      stepExecId: gate0.id,
+      by: "alice",
+    });
+
+    await harness.waitForEvent(
+      "StepStarted",
+      (e) => e.stepId === asStepId("gate") && e.iterationKey === "fe:1",
+    );
+    const gateKeys = harness.fakes.bus
+      .ofType("StepStarted")
+      .filter((e) => e.stepId === asStepId("gate"))
+      .map((e) => e.iterationKey);
+    expect(gateKeys).toEqual(["fe:0", "fe:1"]);
+  });
+
+  it("fail-fast: a failed iteration stops the series, later iterations never start", async () => {
+    const failOnBoom: StepRunner = {
+      kind: "test.fail-on-boom",
+      resolveSpec: () => ({
+        title: "fail-on-boom",
+        inputs: [{ name: "in", kinds: ["Markdown"], primary: true }],
+        outputs: [{ name: "out", kind: "Markdown", primary: true }],
+      }),
+      async run(ctx) {
+        if (ctx.inputs[0]?.content.includes("boom")) {
+          throw new Error("intentional failure on this item");
+        }
+        const artifact = await putArtifactPayload(
+          ctx.deps.artifactStore,
+          "Markdown",
+          { format: "markdown", body: "ok" },
+          { source: "test.fail-on-boom" },
+        );
+        return { kind: "produced", artifact };
+      },
+    };
+
+    const template = buildTemplate(
+      "seq-failfast",
+      [
+        {
+          id: "fe",
+          kind: "loop.foreach",
+          humanGateRequired: false,
+          config: {
+            items: ["ok-0", "boom-1", "ok-2"],
+            itemKind: "Markdown",
+            sequential: true,
+          },
+        },
+        { id: "A", kind: "test.fail-on-boom", humanGateRequired: false },
+        {
+          id: "col",
+          kind: "loop.collect",
+          humanGateRequired: false,
+          config: { itemKind: "Markdown" },
+        },
+      ],
+      [
+        { from: "fe", to: "A", fromPort: "item", toPort: "in" },
+        { from: "A", to: "col", fromPort: "out", toPort: "item" },
+      ],
+      { exitSteps: ["col"] },
+    );
+
+    harness = createOrchestratorHarness({
+      templates: [template],
+      extraRunners: [failOnBoom],
+    });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "failed");
+
+    expect(harness.fakes.bus.ofType("StepFailed")).toHaveLength(1);
+    const aKeys = harness.fakes.bus
+      .ofType("StepStarted")
+      .filter((e) => e.stepId === asStepId("A"))
+      .map((e) => e.iterationKey);
+    // Iteration 0 ran, iteration 1 failed, iteration 2 never started.
+    expect(aKeys).toEqual(["fe:0", "fe:1"]);
+    const colStarted = harness.fakes.bus
+      .ofType("StepStarted")
+      .some((e) => e.stepId === asStepId("col"));
+    expect(colStarted).toBe(false);
   });
 });
 

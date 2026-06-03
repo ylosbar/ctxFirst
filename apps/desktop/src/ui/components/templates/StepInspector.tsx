@@ -80,6 +80,7 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "branch.json",
   "json.transform",
   "workflow.call",
+  "loop.foreach",
 ]);
 
 /**
@@ -1164,6 +1165,21 @@ const StepInspector = ({
             variables={variables}
             onChange={onChange}
           />
+        ) : null}
+
+        {step.kind === "loop.foreach" ? (
+          <FormField
+            orientation="inline"
+            label={t("template.stepInspector.loopForeach.sequential.label")}
+            description={t(
+              "template.stepInspector.loopForeach.sequential.description",
+            )}
+          >
+            <Checkbox
+              checked={config["sequential"] === true}
+              onCheckedChange={(v) => setConfig({ sequential: v })}
+            />
+          </FormField>
         ) : null}
       </Section>
 

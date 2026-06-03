@@ -17,7 +17,7 @@
  *     outside).
  */
 import type { StepId } from "../ids";
-import type { WorkflowTemplate } from "../template";
+import type { StepDef, WorkflowTemplate } from "../template";
 
 /** Distinguishes the scope-rule violations for caller messaging. */
 export type IterationScopeErrorCode =
@@ -305,3 +305,25 @@ const describe = (s: StepId | undefined): string =>
 /** Format an iteration key for v1. */
 export const buildIterationKey = (loopStepId: StepId, index: number): string =>
   `${loopStepId}:${index}`;
+
+/**
+ * Mirror of {@link buildIterationKey} — extracts the iteration index from a key
+ * `${loopStepId}:${index}`. Colocated with the builder so any change to the
+ * key format breaks the round-trip test (`parse(build(id, i)) === i`) rather
+ * than in production. The loop step id may itself contain `:` (defensive), so
+ * we split on the **last** separator.
+ */
+export const parseIterationIndex = (iterationKey: string): number => {
+  const sep = iterationKey.lastIndexOf(":");
+  const segment = sep >= 0 ? iterationKey.slice(sep + 1) : iterationKey;
+  return Number(segment);
+};
+
+/**
+ * `true` when a `loop.foreach` step opts into sequential iteration via
+ * `config.sequential === true`. Pure read of the step config — the timing
+ * delta it controls lives entirely in the orchestrator (fan-out + join).
+ * Defaults to `false` (fan-out), keeping legacy templates unchanged.
+ */
+export const isSequentialForeach = (step: StepDef): boolean =>
+  step.config["sequential"] === true;

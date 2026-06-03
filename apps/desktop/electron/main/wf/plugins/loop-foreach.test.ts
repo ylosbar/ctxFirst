@@ -278,4 +278,21 @@ describe("loop.foreach runner — generic List<T> (itemKind=Json)", () => {
     const spec = runner.resolveSpec({ config: { itemKind: "Markdown" } });
     expect(spec.inputs[0].kinds).toEqual(["MarkdownList"]);
   });
+
+  it("accepts a boolean `sequential` flag and tolerates its absence", () => {
+    expect(() =>
+      runner.resolveSpec({ config: { itemKind: "Markdown", sequential: true } }),
+    ).not.toThrow();
+    expect(() =>
+      runner.resolveSpec({ config: { itemKind: "Markdown" } }),
+    ).not.toThrow();
+  });
+
+  it("rejects a non-boolean `sequential` flag at resolveSpec (save-time check)", () => {
+    expect(() =>
+      runner.resolveSpec({
+        config: { itemKind: "Markdown", sequential: "yes" },
+      }),
+    ).toThrow(/sequential.*must be a boolean/);
+  });
 });
