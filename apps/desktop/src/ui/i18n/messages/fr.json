@@ -439,6 +439,35 @@
           "description": "Vide pour <code>https://gitlab.com</code> ; à renseigner pour une instance self-hosted."
         }
       },
+      "gitlabFilesFetch": {
+        "project": {
+          "label": "Projet",
+          "description": "Id numérique ou chemin group/project. Peut aussi provenir de l'input branché."
+        },
+        "ref": {
+          "label": "Réf (optionnel)",
+          "description": "Branche, tag ou SHA. À épingler pour la reproductibilité ; vide pour la branche par défaut du repo."
+        },
+        "baseUrl": {
+          "label": "URL de base GitLab (optionnel)",
+          "description": "Vide pour https://gitlab.com ; à renseigner pour une instance self-hosted."
+        },
+        "basePath": {
+          "label": "Chemin de base (optionnel)",
+          "description": "Préfixe relatif au dépôt (POSIX). Chaque subpath de slot lui est joint ; vide pour la racine du repo."
+        },
+        "slots": {
+          "label": "Fichiers (slots)",
+          "description": "Chaque slot devient un port de sortie nommé qui récupère le fichier subpath sous le chemin de base. Le subpath ne peut pas s'évader hors du chemin de base.",
+          "add": "+ Ajouter un slot",
+          "slotTitle": "Slot {{index}}",
+          "portLabel": "Port de sortie",
+          "kindLabel": "Type",
+          "subpathLabel": "Fichier",
+          "portPlaceholder": "port",
+          "subpathPlaceholder": "sous-dossier/fichier.md"
+        }
+      },
       "shellExec": {
         "command": "Commande",
         "useShell": "Interpréter via shell (pipes, redirections, glob)",

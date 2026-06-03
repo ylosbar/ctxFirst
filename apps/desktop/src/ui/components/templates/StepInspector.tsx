@@ -66,6 +66,7 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "git.clone",
   "gitlab.mr.create",
   "gitlab.mr.merge",
+  "gitlab.files.fetch",
   "file.load",
   "files.load",
   "file.load-markdown",
@@ -593,6 +594,74 @@ const StepInspector = ({
                 onChange={(e) => setConfig({ baseUrl: e.target.value })}
               />
             </FormField>
+          </>
+        ) : null}
+
+        {step.kind === "gitlab.files.fetch" ? (
+          <>
+            <FormField
+              label={t("template.stepInspector.gitlabFilesFetch.project.label")}
+              description={t(
+                "template.stepInspector.gitlabFilesFetch.project.description",
+              )}
+            >
+              <Input
+                className="font-mono"
+                placeholder="group/project"
+                value={(config["project"] as string | undefined) ?? ""}
+                onChange={(e) => setConfig({ project: e.target.value })}
+              />
+            </FormField>
+
+            <FormField
+              label={t("template.stepInspector.gitlabFilesFetch.ref.label")}
+              description={t(
+                "template.stepInspector.gitlabFilesFetch.ref.description",
+              )}
+            >
+              <Input
+                className="font-mono"
+                placeholder="main"
+                value={(config["ref"] as string | undefined) ?? ""}
+                onChange={(e) => setConfig({ ref: e.target.value })}
+              />
+            </FormField>
+
+            <FormField
+              label={t("template.stepInspector.gitlabFilesFetch.baseUrl.label")}
+              description={t(
+                "template.stepInspector.gitlabFilesFetch.baseUrl.description",
+              )}
+            >
+              <Input
+                className="font-mono"
+                placeholder="https://gitlab.com"
+                value={(config["baseUrl"] as string | undefined) ?? ""}
+                onChange={(e) => setConfig({ baseUrl: e.target.value })}
+              />
+            </FormField>
+
+            <FormField
+              label={t(
+                "template.stepInspector.gitlabFilesFetch.basePath.label",
+              )}
+              description={t(
+                "template.stepInspector.gitlabFilesFetch.basePath.description",
+              )}
+            >
+              <Input
+                className="font-mono"
+                placeholder="docs"
+                value={(config["basePath"] as string | undefined) ?? ""}
+                onChange={(e) => setConfig({ basePath: e.target.value })}
+              />
+            </FormField>
+
+            <FilesLoadSlotsEditor
+              config={config}
+              setConfig={setConfig}
+              i18nNamespace="gitlabFilesFetch"
+            />
           </>
         ) : null}
 
@@ -2258,6 +2327,12 @@ const JsonTransformsEditor = ({
 type FilesLoadSlotsEditorProps = {
   config: Readonly<Record<string, unknown>>;
   setConfig: (patch: Record<string, unknown>) => void;
+  /**
+   * i18n namespace under `template.stepInspector` carrying the `slots.*` keys.
+   * `files.load` and `gitlab.files.fetch` share an identical slot shape, so the
+   * editor is reused — only the localized labels differ.
+   */
+  i18nNamespace?: "filesLoad" | "gitlabFilesFetch";
 };
 
 type FilesLoadSlotDraft = {
@@ -2267,17 +2342,20 @@ type FilesLoadSlotDraft = {
 };
 
 /**
- * Inline editor for `files.load.slots`. Each entry materializes one named
- * output port reading the file at `path.resolve(base, subpath)` and exposing it
- * with the chosen text-envelope kind. Order is preserved so the canvas handles
- * match the editor. Mirrors {@link JsonTransformsEditor}, plus a `subpath`
- * column and an `outputKind` select.
+ * Inline editor for `files.load` / `gitlab.files.fetch` `slots`. Each entry
+ * materializes one named output port reading a file (`subpath` joined to the
+ * base) and exposing it with the chosen text-envelope kind. Order is preserved
+ * so the canvas handles match the editor. Mirrors {@link JsonTransformsEditor},
+ * plus a `subpath` column and an `outputKind` select.
  */
 const FilesLoadSlotsEditor = ({
   config,
   setConfig,
+  i18nNamespace = "filesLoad",
 }: FilesLoadSlotsEditorProps) => {
   const t = useT();
+  const k = (suffix: string): string =>
+    `template.stepInspector.${i18nNamespace}.slots.${suffix}`;
   const raw = config["slots"];
   const items: FilesLoadSlotDraft[] = Array.isArray(raw)
     ? raw
@@ -2335,10 +2413,7 @@ const FilesLoadSlotsEditor = ({
   );
 
   return (
-    <FormField
-      label={t("template.stepInspector.filesLoad.slots.label")}
-      description={t("template.stepInspector.filesLoad.slots.description")}
-    >
+    <FormField label={t(k("label"))} description={t(k("description"))}>
       <div className="flex flex-col gap-2">
         {items.map((it, i) => (
           <div
@@ -2346,35 +2421,31 @@ const FilesLoadSlotsEditor = ({
             className="flex flex-col gap-1.5 rounded border border-input bg-muted/30 p-2"
           >
             <div className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("template.stepInspector.filesLoad.slots.slotTitle", {
-                index: i + 1,
-              })}
+              {t(k("slotTitle"), { index: i + 1 })}
             </div>
             <div className="flex items-end gap-2">
               <label className="flex w-28 flex-col gap-0.5">
                 <span className="text-2xs text-muted-foreground">
-                  {t("template.stepInspector.filesLoad.slots.portLabel")}
+                  {t(k("portLabel"))}
                 </span>
                 <Input
                   className="font-mono text-xs"
-                  placeholder={t(
-                    "template.stepInspector.filesLoad.slots.portPlaceholder",
-                  )}
+                  placeholder={t(k("portPlaceholder"))}
                   value={it.port}
                   onChange={(e) => setItem(i, { port: e.target.value })}
                 />
               </label>
               <label className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="text-2xs text-muted-foreground">
-                  {t("template.stepInspector.filesLoad.slots.kindLabel")}
+                  {t(k("kindLabel"))}
                 </span>
                 <Select
                   value={it.outputKind}
                   onChange={(e) => setItem(i, { outputKind: e.target.value })}
                 >
-                  {FILE_LOAD_OUTPUT_KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {k}
+                  {FILE_LOAD_OUTPUT_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind}
                     </option>
                   ))}
                 </Select>
@@ -2391,13 +2462,11 @@ const FilesLoadSlotsEditor = ({
             </div>
             <label className="flex flex-col gap-0.5">
               <span className="text-2xs text-muted-foreground">
-                {t("template.stepInspector.filesLoad.slots.subpathLabel")}
+                {t(k("subpathLabel"))}
               </span>
               <Input
                 className="w-full font-mono text-xs"
-                placeholder={t(
-                  "template.stepInspector.filesLoad.slots.subpathPlaceholder",
-                )}
+                placeholder={t(k("subpathPlaceholder"))}
                 value={it.subpath}
                 onChange={(e) => setItem(i, { subpath: e.target.value })}
               />
@@ -2416,7 +2485,7 @@ const FilesLoadSlotsEditor = ({
           onClick={addItem}
           className="self-start"
         >
-          {t("template.stepInspector.filesLoad.slots.add")}
+          {t(k("add"))}
         </Button>
       </div>
     </FormField>

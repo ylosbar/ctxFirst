@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Boxes,
+  CloudDownload,
   FileDown,
   FileJson,
   FileText,
@@ -527,6 +528,24 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
       project: "",
       mergeRequestIid: "",
       baseUrl: "",
+    }),
+  },
+  {
+    id: "gitlab.files.fetch",
+    label: "GitLab : récupérer des fichiers",
+    description:
+      "Récupère N fichiers d'un dépôt GitLab (réf épinglée) via l'API REST et expose chacun sur son port (Markdown ou Json).",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: CloudDownload,
+    family: "system",
+    category: "system",
+    buildDefaultConfig: () => ({
+      project: "",
+      ref: "",
+      baseUrl: "",
+      basePath: "",
+      slots: [{ port: "out", subpath: "", outputKind: "Markdown" }],
     }),
   },
   {

@@ -161,6 +161,64 @@ describe("resolveNodeSpec — files.load", () => {
   });
 });
 
+describe("resolveNodeSpec — gitlab.files.fetch", () => {
+  // Base spec as `listNodeSpecs()` returns it for `gitlab.files.fetch`: the
+  // optional `in` envelope input plus empty outputs (the runner resolves
+  // outputs to [] until a valid slot exists). The mirror re-derives one port
+  // per slot, exactly like `files.load`.
+  const gitlabFilesFetchBase: NodeSpecView = {
+    kind: "gitlab.files.fetch",
+    title: "GitLab: fetch files",
+    inputs: [{ name: "in", kinds: ["Json", "*"], optional: true }],
+    outputs: [],
+  };
+
+  it("emits one output port per slot, in order, first marked primary", () => {
+    const spec = resolveNodeSpec(
+      "gitlab.files.fetch",
+      {
+        project: "group/project",
+        ref: "main",
+        basePath: "docs",
+        slots: [
+          { port: "spec", subpath: "spec.md", outputKind: "Markdown" },
+          { port: "data", subpath: "api.json", outputKind: "Json" },
+        ],
+      },
+      gitlabFilesFetchBase,
+    );
+    expect(spec.outputs).toEqual([
+      {
+        name: "spec",
+        kind: "Markdown",
+        primary: true,
+        description: "spec.md → Markdown",
+      },
+      {
+        name: "data",
+        kind: "Json",
+        primary: false,
+        description: "api.json → Json",
+      },
+    ]);
+    // The optional `in` input is preserved from base.
+    expect(spec.inputs).toEqual(gitlabFilesFetchBase.inputs);
+  });
+
+  it("skips invalid slots and falls back to base when none remain", () => {
+    expect(
+      resolveNodeSpec("gitlab.files.fetch", {}, gitlabFilesFetchBase).outputs,
+    ).toEqual([]);
+    expect(
+      resolveNodeSpec(
+        "gitlab.files.fetch",
+        { slots: [{ port: "out", subpath: "x", outputKind: "Path" }] },
+        gitlabFilesFetchBase,
+      ).outputs,
+    ).toEqual([]);
+  });
+});
+
 describe("resolveNodeSpec — workflow.call", () => {
   const base: NodeSpecView = {
     kind: "workflow.call",

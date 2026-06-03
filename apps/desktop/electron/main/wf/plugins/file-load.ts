@@ -78,8 +78,45 @@ const resolvePath = (ctx: RunContext): string => {
 };
 
 /**
- * Cœur partagé bas niveau : lit le fichier au `kind` demandé, valide (JSON
- * parsé pour échouer tôt) et stocke l'artifact, qu'il **retourne brut**.
+ * Cœur partagé **indépendant de la source** : valide un corps texte déjà lu
+ * (vide → erreur, JSON parsé pour échouer tôt si `outputKind === "Json"`),
+ * l'emballe dans son payload text-envelope et stocke l'artifact, qu'il
+ * **retourne brut**. Le `meta` est passé tel quel à l'artifact store.
+ *
+ * Partagé entre {@link readFileToArtifact} (source = fichier local) et
+ * `gitlab.files.fetch` (source = corps récupéré en HTTP) — même validation
+ * JSON, même format de payload, peu importe d'où vient le texte.
+ */
+export const textToArtifact = async (
+  ctx: RunContext,
+  body: string,
+  outputKind: FileLoadKind,
+  source: string,
+  meta: Record<string, string>,
+): Promise<Artifact> => {
+  if (body.length === 0) {
+    throw new Error(`${source}: file is empty`);
+  }
+
+  if (outputKind === "Json") {
+    try {
+      JSON.parse(body);
+    } catch {
+      throw new Error(`${source}: file is not valid JSON`);
+    }
+  }
+
+  const payload = {
+    format: FILE_LOAD_FORMATS[outputKind],
+    body,
+  } as ArtifactPayload<FileLoadKind>;
+
+  return putArtifactPayload(ctx.deps.artifactStore, outputKind, payload, meta);
+};
+
+/**
+ * Cœur partagé bas niveau côté **fichier local** : lit le fichier au `kind`
+ * demandé puis délègue la validation/stockage à {@link textToArtifact}.
  * Réutilisé par {@link loadFileArtifact} (forme `StepOutcome` mono-port) et par
  * `files.load`, qui route plusieurs artifacts vers leurs ports nommés et a donc
  * besoin de l'`Artifact` sans l'enveloppe `produced`.
@@ -92,24 +129,7 @@ export const readFileToArtifact = async (
 ): Promise<Artifact> => {
   const absolutePath = assertAbsolute(rawPath, ctx.deps.path);
   const body = await ctx.deps.fs.readTextFile(absolutePath);
-  if (body.length === 0) {
-    throw new Error(`${source}: file is empty (${absolutePath})`);
-  }
-
-  if (outputKind === "Json") {
-    try {
-      JSON.parse(body);
-    } catch {
-      throw new Error(`${source}: file is not valid JSON (${absolutePath})`);
-    }
-  }
-
-  const payload = {
-    format: FILE_LOAD_FORMATS[outputKind],
-    body,
-  } as ArtifactPayload<FileLoadKind>;
-
-  return putArtifactPayload(ctx.deps.artifactStore, outputKind, payload, {
+  return textToArtifact(ctx, body, outputKind, source, {
     source,
     path: absolutePath,
     byteLength: String(Buffer.byteLength(body, "utf-8")),

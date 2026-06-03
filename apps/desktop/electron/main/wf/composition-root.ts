@@ -127,6 +127,7 @@ import { createFormatValidateRunner } from "./plugins/format-validate";
 import { createOpenRouterInvokeRunner } from "./plugins/openrouter-invoke";
 import { createExportRunRunner } from "./plugins/export-run";
 import { createGitCloneRunner } from "./plugins/git-clone";
+import { createGitlabFilesFetchRunner } from "./plugins/gitlab-files-fetch";
 import { createGitlabMrCreateRunner } from "./plugins/gitlab-mr-create";
 import { createGitlabMrMergeRunner } from "./plugins/gitlab-mr-merge";
 import { createGitCommitPushRunner } from "./plugins/git-commit-push";
@@ -503,6 +504,9 @@ export const buildWfEngine = async ({
       getAccessToken: getGitLabAccessToken,
       defaultBaseDir: clonesDir,
     }),
+  );
+  runners.register(
+    createGitlabFilesFetchRunner({ getAccessToken: getGitLabAccessToken }),
   );
   runners.register(
     createGitlabMrCreateRunner({ getAccessToken: getGitLabAccessToken }),

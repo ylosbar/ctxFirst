@@ -225,6 +225,44 @@ export const resolveNodeSpec = (
       if (ports.length === 0) return base;
       return { ...base, outputs: ports };
     }
+    case "gitlab.files.fetch": {
+      // Mirrors `createGitlabFilesFetchRunner.resolveSpec`
+      // (plugins/gitlab-files-fetch.ts): one output port per slot
+      // `{ port, subpath, outputKind }`, in declaration order, the first marked
+      // `primary`. The optional `in` envelope input lives in `base`. A slot is
+      // kept only when its port is valid and its `outputKind` is a recognized
+      // text-envelope kind; with no valid slot we fall back to the permissive
+      // base (no output) — exactly like `files.load`.
+      const raw = config.slots;
+      if (!Array.isArray(raw)) return base;
+      const ports: Array<{
+        name: string;
+        kind: string;
+        primary?: boolean;
+        description?: string;
+      }> = [];
+      const seen = new Set<string>();
+      for (const item of raw) {
+        if (!item || typeof item !== "object") continue;
+        const { port, subpath, outputKind } = item as Record<string, unknown>;
+        if (typeof port !== "string" || port.length === 0) continue;
+        if (!CASE_NAME_RE.test(port)) continue;
+        if (seen.has(port)) continue;
+        if (outputKind !== "Markdown" && outputKind !== "Json") continue;
+        seen.add(port);
+        ports.push({
+          name: port,
+          kind: outputKind,
+          primary: ports.length === 0,
+          description:
+            typeof subpath === "string" && subpath.length > 0
+              ? `${subpath} → ${outputKind}`
+              : undefined,
+        });
+      }
+      if (ports.length === 0) return base;
+      return { ...base, outputs: ports };
+    }
     case "human.gate": {
       const inputKind = readStr(config.inputKind);
       if (!inputKind) return base;
