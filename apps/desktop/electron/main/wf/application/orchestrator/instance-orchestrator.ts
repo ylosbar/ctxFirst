@@ -16,7 +16,9 @@ import { isExit, successors } from "../../domain/services/transition-policy";
 import {
   buildIterationKey,
   inferIterationScopes,
+  isSequentialForeach,
   iterationKeyMatches,
+  parseIterationIndex,
   type IterationScopes,
 } from "../../domain/services/iteration-scopes";
 import type { IterationRecord } from "../../domain/projection";
@@ -1046,7 +1048,22 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
           outcome.artifact.id,
         );
       }
-      if (!step.humanGateRequired) {
+      if (step.humanGateRequired) {
+        const cfgRole = step.config["actorRole"];
+        const actorRole =
+          (typeof cfgRole === "string" ? cfgRole : undefined) ??
+          step.actorRole ??
+          "Developer";
+        await emit({
+          type: "StepAwaitingHumanGate",
+          eventId: asEventId(deps.ids.newId()),
+          at: deps.clock.now(),
+          instanceId: inst.id,
+          stepExecId,
+          actorRole,
+        });
+        await deps.notifier.humanGateOpened(inst.id, stepExecId, actorRole);
+      } else {
         await emit({
           type: "StepValidated",
           eventId: asEventId(deps.ids.newId()),
@@ -1447,11 +1464,15 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     if (!refreshed) return;
 
     // Foreach validation → fan out to the first internal step, once per
-    // iteration record (sequential — each `startStep` call yields to the
-    // serializer between iterations).
+    // iteration record (each `startStep` call yields to the serializer between
+    // iterations). In sequential mode (`config.sequential === true`) we only
+    // start index 0 here — the remaining iterations are started one at a time
+    // by the join hook below, after the prior iteration's body fully validates.
     if (step.kind === "loop.foreach") {
       const next = edges[0]?.to;
-      const records = refreshed.iterations.get(exec.stepId) ?? [];
+      const records = [...(refreshed.iterations.get(exec.stepId) ?? [])].sort(
+        (a, b) => a.index - b.index,
+      );
       if (records.length === 0) {
         // Empty array — short-circuit to whatever comes after the scope.
         const scopes = scopesOf(template);
@@ -1462,7 +1483,8 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         return;
       }
       if (!next) return;
-      for (const rec of [...records].sort((a, b) => a.index - b.index)) {
+      const toStart = isSequentialForeach(step) ? records.slice(0, 1) : records;
+      for (const rec of toStart) {
         const cur = deps.state.getInstance(instanceId) ?? refreshed;
         await startStep(cur, template, next, undefined, rec.iterationKey);
       }
@@ -1508,7 +1530,35 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         const scopes = scopesOf(template);
         const foreachId = scopes.foreachOf.get(taken[0].to);
         if (!foreachId) return;
-        const records = refreshed.iterations.get(foreachId) ?? [];
+        const foreachStep = findStep(template, foreachId);
+        const records = [...(refreshed.iterations.get(foreachId) ?? [])].sort(
+          (a, b) => a.index - b.index,
+        );
+
+        // Sequential advance: the current iteration just reached the scope
+        // boundary (its whole body — incl. any child template.invoke or
+        // human.gate — has validated). Start the next iteration's body instead
+        // of joining. The collect only fires once the LAST iteration arrives
+        // (nextRec absent → fall through to the join below).
+        if (isSequentialForeach(foreachStep)) {
+          const idx = parseIterationIndex(exec.iterationKey);
+          const nextRec = records.find((r) => r.index === idx + 1);
+          if (nextRec) {
+            const firstBody = successors(template, foreachId)[0]?.to;
+            if (firstBody) {
+              await startStep(
+                refreshed,
+                template,
+                firstBody,
+                undefined,
+                nextRec.iterationKey,
+              );
+              return;
+            }
+          }
+          // nextRec absent → this was the last iteration: fall into the join.
+        }
+
         const done = countValidatedIterations(refreshed, exec.stepId, foreachId);
         if (done < records.length) {
           // Wait for more iterations to reach this point.

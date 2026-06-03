@@ -403,6 +403,12 @@
           "description": "Si activé (défaut), le dossier cible est supprimé puis recloné — rejouer le step est idempotent. Si désactivé, le step échoue si la cible existe déjà et n'est pas vide."
         }
       },
+      "loopForeach": {
+        "sequential": {
+          "label": "Exécution séquentielle (une itération à la fois)",
+          "description": "Attendre la fin complète de chaque itération — y compris les sous-workflows et les validations humaines — avant de démarrer la suivante. Par défaut, les itérations sont parallélisées."
+        }
+      },
       "gitlabMrCreate": {
         "project": {
           "label": "Projet",
@@ -525,7 +531,8 @@
         },
         "createNew": "+ Créer un nouveau skill…",
         "choose": "— choisir une skill —",
-        "loading": "— chargement…"
+        "loading": "— chargement…",
+        "open": "Ouvrir la skill"
       },
       "concat": {
         "mode": {
