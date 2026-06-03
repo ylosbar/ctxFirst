@@ -94,6 +94,7 @@ import { makeListNodeSpecs } from "./application/use-cases/list-node-specs";
 import { makeListTemplates } from "./application/use-cases/list-templates";
 import { makeOpenFeedbackLoop } from "./application/use-cases/open-feedback-loop";
 import { makeRenameTemplate } from "./application/use-cases/rename-template";
+import { makeDeleteTemplate } from "./application/use-cases/delete-template";
 import { makeSaveTemplate } from "./application/use-cases/save-template";
 import { makeGetTemplateLayout } from "./application/use-cases/get-template-layout";
 import { makeSaveTemplateLayout } from "./application/use-cases/save-template-layout";
@@ -169,6 +170,7 @@ export type WfEngine = {
   listNodeSpecs: ReturnType<typeof makeListNodeSpecs>;
   saveTemplate: ReturnType<typeof makeSaveTemplate>;
   renameTemplate: ReturnType<typeof makeRenameTemplate>;
+  deleteTemplate: ReturnType<typeof makeDeleteTemplate>;
   getTemplateLayout: ReturnType<typeof makeGetTemplateLayout>;
   saveTemplateLayout: ReturnType<typeof makeSaveTemplateLayout>;
   listSkills: ReturnType<typeof makeListSkills>;
@@ -613,6 +615,7 @@ export const buildWfEngine = async ({
     listNodeSpecs: makeListNodeSpecs({ runners }),
     saveTemplate: makeSaveTemplate({ templates, runners, artifactSchemas }),
     renameTemplate: makeRenameTemplate({ templates }),
+    deleteTemplate: makeDeleteTemplate({ templates }),
     getTemplateLayout: makeGetTemplateLayout({ templates }),
     saveTemplateLayout: makeSaveTemplateLayout({ templates }),
     listSkills: makeListSkills({ skills }),

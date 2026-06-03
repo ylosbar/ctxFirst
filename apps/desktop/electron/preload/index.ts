@@ -489,6 +489,10 @@ const api = {
     renameTemplate: (args: { templateRef: string; newName: string }): Promise<void> =>
       ipcRenderer.invoke("wf:renameTemplate", args),
 
+    /** Supprime un template par sa référence `id@version`. */
+    deleteTemplate: (args: { templateRef: string }): Promise<void> =>
+      ipcRenderer.invoke("wf:deleteTemplate", args),
+
     /**
      * Charge le layout (positions des nodes + viewport) sauvegardé pour un
      * template. Retourne `null` si aucun layout n'a encore été persisté pour

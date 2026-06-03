@@ -156,6 +156,9 @@ export const createSqliteTemplateRegistry = (
     `UPDATE wf_templates SET layout = @layout, updated_at = @now
        WHERE id = @id AND version = @version`,
   );
+  const del = db.prepare(
+    `DELETE FROM wf_templates WHERE id = ? AND version = ?`,
+  );
 
   return {
     async resolve(id: TemplateId, version: TemplateVersion): Promise<WorkflowTemplate> {
@@ -197,6 +200,9 @@ export const createSqliteTemplateRegistry = (
       if (result.changes === 0) {
         throw new Error(`template not found: ${id}@${version}`);
       }
+    },
+    async remove(id: TemplateId, version: TemplateVersion): Promise<void> {
+      del.run(id, version);
     },
     async getLayout(
       id: TemplateId,

@@ -60,6 +60,7 @@ export interface WorkflowGateway {
   listNodeSpecs(): Promise<ReadonlyArray<NodeSpecView>>;
   saveTemplate(tpl: TemplateDraft): Promise<void>;
   renameTemplate(input: { templateRef: string; newName: string }): Promise<void>;
+  deleteTemplate(templateRef: string): Promise<void>;
   getTemplateLayout(templateRef: string): Promise<TemplateLayout | null>;
   saveTemplateLayout(templateRef: string, layout: TemplateLayout): Promise<void>;
   listSkills(): Promise<ReadonlyArray<SkillView>>;
