@@ -80,6 +80,26 @@ export type HarnessOverrides = {
   skipBuiltinRunners?: boolean;
   /** Pre-seed templates into the registry. */
   templates?: ReadonlyArray<WorkflowTemplate>;
+  /**
+   * When `false`, the orchestrator is built but **not** started — the test must
+   * call `harness.orchestrator.start()` itself. Lets a test pre-seed a crash
+   * state (events published into the read model without the orchestrator
+   * reacting) before boot, to exercise the boot-time reconciliation passes.
+   * Defaults to `true`.
+   */
+  autoStart?: boolean;
+  /**
+   * Inject a pre-built id generator. Lets a re-hydration test use a distinct
+   * prefix so freshly-minted ids can't collide with the ids embedded in a
+   * replayed event log. Defaults to a fresh `createFakeIdGenerator()`.
+   */
+  ids?: FakeIdGenerator;
+  /**
+   * Inject a shared artifact store. Lets a re-hydration test reuse the store of
+   * the run whose log it replays, so artifacts referenced by replayed events
+   * still resolve. Defaults to a fresh `createFakeArtifactStore()`.
+   */
+  artifactStore?: FakeArtifactStore;
 };
 
 export type HarnessFakes = {
@@ -159,8 +179,8 @@ export const createOrchestratorHarness = (
     bus: createFakeEventBus(),
     log: createFakeEventLog(),
     clock: createFakeClock(),
-    ids: createFakeIdGenerator(),
-    artifactStore: createFakeArtifactStore(),
+    ids: overrides.ids ?? createFakeIdGenerator(),
+    artifactStore: overrides.artifactStore ?? createFakeArtifactStore(),
     llm: createFakeLLMGateway(),
     linear: createFakeLinearGateway(),
     shell: createFakeShellGateway(),
@@ -213,7 +233,7 @@ export const createOrchestratorHarness = (
     parserRuntime: fakes.parserRuntime,
     skills: fakes.skills,
   });
-  orchestrator.start();
+  if (overrides.autoStart !== false) orchestrator.start();
 
   const startInstance = makeStartInstance({
     templates: fakes.templates,

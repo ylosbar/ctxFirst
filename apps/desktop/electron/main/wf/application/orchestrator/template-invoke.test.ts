@@ -10,8 +10,10 @@ import {
   type OrchestratorHarness,
 } from "../../__tests__/fixtures/orchestrator-harness";
 import { buildTemplate } from "../../__tests__/fixtures/builders";
+import { createFakeIdGenerator } from "../../__tests__/fixtures/fake-ids";
 import { putArtifactPayload } from "../artifact-io";
 import type { RunContext, StepOutcome, StepRunner } from "../step-runner";
+import type { DomainEvent } from "../../domain/events";
 import type { WorkflowTemplate } from "../../domain/template";
 import { createTemplateInvokeRunner } from "../../plugins/template-invoke";
 
@@ -123,7 +125,10 @@ const makeRootA = (childId: string): WorkflowTemplate =>
     },
   );
 
-const makeHarness = (templates: WorkflowTemplate[]): OrchestratorHarness => {
+const makeHarness = (
+  templates: WorkflowTemplate[],
+  autoStart = true,
+): OrchestratorHarness => {
   const byRef = new Map(templates.map((t) => [refOf(t), t]));
   const invokeRunner = createTemplateInvokeRunner({
     getChild: (ref) => byRef.get(`${ref.templateId}@${ref.templateVersion}`),
@@ -131,7 +136,37 @@ const makeHarness = (templates: WorkflowTemplate[]): OrchestratorHarness => {
   return createOrchestratorHarness({
     templates,
     extraRunners: [echoRunner, boomRunner, invokeRunner],
+    autoStart,
   });
+};
+
+/**
+ * Builds a harness whose orchestrator is NOT started, replays `log` into the
+ * read model (events applied without the orchestrator reacting — mirrors boot
+ * re-hydration), and returns it ready for `orchestrator.start()`.
+ *
+ * Shares `priorStore` (so artifacts referenced by replayed events still
+ * resolve) and uses a distinct id prefix (so reconcile-minted ids can't collide
+ * with the ids embedded in the replayed log).
+ */
+const buildReplayHarness = async (
+  templates: WorkflowTemplate[],
+  log: ReadonlyArray<DomainEvent>,
+  priorStore: OrchestratorHarness["fakes"]["artifactStore"],
+): Promise<OrchestratorHarness> => {
+  const byRef = new Map(templates.map((t) => [refOf(t), t]));
+  const invokeRunner = createTemplateInvokeRunner({
+    getChild: (ref) => byRef.get(`${ref.templateId}@${ref.templateVersion}`),
+  });
+  const h = createOrchestratorHarness({
+    templates,
+    extraRunners: [echoRunner, boomRunner, invokeRunner],
+    autoStart: false,
+    ids: createFakeIdGenerator("boot"),
+    artifactStore: priorStore,
+  });
+  for (const evt of log) await h.fakes.bus.publish(evt);
+  return h;
 };
 
 describe("InstanceOrchestrator — template.invoke", () => {
@@ -220,5 +255,174 @@ describe("InstanceOrchestrator — template.invoke", () => {
     expect(harness.state.listInstanceIds("ui-active-channel")).not.toContain(
       spawned.childInstanceId,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §15a — template.invoke inside a loop.foreach scope
+// ---------------------------------------------------------------------------
+
+/** Sub-template Bitem: input `in` → echo → output `out`. */
+const childBitem: WorkflowTemplate = buildTemplate(
+  "Bitem",
+  [{ id: "body", kind: "test.echo", readsFrom: { in: "in" }, writesTo: { out: "out" } }],
+  [],
+  {
+    id: "Bitem",
+    status: "published",
+    exitSteps: ["body"],
+    variables: [
+      { name: "in", kind: "Markdown", role: "input" },
+      { name: "out", kind: "Markdown", role: "output" },
+    ],
+  },
+);
+
+/**
+ * Root with a `template.invoke` inside a `loop.foreach` scope:
+ *   seed → fe → inv(child) → col
+ * The invoke seeds its child from `seedVar` (§5a — seeds resolve from variables;
+ * sequential is the safe per-item regime). The foreach drives one child per
+ * item; collect joins the per-iteration child outputs.
+ */
+const makeForeachRoot = (sequential: boolean, items: string[]): WorkflowTemplate =>
+  buildTemplate(
+    "Afe",
+    [
+      {
+        id: "seed",
+        kind: "user.input",
+        config: { outputKind: "Markdown" },
+        writesTo: { out: "seedVar" },
+      },
+      {
+        id: "fe",
+        kind: "loop.foreach",
+        config: { items, itemKind: "Markdown", sequential },
+      },
+      {
+        id: "inv",
+        kind: "template.invoke",
+        config: { templateId: "Bitem", templateVersion: "v1" },
+        readsFrom: { in: "seedVar" },
+        writesTo: { out: "resVar" },
+      },
+      { id: "col", kind: "loop.collect", config: { itemKind: "Markdown" } },
+    ],
+    [
+      { from: "seed", to: "fe" },
+      { from: "fe", to: "inv", fromPort: "item", toPort: "in" },
+      { from: "inv", to: "col", fromPort: "out", toPort: "item" },
+    ],
+    {
+      id: "Afe",
+      status: "published",
+      entryStep: "seed",
+      exitSteps: ["col"],
+      variables: [
+        { name: "seedVar", kind: "Markdown" },
+        { name: "resVar", kind: "Markdown" },
+      ],
+    },
+  );
+
+describe("InstanceOrchestrator — template.invoke inside loop.foreach", () => {
+  it("parallel foreach fans out one child per item before any completes", async () => {
+    const A = makeForeachRoot(false, ["a", "b", "c"]);
+    harness = makeHarness([A, childBitem]);
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    const published = harness.fakes.bus.published;
+    const spawnedIdx = published
+      .map((e, i) => (e.type === "ChildInstanceSpawned" ? i : -1))
+      .filter((i) => i >= 0);
+    const completedIdx = published
+      .map((e, i) => (e.type === "ChildInstanceCompleted" ? i : -1))
+      .filter((i) => i >= 0);
+
+    expect(spawnedIdx).toHaveLength(3);
+    expect(completedIdx).toHaveLength(3);
+    // Distinct exec per iteration (the wake targets the exact iteration).
+    const spawnExecs = new Set(
+      harness.fakes.bus.ofType("ChildInstanceSpawned").map((e) => e.stepExecId),
+    );
+    expect(spawnExecs.size).toBe(3);
+    // Fan-out discriminator: every child is spawned before the first completes.
+    expect(Math.max(...spawnedIdx)).toBeLessThan(Math.min(...completedIdx));
+    expect(harness.fakes.bus.ofType("InstanceStarted")).toHaveLength(4); // root + 3 children
+  });
+
+  it("sequential foreach spawns the next child only after the prior completes", async () => {
+    const A = makeForeachRoot(true, ["a", "b", "c"]);
+    harness = makeHarness([A, childBitem]);
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    const published = harness.fakes.bus.published;
+    const spawnedIdx = published
+      .map((e, i) => (e.type === "ChildInstanceSpawned" ? i : -1))
+      .filter((i) => i >= 0);
+    const completedIdx = published
+      .map((e, i) => (e.type === "ChildInstanceCompleted" ? i : -1))
+      .filter((i) => i >= 0);
+
+    expect(spawnedIdx).toHaveLength(3);
+    expect(completedIdx).toHaveLength(3);
+    // Strictly one child alive at a time: spawn[k] only after completed[k-1].
+    expect(completedIdx[0]).toBeLessThan(spawnedIdx[1]);
+    expect(completedIdx[1]).toBeLessThan(spawnedIdx[2]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §16 — boot reconciliation re-links a parent orphaned by a crash
+// ---------------------------------------------------------------------------
+
+describe("InstanceOrchestrator — boot reconciliation (§16)", () => {
+  it("wakes a parent left in awaitingChild when its child terminated during a crash", async () => {
+    const A = makeRootA("B");
+
+    // (1) Run a complete invoke to capture a realistic event log.
+    const h1 = makeHarness([A, childB]);
+    const { instanceId: parentId } = await h1.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "hello" }],
+    });
+    const spawned = await h1.waitForEvent("ChildInstanceSpawned");
+    await h1.waitForStatus(parentId, "completed");
+    const fullLog = [...h1.fakes.log.events];
+    const priorStore = h1.fakes.artifactStore;
+    h1.stop();
+
+    // (2) Simulate the crash: truncate the persisted log right before the
+    // first `ChildInstanceCompleted` (the child's terminal `InstanceCompleted`
+    // is persisted, the parent's wake never was).
+    const cut = fullLog.findIndex((e) => e.type === "ChildInstanceCompleted");
+    expect(cut).toBeGreaterThan(0);
+    const crashLog = fullLog.slice(0, cut);
+
+    // (3) Re-hydrate into a fresh, NOT-yet-started orchestrator.
+    harness = await buildReplayHarness([A, childB], crashLog, priorStore);
+
+    // Parent is stuck on awaitingChild; the child is already completed.
+    const parentBefore = harness.state.getInstance(parentId)!;
+    const invBefore = parentBefore.executions.find((e) => e.stepId === "inv")!;
+    expect(invBefore.status).toBe("awaitingChild");
+    expect(harness.state.getInstance(spawned.childInstanceId)?.status).toBe("completed");
+
+    // (4) Boot: the reconciliation pass re-links and advances the parent.
+    harness.orchestrator.start();
+    await harness.waitForStatus(parentId, "completed");
+
+    // Idempotent: exactly one ChildInstanceCompleted was emitted (by reconcile;
+    // the replayed log had none).
+    expect(harness.fakes.bus.ofType("ChildInstanceCompleted")).toHaveLength(1);
   });
 });
