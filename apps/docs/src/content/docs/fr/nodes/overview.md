@@ -31,6 +31,7 @@ Les nodes se câblent entre eux via leurs ports : la sortie d'un node alimente l
 
 - **[Load File](/fr/nodes/file-load/)** (`file.load`) — lit un fichier unique.
 - **Load Files** (`files.load`) — lit N fichiers sous un répertoire de base.
+- **[GitLab Files Fetch](/fr/nodes/gitlab-files-fetch/)** (`gitlab.files.fetch`) — récupère N fichiers d'un dépôt GitLab (pendant distant de `files.load`).
 - **Concat Markdown** (`concat.markdown`) — concatène plusieurs fragments Markdown.
 - **Render Markdown** (`render.markdown`) — rend un gabarit Markdown.
 - **Format Validate** (`format.validate`) — valide le format d'un artifact.

@@ -236,6 +236,7 @@ export type StepKindId =
   | "git.clone"
   | "gitlab.mr.create"
   | "gitlab.mr.merge"
+  | "gitlab.files.fetch"
   | "webhook.call"
   | "export_run"
   | "workflow.call"
