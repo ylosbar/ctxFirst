@@ -149,6 +149,10 @@ export const makeStartInstance =
       ...(trimmedCwd ? { cwd: trimmedCwd } : {}),
       ...(effectiveTemplate ? { effectiveTemplate } : {}),
       channelId: channelId ?? deps.channels.getActive(),
+      // Root instance: depth 0 in the `template.invoke` tree
+      // (`sub-template-invoke.md` §14). `parent` and `templateSnapshots` are
+      // left absent — only a spawned child (Phase B) carries those.
+      depth: 0,
     };
     await deps.log.append(evt);
     await deps.bus.publish(evt);

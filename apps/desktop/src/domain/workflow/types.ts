@@ -246,6 +246,7 @@ export type StepExecStatus =
   | "pending"
   | "running"
   | "awaitingHuman"
+  | "awaitingChild"
   | "validated"
   | "looped"
   | "failed"

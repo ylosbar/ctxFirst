@@ -21,6 +21,13 @@ import type { WorkflowTemplate } from "./template";
  * - `pending`       → orchestrator has not started it yet.
  * - `running`       → runner is executing.
  * - `awaitingHuman` → paused on a `human.gate`; waiting for a decision.
+ * - `awaitingChild` → paused on a `template.invoke`; waiting for a spawned child
+ *                     instance to reach a terminal state. Mirrors `awaitingHuman`
+ *                     in every status-decision site (blocked, not terminal). The
+ *                     runner/orchestrator that produces it lands in Phase B
+ *                     (`sub-template-invoke.md` §3); in Phase A the status exists
+ *                     so the projection and UI can represent it, but nothing emits
+ *                     the `ChildInstanceSpawned` event that triggers it yet.
  * - `validated`     → finished successfully and approved (by human or auto).
  * - `looped`        → invalidated by a {@link FeedbackLoop}; its output
  *                     remains accessible for diff viewers.
@@ -33,6 +40,7 @@ export type StepExecStatus =
   | "pending"
   | "running"
   | "awaitingHuman"
+  | "awaitingChild"
   | "validated"
   | "looped"
   | "failed"
@@ -96,6 +104,14 @@ export type StepExecution = {
    * executions outside any loop scope.
    */
   iterationKey?: string;
+  /**
+   * Set when this exec is a `template.invoke` that spawned a child instance
+   * (`sub-template-invoke.md` §3). Points to the child {@link WorkflowId} the
+   * parent is suspended on. Used by the orchestrator to find the child to wait
+   * on, and by the UI to render a navigation link. Absent for every other kind.
+   * Never populated in Phase A — no runner emits `ChildInstanceSpawned` yet.
+   */
+  childInstanceId?: WorkflowId;
 };
 
 /** Instance-level lifecycle status (aggregated from its executions). */
@@ -147,4 +163,35 @@ export type WorkflowInstance = {
    * so the journal replays deterministically.
    */
   effectiveTemplate?: WorkflowTemplate;
+  /**
+   * Set when this instance was spawned by a `template.invoke` step in another
+   * instance (`sub-template-invoke.md` §3, Approach A). The parent is suspended
+   * on the referenced {@link StepExecId} until this instance completes (or
+   * fails). Absent for root instances (the UI-/scheduler-launched ones).
+   *
+   * This is the child-instance model, **distinct** from `workflow.call` /
+   * `effectiveTemplate` (Approach B), which inlines a sub-template's graph into
+   * a single instance and spawns no child. The two compose independently. Never
+   * populated in Phase A — the spawning runner lands in Phase B.
+   */
+  parent?: {
+    instanceId: WorkflowId;
+    stepExecId: StepExecId;
+  };
+  /**
+   * Invocation depth of this instance in the `template.invoke` tree: root = 0,
+   * each spawned child = parent + 1 (`sub-template-invoke.md` §14). Bounded by
+   * `MAX_INVOCATION_DEPTH` to guarantee termination on a deep acyclic chain.
+   * Defaults to 0 for any pre-spec `InstanceStarted` event lacking the field.
+   */
+  depth: number;
+  /**
+   * Frozen snapshots of every sub-template referenced (directly or transitively)
+   * by a `template.invoke` step in this run, keyed `${templateId}@${templateVersion}`
+   * (`sub-template-invoke.md` §7). Captured at root-instance start so a republish
+   * mid-run can't swap versions; children inherit the parent's snapshot rather
+   * than re-resolving the live registry. Absent/empty when no `template.invoke`
+   * is in play — which, in Phase A, is always (the step kind has no runner yet).
+   */
+  templateSnapshots?: ReadonlyMap<string, WorkflowTemplate>;
 };

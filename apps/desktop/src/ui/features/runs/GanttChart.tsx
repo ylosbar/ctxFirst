@@ -18,6 +18,7 @@ const STATUS_FILL: Record<StepExecStatus, string> = {
   pending: "var(--muted-foreground)",
   running: "var(--color-blue-500, #3b82f6)",
   awaitingHuman: "var(--color-amber-500, #f59e0b)",
+  awaitingChild: "var(--color-amber-500, #f59e0b)",
   validated: "var(--color-emerald-500, #10b981)",
   looped: "var(--color-purple-500, #a855f7)",
   failed: "var(--destructive)",

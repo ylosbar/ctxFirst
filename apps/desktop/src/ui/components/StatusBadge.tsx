@@ -11,6 +11,7 @@ const STATUS_LABEL: Record<WorkflowStatus, string> = {
   pending: "En attente",
   running: "En cours",
   awaitingHuman: "Attente validation",
+  awaitingChild: "Attente sous-workflow",
   validated: "Validée",
   completed: "Terminée",
   looped: "Rebouclée",
@@ -22,6 +23,7 @@ const STATUS_TONE: Record<WorkflowStatus, NonNullable<BadgeProps["tone"]>> = {
   pending: "neutral",
   running: "info",
   awaitingHuman: "warning",
+  awaitingChild: "warning",
   validated: "success",
   completed: "success",
   looped: "accent",
@@ -39,7 +41,8 @@ const StatusBadge = ({ status, className }: Props) => {
     <Badge
       tone={STATUS_TONE[status]}
       className={cn(
-        status === "awaitingHuman" && "animate-pulse-ring",
+        (status === "awaitingHuman" || status === "awaitingChild") &&
+          "animate-pulse-ring",
         className,
       )}
     >

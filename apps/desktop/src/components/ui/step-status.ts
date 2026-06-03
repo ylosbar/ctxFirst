@@ -13,6 +13,7 @@ import {
   MinusCircle,
   RotateCw,
   UserCheck,
+  Workflow,
   type LucideIcon,
 } from "lucide-react"
 
@@ -70,6 +71,18 @@ export const STATUS_STYLE: Record<StepStatus, StatusStyle> = {
     iconBg: "bg-amber-500/15",
     iconText: "text-amber-600 dark:text-amber-400",
   },
+  // A `template.invoke` step waiting on its spawned child instance. Same
+  // "blocked / waiting" amber palette as awaitingHuman — distinguished only by
+  // its icon and label (a sub-workflow is in flight, not a human).
+  awaitingChild: {
+    border: "border-amber-500/60",
+    bar: "bg-amber-500",
+    dot: "bg-amber-500",
+    text: "text-amber-600 dark:text-amber-400",
+    badgeBg: "bg-amber-500/10",
+    iconBg: "bg-amber-500/15",
+    iconText: "text-amber-600 dark:text-amber-400",
+  },
   validated: {
     border: "border-emerald-500/50",
     bar: "bg-emerald-500",
@@ -113,6 +126,7 @@ export const STATUS_LABEL: Record<StepStatus, string> = {
   pending: "En attente",
   running: "En cours",
   awaitingHuman: "Attente validation",
+  awaitingChild: "Attente sous-workflow",
   validated: "Validée",
   looped: "Rebouclée",
   failed: "Échouée",
@@ -124,6 +138,7 @@ export const STATUS_ICON: Record<StepStatus, LucideIcon> = {
   pending: Clock,
   running: Loader2,
   awaitingHuman: UserCheck,
+  awaitingChild: Workflow,
   validated: CheckCircle2,
   looped: RotateCw,
   failed: AlertCircle,

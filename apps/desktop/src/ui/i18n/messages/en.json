@@ -1491,6 +1491,7 @@
       "statusPending": "Pending",
       "statusRunning": "Running",
       "statusAwaitingHuman": "Validation required",
+      "statusAwaitingChild": "Waiting for sub-workflow",
       "statusValidated": "Validated",
       "statusLooped": "Looped",
       "statusFailed": "Failed",

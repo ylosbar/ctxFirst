@@ -60,11 +60,13 @@ export type InstanceSummary = {
 
 /**
  * Picks the execution the UI would consider "active" — mirrors the priority
- * used by the renderer: awaitingHuman > running > last validated > last.
+ * used by the renderer: awaiting (human or child) > running > last validated > last.
  */
 const pickActiveExecution = (state: InstanceState): StepExecution | null => {
   const execs = state.executions;
-  const awaiting = execs.find((e) => e.status === "awaitingHuman");
+  const awaiting = execs.find(
+    (e) => e.status === "awaitingHuman" || e.status === "awaitingChild",
+  );
   if (awaiting) return awaiting;
   const running = execs.find((e) => e.status === "running");
   if (running) return running;
@@ -114,6 +116,7 @@ type MutableStepExec = {
   loopAuthor?: string;
   error?: string;
   iterationKey?: string;
+  childInstanceId?: WorkflowId;
 };
 
 /** Per-iteration mapping recorded by `IterationStarted` events. */
@@ -141,6 +144,12 @@ export type ProjectionScratch = {
   createdAt: string | null;
   cwd?: string;
   channelId: string;
+  /** Invocation depth in the `template.invoke` tree (root = 0); see `InstanceStarted`. */
+  depth: number;
+  /** Parent filiation when spawned by a `template.invoke`; see `InstanceStarted`. */
+  parent?: { instanceId: WorkflowId; stepExecId: StepExecId };
+  /** Frozen transitive sub-template snapshot, keyed `id@version`; see `InstanceStarted`. */
+  templateSnapshots?: Map<string, WorkflowTemplate>;
   execs: Map<StepExecId, MutableStepExec>;
   openLoops: Map<LoopId, { id: LoopId; fromStepExec: StepExecId; toStepId: StepId; reason: string; author: string }>;
   variables: Map<string, ArtifactId>;
@@ -156,6 +165,9 @@ export const createScratch = (): ProjectionScratch => ({
   createdAt: null,
   cwd: undefined,
   channelId: DEFAULT_CHANNEL_ID,
+  depth: 0,
+  parent: undefined,
+  templateSnapshots: undefined,
   execs: new Map(),
   openLoops: new Map(),
   variables: new Map(),
@@ -180,6 +192,14 @@ export const applyEvent = (scratch: ProjectionScratch, evt: DomainEvent): void =
       // Pre-migration events lack `channelId`; route them to the default
       // channel rather than letting the field stay undefined.
       scratch.channelId = evt.channelId ?? DEFAULT_CHANNEL_ID;
+      // Approach A (`template.invoke`) filiation. Pre-spec events lack all
+      // three fields: `depth` defaults to 0 (root), `parent` stays undefined
+      // (root), and there are no snapshots — byte-identical to before.
+      scratch.depth = evt.depth ?? 0;
+      scratch.parent = evt.parent;
+      scratch.templateSnapshots = evt.templateSnapshots
+        ? new Map(evt.templateSnapshots.map((s) => [s.ref, s.template]))
+        : undefined;
       // Seed the variable store with template defaults resolved at launch.
       // Any later `VariableAssigned` overwrites a default (last-writer-wins),
       // so a consumer reading before any producer gets the default artifact
@@ -211,6 +231,10 @@ export const applyEvent = (scratch: ProjectionScratch, evt: DomainEvent): void =
           iterationKey: evt.iterationKey,
         });
       }
+      // A step blocked on a child instance leaves the *instance* status at
+      // "awaitingHuman" (there is no `awaitingChild` aggregate status — see
+      // `ChildInstanceSpawned`), so the "awaitingHuman" arm below already covers
+      // resuming a child-waiting step back to running.
       if (
         scratch.status === "awaitingHuman" ||
         scratch.status === "completed" ||
@@ -346,6 +370,43 @@ export const applyEvent = (scratch: ProjectionScratch, evt: DomainEvent): void =
     case "InstanceCompleted":
       scratch.status = "completed";
       break;
+    case "ChildInstanceSpawned": {
+      // Approach A: the parent step delegated to a child instance and is now
+      // suspended on it. Mirror of `StepAwaitingHumanGate` — block the step and
+      // the instance until a `ChildInstanceCompleted` arrives. Idempotent / a
+      // replay safety net: a no-op if the parent exec is unknown.
+      const e = scratch.execs.get(evt.stepExecId);
+      if (e) {
+        e.status = "awaitingChild";
+        e.childInstanceId = evt.childInstanceId;
+        // Compute time stops here; `endedAt` is set when the child terminates.
+        if (!e.executionEndedAt) e.executionEndedAt = evt.at;
+      }
+      // No dedicated `InstanceStatus` — a blocked-on-child instance reuses the
+      // existing "awaitingHuman" aggregate status (it is non-running, non-done).
+      scratch.status = "awaitingHuman";
+      break;
+    }
+    case "ChildInstanceCompleted": {
+      // The child reached its terminal state. On success the parent step is
+      // re-activated (`running`) so the orchestrator can then assign the child
+      // outputs to parent variables and emit `StepValidated` (§5b — that chain
+      // is orchestrated, not projected). On failure the parent step inherits the
+      // child's error and the instance fails. No-op if the exec is unknown.
+      const e = scratch.execs.get(evt.stepExecId);
+      if (evt.outcome === "failed") {
+        if (e) {
+          e.status = "failed";
+          e.error = evt.error;
+          e.endedAt = evt.at;
+          if (!e.executionEndedAt) e.executionEndedAt = evt.at;
+        }
+        scratch.status = "failed";
+      } else if (e) {
+        e.status = "running";
+      }
+      break;
+    }
   }
 };
 
@@ -374,6 +435,7 @@ export const finalize = (scratch: ProjectionScratch): InstanceState | null => {
     loopAuthor: e.loopAuthor,
     error: e.error,
     iterationKey: e.iterationKey,
+    childInstanceId: e.childInstanceId,
   }));
 
   return {
@@ -387,6 +449,9 @@ export const finalize = (scratch: ProjectionScratch): InstanceState | null => {
     createdAt: scratch.createdAt,
     cwd: scratch.cwd,
     channelId: scratch.channelId,
+    depth: scratch.depth,
+    parent: scratch.parent,
+    templateSnapshots: scratch.templateSnapshots,
     variables: scratch.variables,
     openLoops: [...scratch.openLoops.values()],
     iterations: scratch.iterations,
