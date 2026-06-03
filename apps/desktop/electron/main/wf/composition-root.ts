@@ -144,6 +144,7 @@ import { createTransformRunRunner } from "./plugins/transform-run";
 import { createWebhookCallRunner } from "./plugins/webhook-call";
 import { createWorkspaceSetRunner } from "./plugins/workspace-set";
 import { createWorkflowCallRunner } from "./plugins/workflow-call";
+import { createTemplateInvokeRunner } from "./plugins/template-invoke";
 import { attachBusLogger } from "./logging";
 
 // Composition root du module `wf` : seul endroit où les adapters concrets
@@ -465,15 +466,16 @@ export const buildWfEngine = async ({
       .catch(() => undefined);
   };
   warmTemplateSnapshot();
-  runners.register(
-    createWorkflowCallRunner({
-      getChild: (ref) => {
-        const hit = templateSnapshot.get(`${ref.templateId}@${ref.templateVersion}`);
-        if (!hit) warmTemplateSnapshot();
-        return hit;
-      },
-    }),
-  );
+  const getChildTemplate = (ref: { templateId: string; templateVersion: string }) => {
+    const hit = templateSnapshot.get(`${ref.templateId}@${ref.templateVersion}`);
+    if (!hit) warmTemplateSnapshot();
+    return hit;
+  };
+  runners.register(createWorkflowCallRunner({ getChild: getChildTemplate }));
+  // `template.invoke` (Approach A) derives its ports from the same warm
+  // template snapshot as `workflow.call`; the orchestrator spawns the child at
+  // runtime, this accessor only feeds the pure/sync `resolveSpec`.
+  runners.register(createTemplateInvokeRunner({ getChild: getChildTemplate }));
   runners.register(createUserInputRunner());
   runners.register(createHumanGateRunner());
   runners.register(createClaudeCodeInvokeRunner());

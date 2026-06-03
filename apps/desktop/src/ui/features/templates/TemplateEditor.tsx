@@ -3063,10 +3063,12 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
                 setSelectedEdgeId(null);
               }}
               onNodeDoubleClick={(_, n) => {
-                // A `workflow.call` node opens its referenced sub-template in a
-                // new editor tab (sub-template-expand.md §11b). The sub-graph is
+                // A `workflow.call` (sub-template-expand.md §11b) or a
+                // `template.invoke` (sub-template-invoke.md §9c) node opens its
+                // referenced sub-template in a new editor tab. The sub-graph is
                 // never inlined in the parent editor — it is edited on its own.
-                if (n.data?.["kind"] !== "workflow.call") return;
+                const kind = n.data?.["kind"];
+                if (kind !== "workflow.call" && kind !== "template.invoke") return;
                 const cfg = (n.data?.["config"] ?? {}) as Record<string, unknown>;
                 const id = typeof cfg["templateId"] === "string" ? cfg["templateId"] : "";
                 const version =

@@ -9,6 +9,13 @@ import {
   buildWorkflowCallSnapshot,
   snapshotResolve,
 } from "../workflow-call-closure";
+import {
+  hasTemplateInvoke,
+  TemplateInvokeError,
+  templateInvokeRefKey,
+} from "../../domain/services/template-invoke";
+import { validateTemplateInvokes } from "../../domain/services/validate-template-invokes";
+import { buildTemplateInvokeSnapshot } from "../template-invoke-closure";
 
 type Deps = {
   templates: TemplateRegistry;
@@ -39,6 +46,25 @@ export const makeSaveTemplate =
       validateWorkflowCalls(tpl, snapshotResolve(snapshot), {
         resolver: buildRefinementResolver(artifactSchemas),
       });
+    }
+    // §10/§14: validate every `template.invoke` against its referenced
+    // sub-template — literal ref, published, invocable, exhaustive +
+    // kind-compatible bindings, no cycle, bounded depth. Approach A spawns a
+    // child instead of inlining, so cycle/depth are walked over the reference
+    // graph rather than via flattening.
+    if (hasTemplateInvoke(tpl)) {
+      const snapshot = await buildTemplateInvokeSnapshot(templates, tpl).catch((err) => {
+        throw new TemplateInvokeError(
+          `template.invoke references a template that could not be resolved: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+      validateTemplateInvokes(
+        tpl,
+        (ref) => snapshot.get(templateInvokeRefKey(ref)),
+        { resolver: buildRefinementResolver(artifactSchemas) },
+      );
     }
     await templates.save(tpl);
   };

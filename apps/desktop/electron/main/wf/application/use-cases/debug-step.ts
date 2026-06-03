@@ -285,6 +285,15 @@ const toDebugResult = async (
       return { kind: "awaiting-human", actorRole: outcome.actorRole };
     case "workspace-set":
       return { kind: "workspace-set", cwd: outcome.cwd };
+    case "spawned-child":
+      // `template.invoke` delegates to a child instance, which the debug
+      // sandbox cannot materialize (no orchestrator, no event log). Surface a
+      // clear message rather than pretending it produced something.
+      return {
+        kind: "error",
+        message:
+          "template.invoke cannot run in the debug sandbox — it spawns a child instance, which only happens inside a live run.",
+      };
   }
 };
 

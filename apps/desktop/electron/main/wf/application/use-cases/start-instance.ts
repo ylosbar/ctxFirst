@@ -33,6 +33,11 @@ import {
   snapshotResolve,
 } from "../workflow-call-closure";
 import { buildTemplateInvokeSnapshot } from "../template-invoke-closure";
+import {
+  hasTemplateInvoke,
+  templateInvokeRefKey,
+} from "../../domain/services/template-invoke";
+import { validateTemplateInvokes } from "../../domain/services/validate-template-invokes";
 
 type Deps = {
   templates: TemplateRegistry;
@@ -146,6 +151,14 @@ export const makeStartInstance =
       deps.templates,
       runTemplate,
     );
+    // §10/§14 defense in depth: re-validate the `template.invoke` closure at
+    // start (the registry may have moved since save) — fails fast, before any
+    // instance is created, on a cycle, an over-deep chain, or a broken binding.
+    if (hasTemplateInvoke(runTemplate)) {
+      validateTemplateInvokes(runTemplate, (ref) =>
+        templateSnapshots.get(templateInvokeRefKey(ref)),
+      );
+    }
     const instanceId = asWorkflowId(deps.ids.newId());
     const trimmedCwd = typeof cwd === "string" ? cwd.trim() : "";
     const evt: DomainEvent = {
