@@ -525,7 +525,8 @@
         },
         "createNew": "+ Créer un nouveau skill…",
         "choose": "— choisir une skill —",
-        "loading": "— chargement…"
+        "loading": "— chargement…",
+        "open": "Ouvrir la skill"
       },
       "concat": {
         "mode": {

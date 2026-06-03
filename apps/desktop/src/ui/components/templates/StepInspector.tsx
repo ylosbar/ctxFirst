@@ -114,6 +114,7 @@ const StepInspector = ({
 }: Props) => {
   const t = useT();
   const services = useServices();
+  const workbench = useWorkbench();
   const meta = getKindMeta(step.kind);
   const config = step.config;
   const specs = useNodeSpecs();
@@ -895,39 +896,58 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "skill.loader" ? (
-          <FormField
-            label={t("template.stepInspector.skillLoader.skill.label")}
-            description={
-              <Trans
-                t={t}
-                i18nKey="template.stepInspector.skillLoader.skill.description"
-                components={{ code: <code /> }}
-              />
-            }
-          >
-            <Select
-              value={(config["skillRef"] as string | undefined) ?? ""}
-              onChange={(e) => {
-                if (e.target.value === "__create__") {
-                  onRequestCreateSkill?.();
-                  return;
+          (() => {
+            const skillRef = (config["skillRef"] as string | undefined) ?? "";
+            return (
+              <FormField
+                label={t("template.stepInspector.skillLoader.skill.label")}
+                description={
+                  <Trans
+                    t={t}
+                    i18nKey="template.stepInspector.skillLoader.skill.description"
+                    components={{ code: <code /> }}
+                  />
                 }
-                setConfig({ skillRef: e.target.value });
-              }}
-            >
-              <option value="">
-                {skillsLoading
-                  ? t("template.stepInspector.skillLoader.loading")
-                  : t("template.stepInspector.skillLoader.choose")}
-              </option>
-              {skills.map((s) => (
-                <option key={s.ref} value={s.ref}>
-                  {s.ref}
-                </option>
-              ))}
-              <option value="__create__">{t("template.stepInspector.skillLoader.createNew")}</option>
-            </Select>
-          </FormField>
+              >
+                <Select
+                  value={skillRef}
+                  onChange={(e) => {
+                    if (e.target.value === "__create__") {
+                      onRequestCreateSkill?.();
+                      return;
+                    }
+                    setConfig({ skillRef: e.target.value });
+                  }}
+                >
+                  <option value="">
+                    {skillsLoading
+                      ? t("template.stepInspector.skillLoader.loading")
+                      : t("template.stepInspector.skillLoader.choose")}
+                  </option>
+                  {skills.map((s) => (
+                    <option key={s.ref} value={s.ref}>
+                      {s.ref}
+                    </option>
+                  ))}
+                  <option value="__create__">{t("template.stepInspector.skillLoader.createNew")}</option>
+                </Select>
+                {skillRef ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 self-start gap-1.5 text-xs"
+                    onClick={() =>
+                      workbench.openEditor(`skill://${skillRef}`, { focus: true })
+                    }
+                  >
+                    <ExternalLink className="size-3.5" />
+                    {t("template.stepInspector.skillLoader.open")}
+                  </Button>
+                ) : null}
+              </FormField>
+            );
+          })()
         ) : null}
 
         {step.kind === "concat.markdown" ? (
