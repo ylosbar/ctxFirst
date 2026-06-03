@@ -2339,37 +2339,46 @@ const FilesLoadSlotsEditor = ({
       label={t("template.stepInspector.filesLoad.slots.label")}
       description={t("template.stepInspector.filesLoad.slots.description")}
     >
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         {items.map((it, i) => (
-          <div key={i} className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <Input
-                className="w-28 font-mono text-xs"
-                placeholder={t(
-                  "template.stepInspector.filesLoad.slots.portPlaceholder",
-                )}
-                value={it.port}
-                onChange={(e) => setItem(i, { port: e.target.value })}
-              />
-              <Input
-                className="flex-1 font-mono text-xs"
-                placeholder={t(
-                  "template.stepInspector.filesLoad.slots.subpathPlaceholder",
-                )}
-                value={it.subpath}
-                onChange={(e) => setItem(i, { subpath: e.target.value })}
-              />
-              <Select
-                className="w-28"
-                value={it.outputKind}
-                onChange={(e) => setItem(i, { outputKind: e.target.value })}
-              >
-                {FILE_LOAD_OUTPUT_KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
-                  </option>
-                ))}
-              </Select>
+          <div
+            key={i}
+            className="flex flex-col gap-1.5 rounded border border-input bg-muted/30 p-2"
+          >
+            <div className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("template.stepInspector.filesLoad.slots.slotTitle", {
+                index: i + 1,
+              })}
+            </div>
+            <div className="flex items-end gap-2">
+              <label className="flex w-28 flex-col gap-0.5">
+                <span className="text-2xs text-muted-foreground">
+                  {t("template.stepInspector.filesLoad.slots.portLabel")}
+                </span>
+                <Input
+                  className="font-mono text-xs"
+                  placeholder={t(
+                    "template.stepInspector.filesLoad.slots.portPlaceholder",
+                  )}
+                  value={it.port}
+                  onChange={(e) => setItem(i, { port: e.target.value })}
+                />
+              </label>
+              <label className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-2xs text-muted-foreground">
+                  {t("template.stepInspector.filesLoad.slots.kindLabel")}
+                </span>
+                <Select
+                  value={it.outputKind}
+                  onChange={(e) => setItem(i, { outputKind: e.target.value })}
+                >
+                  {FILE_LOAD_OUTPUT_KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </Select>
+              </label>
               <Button
                 type="button"
                 size="sm"
@@ -2380,6 +2389,19 @@ const FilesLoadSlotsEditor = ({
                 {t("common.delete")}
               </Button>
             </div>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-2xs text-muted-foreground">
+                {t("template.stepInspector.filesLoad.slots.subpathLabel")}
+              </span>
+              <Input
+                className="w-full font-mono text-xs"
+                placeholder={t(
+                  "template.stepInspector.filesLoad.slots.subpathPlaceholder",
+                )}
+                value={it.subpath}
+                onChange={(e) => setItem(i, { subpath: e.target.value })}
+              />
+            </label>
             {portErrors[i] || subpathErrors[i] ? (
               <span className="text-2xs text-destructive">
                 {[portErrors[i], subpathErrors[i]].filter(Boolean).join(" · ")}

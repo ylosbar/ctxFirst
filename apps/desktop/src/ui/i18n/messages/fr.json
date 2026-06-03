@@ -475,6 +475,10 @@
           "label": "Fichiers (slots)",
           "description": "Chaque slot devient un port de sortie nommé qui lit le fichier <code>subpath</code> sous le répertoire de base. Le subpath ne peut pas s'évader hors de la base.",
           "add": "+ Ajouter un slot",
+          "slotTitle": "Slot {{index}}",
+          "portLabel": "Port de sortie",
+          "kindLabel": "Type",
+          "subpathLabel": "Fichier",
           "portPlaceholder": "port",
           "subpathPlaceholder": "sous-dossier/fichier.md"
         }
