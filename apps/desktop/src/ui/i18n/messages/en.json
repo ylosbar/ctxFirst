@@ -475,6 +475,10 @@
           "label": "Files (slots)",
           "description": "Each slot becomes a named output port reading the <code>subpath</code> file under the base directory. The subpath cannot escape outside the base.",
           "add": "+ Add a slot",
+          "slotTitle": "Slot {{index}}",
+          "portLabel": "Output port",
+          "kindLabel": "Type",
+          "subpathLabel": "File",
           "portPlaceholder": "port",
           "subpathPlaceholder": "subfolder/file.md"
         }
