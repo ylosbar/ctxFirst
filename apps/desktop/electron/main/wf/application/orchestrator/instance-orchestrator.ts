@@ -1580,9 +1580,15 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       ...(error ? { error } : {}),
     });
 
-    // On failure the projection already failed the parent step + instance; the
-    // StepFailed/InstanceCompleted listener then propagates to any grandparent.
-    if (outcome === "failed") return;
+    // On failure the projection already failed the parent step + instance.
+    // Unlike a step that throws (→ StepFailed) or an instance that completes
+    // (→ InstanceCompleted), this terminal state is reached purely via the
+    // `ChildInstanceCompleted` reducer, which no boot/runtime listener keys on
+    // — so if this parent is itself a child, roll the failure up explicitly.
+    if (outcome === "failed") {
+      if (parent.parent) wakeParentOnChildTerminal(parentId, "failed", error);
+      return;
+    }
 
     // §5b: route child outputs onto the parent step's slots (so downstream
     // transitions resolve), assign the mapped parent variables, then validate.

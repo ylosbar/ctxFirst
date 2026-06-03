@@ -45,6 +45,26 @@ const echoRunner: StepRunner = {
   },
 };
 
+/** Emits a fixed Markdown body taken from `config.marker` (ignores inputs). */
+const constRunner: StepRunner = {
+  kind: "test.const",
+  resolveSpec: () => ({
+    title: "const",
+    inputs: [{ name: "in", kinds: ["*"] }],
+    outputs: [{ name: "out", kind: "Markdown" }],
+  }),
+  async run(ctx: RunContext): Promise<StepOutcome> {
+    const marker = typeof ctx.step.config["marker"] === "string" ? ctx.step.config["marker"] : "";
+    const artifact = await putArtifactPayload(
+      ctx.deps.artifactStore,
+      "Markdown",
+      { format: "markdown", body: marker },
+      { source: "test.const" },
+    );
+    return { kind: "produced", artifact };
+  },
+};
+
 /** Always fails — used to drive a child instance to a terminal `failed`. */
 const boomRunner: StepRunner = {
   kind: "test.boom",
@@ -87,43 +107,61 @@ const childBfail: WorkflowTemplate = buildTemplate(
   },
 );
 
+type RootOpts = {
+  /** Child input variable bound by the invoke's readsFrom. Default "spec". */
+  inputName?: string;
+  /** Child output variable bound by the invoke's writesTo. Default "summary". */
+  outputName?: string;
+  /** Extra keys merged into the invoke step's config (e.g. a cwd override). */
+  invConfig?: Record<string, unknown>;
+  /** Insert a human.gate between seed and invoke (lets a test pause the run). */
+  gateBeforeInvoke?: boolean;
+};
+
 /**
- * Root A: seed (user.input → specVar) → invoke(child) → tail (echo summaryVar).
+ * Root A: seed (user.input → specVar) → [gate] → invoke(child) → tail (echo
+ * summaryVar). Generic over the child's interface variable names.
  */
-const makeRootA = (childId: string): WorkflowTemplate =>
-  buildTemplate(
-    "A",
-    [
-      {
-        id: "seed",
-        kind: "user.input",
-        config: { outputKind: "Markdown" },
-        writesTo: { out: "specVar" },
-      },
-      {
-        id: "inv",
-        kind: "template.invoke",
-        config: { templateId: childId, templateVersion: "v1" },
-        readsFrom: { spec: "specVar" },
-        writesTo: { summary: "summaryVar" },
-      },
-      { id: "tail", kind: "test.echo", readsFrom: { in: "summaryVar" } },
-    ],
-    [
-      { from: "seed", to: "inv" },
-      { from: "inv", to: "tail" },
-    ],
+const makeRootA = (childId: string, opts: RootOpts = {}): WorkflowTemplate => {
+  const inputName = opts.inputName ?? "spec";
+  const outputName = opts.outputName ?? "summary";
+  const steps: Parameters<typeof buildTemplate>[1][number][] = [
     {
-      id: "A",
-      status: "published",
-      entryStep: "seed",
-      exitSteps: ["tail"],
-      variables: [
-        { name: "specVar", kind: "Markdown" },
-        { name: "summaryVar", kind: "Markdown" },
-      ],
+      id: "seed",
+      kind: "user.input",
+      config: { outputKind: "Markdown" },
+      writesTo: { out: "specVar" },
     },
+  ];
+  const transitions: Parameters<typeof buildTemplate>[2][number][] = [];
+  if (opts.gateBeforeInvoke) {
+    steps.push({ id: "gate", kind: "human.gate", humanGateRequired: true, config: { inputKind: "Markdown" } });
+    transitions.push({ from: "seed", to: "gate" }, { from: "gate", to: "inv" });
+  } else {
+    transitions.push({ from: "seed", to: "inv" });
+  }
+  steps.push(
+    {
+      id: "inv",
+      kind: "template.invoke",
+      config: { templateId: childId, templateVersion: "v1", ...(opts.invConfig ?? {}) },
+      readsFrom: { [inputName]: "specVar" },
+      writesTo: { [outputName]: "summaryVar" },
+    },
+    { id: "tail", kind: "test.echo", readsFrom: { in: "summaryVar" } },
   );
+  transitions.push({ from: "inv", to: "tail" });
+  return buildTemplate("A", steps, transitions, {
+    id: "A",
+    status: "published",
+    entryStep: "seed",
+    exitSteps: ["tail"],
+    variables: [
+      { name: "specVar", kind: "Markdown" },
+      { name: "summaryVar", kind: "Markdown" },
+    ],
+  });
+};
 
 const makeHarness = (
   templates: WorkflowTemplate[],
@@ -135,7 +173,7 @@ const makeHarness = (
   });
   return createOrchestratorHarness({
     templates,
-    extraRunners: [echoRunner, boomRunner, invokeRunner],
+    extraRunners: [echoRunner, boomRunner, constRunner, invokeRunner],
     autoStart,
   });
 };
@@ -160,7 +198,7 @@ const buildReplayHarness = async (
   });
   const h = createOrchestratorHarness({
     templates,
-    extraRunners: [echoRunner, boomRunner, invokeRunner],
+    extraRunners: [echoRunner, boomRunner, constRunner, invokeRunner],
     autoStart: false,
     ids: createFakeIdGenerator("boot"),
     artifactStore: priorStore,
@@ -424,5 +462,206 @@ describe("InstanceOrchestrator — boot reconciliation (§16)", () => {
     // Idempotent: exactly one ChildInstanceCompleted was emitted (by reconcile;
     // the replayed log had none).
     expect(harness.fakes.bus.ofType("ChildInstanceCompleted")).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Three-level hierarchy A → B → C (completion + error propagation)
+// ---------------------------------------------------------------------------
+
+/** Leaf C: input `cin` → echo → output `cout`. */
+const leafC: WorkflowTemplate = buildTemplate(
+  "C3",
+  [{ id: "body", kind: "test.echo", readsFrom: { in: "cin" }, writesTo: { out: "cout" } }],
+  [],
+  {
+    id: "C3",
+    status: "published",
+    exitSteps: ["body"],
+    variables: [
+      { name: "cin", kind: "Markdown", role: "input" },
+      { name: "cout", kind: "Markdown", role: "output" },
+    ],
+  },
+);
+
+/** Middle B: input `bin` → invoke(C3) → output `bout`. */
+const midB: WorkflowTemplate = buildTemplate(
+  "B3",
+  [
+    {
+      id: "invC",
+      kind: "template.invoke",
+      config: { templateId: "C3", templateVersion: "v1" },
+      readsFrom: { cin: "bin" },
+      writesTo: { cout: "bout" },
+    },
+  ],
+  [],
+  {
+    id: "B3",
+    status: "published",
+    entryStep: "invC",
+    exitSteps: ["invC"],
+    variables: [
+      { name: "bin", kind: "Markdown", role: "input" },
+      { name: "bout", kind: "Markdown", role: "output" },
+    ],
+  },
+);
+
+/** Middle Bf: input `bin` → invoke(Bfail, which booms) — input-only interface. */
+const midBfail: WorkflowTemplate = buildTemplate(
+  "B3fail",
+  [
+    {
+      id: "invCf",
+      kind: "template.invoke",
+      config: { templateId: "Bfail", templateVersion: "v1" },
+      readsFrom: { spec: "bin" },
+    },
+  ],
+  [],
+  {
+    id: "B3fail",
+    status: "published",
+    entryStep: "invCf",
+    exitSteps: ["invCf"],
+    variables: [{ name: "bin", kind: "Markdown", role: "input" }],
+  },
+);
+
+describe("InstanceOrchestrator — three-level hierarchy", () => {
+  it("propagates completion up A → B → C", async () => {
+    const A = makeRootA("B3", { inputName: "bin", outputName: "bout" });
+    harness = makeHarness([A, midB, leafC]);
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "hello" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    // Four instances: root A + child B + grandchild C.
+    const started = harness.fakes.bus.ofType("InstanceStarted");
+    expect(started).toHaveLength(3);
+    const depths = started.map((e) => e.depth ?? 0).sort();
+    expect(depths).toEqual([0, 1, 2]);
+
+    // Every spawned instance reached completed.
+    const spawns = harness.fakes.bus.ofType("ChildInstanceSpawned");
+    expect(spawns).toHaveLength(2);
+    for (const s of spawns) {
+      expect(harness.state.getInstance(s.childInstanceId)?.status).toBe("completed");
+    }
+    expect(harness.state.getInstance(instanceId)?.status).toBe("completed");
+  });
+
+  it("propagates failure up C → B → A", async () => {
+    const A = makeRootA("B3fail", { inputName: "bin" });
+    harness = makeHarness([A, midBfail, childBfail]);
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "hello" }],
+    });
+    await harness.waitForStatus(instanceId, "failed");
+
+    // Both the grandchild (Bfail) and the child (B3fail) instances ended failed.
+    const spawns = harness.fakes.bus.ofType("ChildInstanceSpawned");
+    expect(spawns).toHaveLength(2);
+    for (const s of spawns) {
+      expect(harness.state.getInstance(s.childInstanceId)?.status).toBe("failed");
+    }
+    // Two failure roll-ups: grandchild→child and child→root.
+    const failedCompletions = harness.fakes.bus
+      .ofType("ChildInstanceCompleted")
+      .filter((e) => e.outcome === "failed");
+    expect(failedCompletions).toHaveLength(2);
+    expect(harness.state.getInstance(instanceId)?.status).toBe("failed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §8 — cwd inheritance and override
+// ---------------------------------------------------------------------------
+
+describe("InstanceOrchestrator — child cwd (§8)", () => {
+  it("inherits the parent's cwd by default", async () => {
+    const A = makeRootA("B");
+    harness = makeHarness([A, childB]);
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "hi" }],
+      cwd: "/foo",
+    });
+    const spawned = await harness.waitForEvent("ChildInstanceSpawned");
+    await harness.waitForStatus(instanceId, "completed");
+    expect(harness.state.getInstance(spawned.childInstanceId)?.cwd).toBe("/foo");
+  });
+
+  it("honors a cwd override on the invoke step", async () => {
+    const A = makeRootA("B", { invConfig: { cwd: "/bar" } });
+    harness = makeHarness([A, childB]);
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "hi" }],
+      cwd: "/foo",
+    });
+    const spawned = await harness.waitForEvent("ChildInstanceSpawned");
+    await harness.waitForStatus(instanceId, "completed");
+    expect(harness.state.getInstance(spawned.childInstanceId)?.cwd).toBe("/bar");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §7 — sub-template snapshot frozen at root start survives a mid-run republish
+// ---------------------------------------------------------------------------
+
+const snapChild = (marker: string): WorkflowTemplate =>
+  buildTemplate(
+    "Bsnap",
+    [{ id: "body", kind: "test.const", config: { marker }, readsFrom: { in: "spec" }, writesTo: { out: "summary" } }],
+    [],
+    {
+      id: "Bsnap",
+      version: "v1",
+      status: "published",
+      exitSteps: ["body"],
+      variables: [
+        { name: "spec", kind: "Markdown", role: "input" },
+        { name: "summary", kind: "Markdown", role: "output" },
+      ],
+    },
+  );
+
+describe("InstanceOrchestrator — sub-template snapshot (§7)", () => {
+  it("uses the version frozen at root start, not a mid-run republish", async () => {
+    const A = makeRootA("Bsnap", { gateBeforeInvoke: true });
+    harness = makeHarness([A, snapChild("v1")]);
+
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(A),
+      seeds: [{ kind: "Markdown", content: "hi" }],
+    });
+    // Pause at the gate (snapshot already frozen with Bsnap@v1 = "v1").
+    await harness.waitForStatus(instanceId, "awaitingHuman");
+
+    // Republish Bsnap@v1 with a different body — the running instance must not
+    // pick it up.
+    await harness.fakes.templates.save(snapChild("v2"));
+
+    const gate = harness.state
+      .getInstance(instanceId)!
+      .executions.find((e) => e.status === "awaitingHuman")!;
+    await harness.submitHumanDecision({ instanceId, stepExecId: gate.id, by: "alice" });
+
+    const spawned = await harness.waitForEvent("ChildInstanceSpawned");
+    await harness.waitForStatus(instanceId, "completed");
+
+    // The child ran the frozen v1 body, not the republished v2.
+    const child = harness.state.getInstance(spawned.childInstanceId)!;
+    const outId = child.variables.get("summary")!;
+    const { content } = await harness.fakes.artifactStore.get(outId);
+    expect(content).toContain("v1");
+    expect(content).not.toContain("v2");
   });
 });
