@@ -12,6 +12,7 @@
  * single source of truth. No runner is registered for the kind yet, so
  * {@link hasTemplateInvoke} returns `false` for every current template.
  */
+import type { TemplateId, TemplateVersion } from "../ids";
 import type { StepDef, WorkflowTemplate } from "../template";
 
 /** Step kind discriminator for an Approach-A sub-template invocation. */
@@ -32,3 +33,40 @@ export const isTemplateInvoke = (step: StepDef): boolean =>
 /** True when `tpl` contains at least one `template.invoke` step. */
 export const hasTemplateInvoke = (tpl: WorkflowTemplate): boolean =>
   tpl.steps.some(isTemplateInvoke);
+
+/**
+ * The literal sub-template a `template.invoke` step points at — pinned in the
+ * step config when the author picks it in the editor (`sub-template-invoke.md`
+ * §2). Mirrors `WorkflowCallRef`; the two kinds carry the same `{ templateId,
+ * templateVersion }` shape but live on separate code paths.
+ */
+export type TemplateInvokeRef = {
+  templateId: TemplateId;
+  templateVersion: TemplateVersion;
+};
+
+/** Canonical `id@version` key for a {@link TemplateInvokeRef} snapshot map. */
+export const templateInvokeRefKey = (ref: TemplateInvokeRef): string =>
+  `${ref.templateId}@${ref.templateVersion}`;
+
+/** Thrown when a `template.invoke` step is malformed (missing/cyclic ref). */
+export class TemplateInvokeError extends Error {}
+
+/**
+ * Reads the `{ templateId, templateVersion }` reference out of a
+ * `template.invoke` step's config. Throws {@link TemplateInvokeError} if absent
+ * — a `template.invoke` with no literal ref cannot resolve its child template.
+ */
+export const readTemplateInvokeRef = (step: StepDef): TemplateInvokeRef => {
+  const id = step.config["templateId"];
+  const version = step.config["templateVersion"];
+  if (typeof id !== "string" || typeof version !== "string") {
+    throw new TemplateInvokeError(
+      `template.invoke step "${step.id}" is missing a literal { templateId, templateVersion } config`,
+    );
+  }
+  return {
+    templateId: id as TemplateId,
+    templateVersion: version as TemplateVersion,
+  };
+};

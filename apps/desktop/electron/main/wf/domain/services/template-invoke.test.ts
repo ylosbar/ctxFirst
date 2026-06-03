@@ -3,8 +3,12 @@ import {
   hasTemplateInvoke,
   isTemplateInvoke,
   MAX_INVOCATION_DEPTH,
+  readTemplateInvokeRef,
   TEMPLATE_INVOKE_KIND,
+  TemplateInvokeError,
+  templateInvokeRefKey,
 } from "./template-invoke";
+import { asTemplateId, asTemplateVersion } from "../ids";
 import { buildTemplate } from "../../__tests__/fixtures/builders";
 
 describe("template-invoke constants (Phase A anchor)", () => {
@@ -40,5 +44,43 @@ describe("template-invoke constants (Phase A anchor)", () => {
       [{ from: "a", to: "b" }],
     );
     expect(hasTemplateInvoke(withInvoke)).toBe(true);
+  });
+});
+
+describe("readTemplateInvokeRef", () => {
+  it("reads the literal { templateId, templateVersion } config", () => {
+    const tpl = buildTemplate(
+      "t",
+      [
+        {
+          id: "a",
+          kind: "template.invoke",
+          config: { templateId: "child", templateVersion: "v1" },
+        },
+      ],
+      [],
+    );
+    expect(readTemplateInvokeRef(tpl.steps[0])).toEqual({
+      templateId: asTemplateId("child"),
+      templateVersion: asTemplateVersion("v1"),
+    });
+  });
+
+  it("throws when the ref config is missing or non-literal", () => {
+    const tpl = buildTemplate(
+      "t",
+      [{ id: "a", kind: "template.invoke", config: { templateId: "child" } }],
+      [],
+    );
+    expect(() => readTemplateInvokeRef(tpl.steps[0])).toThrow(TemplateInvokeError);
+  });
+
+  it("templateInvokeRefKey is the canonical id@version", () => {
+    expect(
+      templateInvokeRefKey({
+        templateId: asTemplateId("child"),
+        templateVersion: asTemplateVersion("v2"),
+      }),
+    ).toBe("child@v2");
   });
 });

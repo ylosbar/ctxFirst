@@ -32,6 +32,7 @@ import {
   buildWorkflowCallSnapshot,
   snapshotResolve,
 } from "../workflow-call-closure";
+import { buildTemplateInvokeSnapshot } from "../template-invoke-closure";
 
 type Deps = {
   templates: TemplateRegistry;
@@ -135,6 +136,16 @@ export const makeStartInstance =
       const a = await deps.artifactStore.put(v.kind, v.defaultValue, { role: "seed" });
       variableDefaults.push({ name: v.name, artifactId: asArtifactId(a.id) });
     }
+    // §7: freeze the transitive `template.invoke` sub-template closure at root
+    // start so a mid-run republish can't swap versions; children inherit this
+    // map instead of re-resolving the registry. Walk `runTemplate` (the
+    // flattened graph) so `template.invoke` steps living inside an inlined
+    // `workflow.call` sub-template are captured too. Empty in Phase A (no
+    // `template.invoke` runner yet) — persisted only when non-empty.
+    const templateSnapshots = await buildTemplateInvokeSnapshot(
+      deps.templates,
+      runTemplate,
+    );
     const instanceId = asWorkflowId(deps.ids.newId());
     const trimmedCwd = typeof cwd === "string" ? cwd.trim() : "";
     const evt: DomainEvent = {
@@ -150,9 +161,19 @@ export const makeStartInstance =
       ...(effectiveTemplate ? { effectiveTemplate } : {}),
       channelId: channelId ?? deps.channels.getActive(),
       // Root instance: depth 0 in the `template.invoke` tree
-      // (`sub-template-invoke.md` §14). `parent` and `templateSnapshots` are
-      // left absent — only a spawned child (Phase B) carries those.
+      // (`sub-template-invoke.md` §14). `parent` is left absent — only a
+      // spawned child (Phase B) carries it.
       depth: 0,
+      // JSON-safe array form of the §7 snapshot (the projection folds it back
+      // into a Map). Omitted when empty — i.e. always in Phase A.
+      ...(templateSnapshots.size
+        ? {
+            templateSnapshots: [...templateSnapshots].map(([ref, template]) => ({
+              ref,
+              template,
+            })),
+          }
+        : {}),
     };
     await deps.log.append(evt);
     await deps.bus.publish(evt);
