@@ -282,6 +282,7 @@
     "editor": {
       "toast": {
         "saved": "Template saved",
+        "published": "Template published",
         "exportedSvg": "Workflow exported as SVG",
         "exportSvgFailed": "SVG export failed",
         "exportedPng": "Workflow exported as PNG",
@@ -306,7 +307,21 @@
           "svg": "Export as SVG",
           "png": "Export as PNG"
         },
-        "clearAll": "Clear everything and start over"
+        "clearAll": "Clear everything and start over",
+        "saveDraft": "Save draft",
+        "saveLocked": "Template published (immutable) — change the version to edit",
+        "saving": "Saving…",
+        "publish": "Publish the template (freezes it and makes it invocable as a sub-workflow)",
+        "published": "Template published (immutable — bump the version to iterate)"
+      },
+      "publish": {
+        "title": "Publish the template?",
+        "subtitle": "will be frozen and become invocable as a sub-workflow.",
+        "body": "A published ref is immutable: to iterate afterwards, bump the version (e.g. v2), which starts again from a draft.",
+        "close": "Close",
+        "cancel": "Cancel",
+        "confirm": "Publish",
+        "publishing": "Publishing…"
       },
       "stickyNote": {
         "add": "Add a note",

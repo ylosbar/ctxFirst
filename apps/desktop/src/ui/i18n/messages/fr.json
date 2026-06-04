@@ -282,6 +282,7 @@
     "editor": {
       "toast": {
         "saved": "Template sauvegardé",
+        "published": "Template publié",
         "exportedSvg": "Workflow exporté en SVG",
         "exportSvgFailed": "Export SVG impossible",
         "exportedPng": "Workflow exporté en PNG",
@@ -306,7 +307,21 @@
           "svg": "Exporter en SVG",
           "png": "Exporter en PNG"
         },
-        "clearAll": "Tout effacer et repartir de zéro"
+        "clearAll": "Tout effacer et repartir de zéro",
+        "saveDraft": "Sauvegarder le brouillon",
+        "saveLocked": "Template publié (immuable) — change la version pour éditer",
+        "saving": "Sauvegarde…",
+        "publish": "Publier le template (le fige et le rend invocable comme sous-workflow)",
+        "published": "Template publié (immuable — bumpe la version pour itérer)"
+      },
+      "publish": {
+        "title": "Publier le template ?",
+        "subtitle": "sera figé et deviendra invocable comme sous-workflow.",
+        "body": "Une ref publiée est immuable : pour itérer ensuite, bumpe la version (ex. v2), ce qui repart d'un brouillon.",
+        "close": "Fermer",
+        "cancel": "Annuler",
+        "confirm": "Publier",
+        "publishing": "Publication…"
       },
       "stickyNote": {
         "add": "Ajouter une note",

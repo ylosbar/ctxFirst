@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makeSaveTemplate } from "./save-template";
+import { makeSaveTemplate, TemplateImmutableError } from "./save-template";
 import { buildTemplate } from "../../__tests__/fixtures/builders";
 import {
   createFakeArtifactSchemaRegistry,
@@ -95,5 +95,61 @@ describe("saveTemplate use-case", () => {
 
     await expect(save(tpl)).rejects.toThrow();
     expect(templates.getById(tpl.id, tpl.version)).toBeUndefined();
+  });
+
+  it("refuses to overwrite an already-published (immutable) ref", async () => {
+    const { save } = buildDeps();
+    const steps = [
+      {
+        id: "input",
+        kind: "user.input",
+        humanGateRequired: false,
+        config: { outputKind: "Markdown" },
+      },
+      {
+        id: "gate",
+        kind: "human.gate",
+        humanGateRequired: true,
+        config: { inputKind: "Markdown", role: "Developer" },
+      },
+    ] as const;
+    const published = buildTemplate("frozen", [...steps], [{ from: "input", to: "gate" }], {
+      id: "frozen",
+      version: "v1",
+      exitSteps: ["gate"],
+      status: "published",
+    });
+
+    await save(published);
+    // Re-saving the same published ref is rejected — iterate by bumping version.
+    await expect(save(published)).rejects.toThrow(TemplateImmutableError);
+  });
+
+  it("allows re-saving a draft ref (drafts are mutable)", async () => {
+    const { templates, save } = buildDeps();
+    const steps = [
+      {
+        id: "input",
+        kind: "user.input",
+        humanGateRequired: false,
+        config: { outputKind: "Markdown" },
+      },
+      {
+        id: "gate",
+        kind: "human.gate",
+        humanGateRequired: true,
+        config: { inputKind: "Markdown", role: "Developer" },
+      },
+    ] as const;
+    const draft = buildTemplate("wip", [...steps], [{ from: "input", to: "gate" }], {
+      id: "wip",
+      version: "v1",
+      exitSteps: ["gate"],
+      status: "draft",
+    });
+
+    await save(draft);
+    await expect(save(draft)).resolves.toBeUndefined();
+    expect(templates.getById(draft.id, draft.version)).toBeDefined();
   });
 });
