@@ -118,6 +118,14 @@ const markdownComponents: Components = {
       {children}
     </a>
   ),
+  // Wrap wide tables in a horizontally-scrollable container so they scroll
+  // inside their own box instead of forcing the whole document wider than the
+  // reader (which would break the responsive layout).
+  table: ({ children }) => (
+    <div className="markdown-table-wrap">
+      <table>{children}</table>
+    </div>
+  ),
 };
 
 // --- "Lisible" JSON document renderer -------------------------------------

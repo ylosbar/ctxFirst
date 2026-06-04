@@ -748,11 +748,28 @@ body {
   margin: 0.5rem 0;
 }
 
+/* Horizontal-scroll wrapper for tables: keeps wide tables (many columns or
+   long cells) from overflowing the reader and breaking the responsive layout.
+   `max-width: 100%` + `min-width: 0` lets it shrink inside flex/grid parents. */
+.markdown-body .markdown-table-wrap {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  margin: 0 0 0.5rem 0;
+}
+
 .markdown-body table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8125rem;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
+}
+
+/* When wrapped, the table can grow past the container to trigger the scroll
+   instead of squishing columns into unreadable slivers. */
+.markdown-body .markdown-table-wrap table {
+  width: auto;
+  min-width: 100%;
 }
 
 .markdown-body th,
@@ -760,6 +777,11 @@ body {
   border: 1px solid var(--border);
   padding: 0.25rem 0.5rem;
   vertical-align: top;
+  /* Let long unbreakable tokens (paths, URLs, inline code) wrap so the table
+     shrinks to the container width instead of overflowing. Inherited by the
+     inline `code` inside cells. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-body th {
@@ -781,7 +803,7 @@ body {
 .markdown-body--compact ol,
 .markdown-body--compact pre,
 .markdown-body--compact blockquote,
-.markdown-body--compact table {
+.markdown-body--compact .markdown-table-wrap {
   margin-bottom: 0.75rem;
 }
 
@@ -827,7 +849,7 @@ body {
 .markdown-body--doc ol,
 .markdown-body--doc pre,
 .markdown-body--doc blockquote,
-.markdown-body--doc table {
+.markdown-body--doc .markdown-table-wrap {
   margin-bottom: 1.5rem;
 }
 
