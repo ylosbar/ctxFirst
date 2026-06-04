@@ -2,11 +2,17 @@ import type { DomainEvent } from "../../domain/events";
 import {
   asEventId,
   asStepExecId,
+  asWorkflowId,
   type ArtifactId,
   type StepExecId,
   type StepId,
   type WorkflowId,
 } from "../../domain/ids";
+import {
+  MAX_INVOCATION_DEPTH,
+  readTemplateInvokeRef,
+  templateInvokeRefKey,
+} from "../../domain/services/template-invoke";
 import {
   findStep,
   type StepKindId,
@@ -828,6 +834,12 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         return;
       }
 
+      if (outcome.kind === "spawned-child") {
+        deps.logger.info(`[wf:runner] ${step.kind} → spawned-child`);
+        await spawnChildInstance(inst, step, stepExecId);
+        return;
+      }
+
       // Resolve the declared slot names for this step (once) — used to
       // shape-check `produced` / `produced-many` outcomes and to tag the
       // emitted `StepProducedArtifact` events with their `port`.
@@ -1408,6 +1420,231 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     await startStep(inst, template, stepId, loopFrom, iterationKey);
   };
 
+  /**
+   * §5a — spawn-and-suspend for a `template.invoke` step. Resolves the child
+   * template from the run's frozen snapshot (§7), seeds the child's `input`
+   * variables from the parent's variables via the step's `readsFrom`, emits
+   * `ChildInstanceSpawned` (which flips this step to `awaitingChild`) and the
+   * child's `InstanceStarted` with inherited channel / cwd / depth / snapshot.
+   * Throws (→ `StepFailed`) on a missing binding or a depth-bound breach (§14).
+   */
+  const spawnChildInstance = async (
+    inst: InstanceState,
+    step: StepDef,
+    stepExecId: StepExecId,
+  ): Promise<void> => {
+    // §14 runtime depth guard: refuse before emitting any spawn event. Throwing
+    // lands in startStep's catch → StepFailed on the parent step.
+    if (inst.depth + 1 > MAX_INVOCATION_DEPTH) {
+      throw new Error("max invocation depth exceeded");
+    }
+    const ref = readTemplateInvokeRef(step);
+    const key = templateInvokeRefKey(ref);
+    // §7: reuse the snapshot frozen at root start so a mid-run republish can't
+    // swap versions. Fall back to the live registry only when the run predates
+    // the snapshot (defensive — should not happen for a snapshotted root).
+    const childTemplate =
+      inst.templateSnapshots?.get(key) ??
+      (await deps.templates.resolve(ref.templateId, ref.templateVersion));
+
+    // Resolve seeds: each child `input` variable is bound, via the step's
+    // readsFrom, to a parent variable whose artifact we forward by reference.
+    const seedBindings: { variableName: string; artifactId: ArtifactId }[] = [];
+    for (const v of childTemplate.variables) {
+      if (v.role !== "input") continue;
+      const parentVarName = step.readsFrom?.[v.name];
+      if (!parentVarName) {
+        throw new Error(
+          `template.invoke ${step.id}: input "${v.name}" is not bound (readsFrom)`,
+        );
+      }
+      const artifactId = inst.variables.get(parentVarName);
+      if (!artifactId) {
+        throw new Error(
+          `template.invoke ${step.id}: parent variable "${parentVarName}" has no artifact to seed input "${v.name}"`,
+        );
+      }
+      seedBindings.push({ variableName: v.name, artifactId });
+    }
+
+    const childInstanceId = asWorkflowId(deps.ids.newId());
+
+    // §5a: mark the suspension first — `ChildInstanceSpawned` flips the parent
+    // step to `awaitingChild` in the projection.
+    await emit({
+      type: "ChildInstanceSpawned",
+      eventId: asEventId(deps.ids.newId()),
+      at: deps.clock.now(),
+      instanceId: inst.id,
+      stepExecId,
+      childInstanceId,
+      childTemplateId: ref.templateId,
+      childTemplateVersion: ref.templateVersion,
+      seedBindings,
+    });
+
+    // Pre-assign the child's own `defaultValue` variables (parity with
+    // makeStartInstance), then overlay the parent-provided input seeds so a
+    // bound input always wins over a default.
+    const variableDefaults: { name: string; artifactId: ArtifactId }[] = [];
+    const seededNames = new Set(seedBindings.map((b) => b.variableName));
+    for (const v of childTemplate.variables) {
+      if (v.defaultValue === undefined) continue;
+      if (seededNames.has(v.name)) continue;
+      const a = await deps.artifactStore.put(v.kind, v.defaultValue, { role: "seed" });
+      variableDefaults.push({ name: v.name, artifactId: a.id });
+    }
+    for (const b of seedBindings) {
+      variableDefaults.push({ name: b.variableName, artifactId: b.artifactId });
+    }
+
+    // §8: child inherits the parent cwd unless the step overrides it.
+    const cfgCwd = step.config["cwd"];
+    const childCwd =
+      (typeof cfgCwd === "string" && cfgCwd.trim() ? cfgCwd.trim() : undefined) ??
+      inst.cwd;
+
+    // §7: children inherit the parent's frozen snapshot verbatim (it is the
+    // transitive closure of the root), so they resolve their own children
+    // without re-querying the registry.
+    const snapshotArray = inst.templateSnapshots
+      ? [...inst.templateSnapshots].map(([r, t]) => ({ ref: r, template: t }))
+      : undefined;
+
+    // §5a + §13: emit the child's InstanceStarted directly (not via
+    // makeStartInstance) so it inherits the parent's channelId, cwd, depth and
+    // snapshot. Pin the frozen child template as effectiveTemplate so replay is
+    // deterministic and a republish can't swap the version mid-run.
+    await emit({
+      type: "InstanceStarted",
+      eventId: asEventId(deps.ids.newId()),
+      at: deps.clock.now(),
+      instanceId: childInstanceId,
+      templateId: ref.templateId,
+      templateVersion: ref.templateVersion,
+      seed: [],
+      ...(variableDefaults.length ? { variableDefaults } : {}),
+      ...(childCwd ? { cwd: childCwd } : {}),
+      effectiveTemplate: childTemplate,
+      channelId: inst.channelId,
+      depth: inst.depth + 1,
+      parent: { instanceId: inst.id, stepExecId },
+      ...(snapshotArray && snapshotArray.length
+        ? { templateSnapshots: snapshotArray }
+        : {}),
+    });
+  };
+
+  /**
+   * §5b — wakes the parent step suspended on a `template.invoke` once its child
+   * reaches a terminal state. Captures the child's `output` variables, emits
+   * `ChildInstanceCompleted`, then (on success) routes those outputs onto the
+   * parent step's output slots + mapped variables and validates the step so the
+   * parent advances. Idempotent (§16): a no-op once the parent step has already
+   * left `awaitingChild`.
+   */
+  const completeChildOnParent = async (
+    childInstanceId: WorkflowId,
+    outcome: "completed" | "failed",
+    error?: string,
+  ): Promise<void> => {
+    const child = deps.state.getInstance(childInstanceId);
+    if (!child?.parent) return;
+    const { instanceId: parentId, stepExecId } = child.parent;
+    const parent = deps.state.getInstance(parentId);
+    if (!parent) return;
+    const parentExec = parent.executions.find((e) => e.id === stepExecId);
+    if (!parentExec || parentExec.status !== "awaitingChild") return;
+
+    // Capture the child's output variables at terminal time (§4) so the parent
+    // reducer never peeks into the child's projected state at replay.
+    const outputs: { variableName: string; artifactId: ArtifactId }[] = [];
+    if (outcome === "completed") {
+      const childTemplate = await templateForInstance(child);
+      for (const v of childTemplate.variables) {
+        if (v.role !== "output") continue;
+        const aid = child.variables.get(v.name);
+        if (aid) outputs.push({ variableName: v.name, artifactId: aid });
+      }
+    }
+
+    await emit({
+      type: "ChildInstanceCompleted",
+      eventId: asEventId(deps.ids.newId()),
+      at: deps.clock.now(),
+      instanceId: parentId,
+      stepExecId,
+      childInstanceId,
+      outputs,
+      outcome,
+      ...(error ? { error } : {}),
+    });
+
+    // On failure the projection already failed the parent step + instance.
+    // Unlike a step that throws (→ StepFailed) or an instance that completes
+    // (→ InstanceCompleted), this terminal state is reached purely via the
+    // `ChildInstanceCompleted` reducer, which no boot/runtime listener keys on
+    // — so if this parent is itself a child, roll the failure up explicitly.
+    if (outcome === "failed") {
+      if (parent.parent) wakeParentOnChildTerminal(parentId, "failed", error);
+      return;
+    }
+
+    // §5b: route child outputs onto the parent step's slots (so downstream
+    // transitions resolve), assign the mapped parent variables, then validate.
+    const parentTemplate = await templateForInstance(parent);
+    const parentStep = findStep(parentTemplate, parentExec.stepId);
+    for (const out of outputs) {
+      await emit({
+        type: "StepProducedArtifact",
+        eventId: asEventId(deps.ids.newId()),
+        at: deps.clock.now(),
+        instanceId: parentId,
+        stepExecId,
+        artifactId: out.artifactId,
+        port: out.variableName,
+      });
+      const parentVarName = parentStep.writesTo?.[out.variableName];
+      if (parentVarName) {
+        await emit({
+          type: "VariableAssigned",
+          eventId: asEventId(deps.ids.newId()),
+          at: deps.clock.now(),
+          instanceId: parentId,
+          stepExecId,
+          variableName: parentVarName,
+          artifactId: out.artifactId,
+        });
+      }
+    }
+    await emit({
+      type: "StepValidated",
+      eventId: asEventId(deps.ids.newId()),
+      at: deps.clock.now(),
+      instanceId: parentId,
+      stepExecId,
+      by: "auto",
+    });
+  };
+
+  /**
+   * Schedules a parent wake under the PARENT's serializer lock — several
+   * children (a parallel foreach) may terminate concurrently, each waking the
+   * same parent instance on its own stepExecId; serializing avoids interleaved
+   * emits (§Risques: inter-instance ordering).
+   */
+  const wakeParentOnChildTerminal = (
+    childInstanceId: WorkflowId,
+    outcome: "completed" | "failed",
+    error?: string,
+  ): void => {
+    const child = deps.state.getInstance(childInstanceId);
+    if (!child?.parent) return;
+    schedule(child.parent.instanceId, () =>
+      completeChildOnParent(childInstanceId, outcome, error),
+    );
+  };
+
   const afterValidated = async (instanceId: WorkflowId, stepExecId: StepExecId): Promise<void> => {
     const inst = deps.state.getInstance(instanceId);
     if (!inst) return;
@@ -1647,6 +1884,33 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     }
   };
 
+  /**
+   * Boot-time recovery for `template.invoke` (§16). The parent wake (§5b) is a
+   * *live* reaction to the child's terminal event; a crash between the child's
+   * `InstanceCompleted`/`StepFailed` (persisted) and the `ChildInstanceCompleted`
+   * (never emitted) leaves the parent suspended forever. After re-hydration this
+   * pass re-links every terminal child whose parent is still `awaitingChild`.
+   * Idempotent: `completeChildOnParent` skips a parent that has already advanced,
+   * so a second boot — where `ChildInstanceCompleted` is already in the log —
+   * emits nothing.
+   */
+  const reconcileOrphanedParents = async (): Promise<void> => {
+    for (const instanceId of deps.state.listInstanceIds()) {
+      const inst = deps.state.getInstance(instanceId);
+      if (!inst?.parent) continue;
+      if (inst.status !== "completed" && inst.status !== "failed") continue;
+      const error =
+        inst.status === "failed"
+          ? inst.executions.find((e) => e.status === "failed")?.error
+          : undefined;
+      wakeParentOnChildTerminal(
+        instanceId,
+        inst.status === "failed" ? "failed" : "completed",
+        error,
+      );
+    }
+  };
+
   return {
     start(): void {
       if (unsub) return;
@@ -1668,15 +1932,35 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
               onLoopOpened(evt.instanceId, evt.fromStepExec, evt.toStepId, evt.loopId),
             );
             return;
+          case "InstanceCompleted":
+            // §5b: a child instance completing wakes the parent's suspended
+            // `template.invoke` step. A no-op for root instances (no parent).
+            wakeParentOnChildTerminal(evt.instanceId, "completed");
+            return;
+          case "StepFailed": {
+            // §5b: a step failure drives the whole instance to `failed`; if that
+            // instance is a spawned child, propagate the failure to its parent's
+            // suspended step (which itself may cascade to a grandparent).
+            const inst = deps.state.getInstance(evt.instanceId);
+            if (inst?.status === "failed" && inst.parent) {
+              wakeParentOnChildTerminal(evt.instanceId, "failed", evt.error);
+            }
+            return;
+          }
           default:
             return;
         }
       });
-      // Fail any step orphaned in `running` by a previous process restart.
-      void reconcileOrphanedRunningSteps().catch((err) => {
-        const message = err instanceof Error ? err.message : String(err);
-        deps.logger.error(`[wf] orphan reconciliation error: ${message}`);
-      });
+      // Fail any step orphaned in `running` by a previous process restart, then
+      // re-link any parent left suspended on a child that already terminated
+      // (§16) — both run after the subscription so their emitted events drive
+      // the live reactions.
+      void reconcileOrphanedRunningSteps()
+        .then(() => reconcileOrphanedParents())
+        .catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          deps.logger.error(`[wf] orphan reconciliation error: ${message}`);
+        });
     },
     stop(): void {
       if (unsub) {

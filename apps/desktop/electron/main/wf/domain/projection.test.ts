@@ -465,3 +465,200 @@ describe("summarize", () => {
     expect(summarize(state, stamp).updatedAt).toBe(stamp);
   });
 });
+
+// ---------------------------------------------------------------------------
+// `template.invoke` Phase A — model groundwork (sub-template-invoke.md).
+// The runner/orchestrator that EMIT these events land in Phase B; here we only
+// assert the projection accepts and folds them, that legacy streams are
+// unchanged, and that the new InstanceStarted fields project.
+// ---------------------------------------------------------------------------
+
+const CHILD = asWorkflowId("wf-child");
+
+const childSpawned = (parentExec: string, childId = CHILD): DomainEvent => ({
+  type: "ChildInstanceSpawned",
+  eventId: evtId(),
+  at: at(),
+  instanceId: INSTANCE,
+  stepExecId: asStepExecId(parentExec),
+  childInstanceId: childId,
+  childTemplateId: asTemplateId("sub-tpl"),
+  childTemplateVersion: asTemplateVersion("v1"),
+  seedBindings: [{ variableName: "spec", artifactId: asArtifactId("seed-1") }],
+});
+
+const childCompleted = (
+  parentExec: string,
+  opts: {
+    outcome: "completed" | "failed";
+    outputs?: ReadonlyArray<{ variableName: string; artifactId: string }>;
+    error?: string;
+    childId?: string;
+  },
+): DomainEvent => ({
+  type: "ChildInstanceCompleted",
+  eventId: evtId(),
+  at: at(),
+  instanceId: INSTANCE,
+  stepExecId: asStepExecId(parentExec),
+  childInstanceId: asWorkflowId(opts.childId ?? CHILD),
+  outcome: opts.outcome,
+  outputs: (opts.outputs ?? []).map((o) => ({
+    variableName: o.variableName,
+    artifactId: asArtifactId(o.artifactId),
+  })),
+  ...(opts.error ? { error: opts.error } : {}),
+});
+
+describe("project — template.invoke child instances (Phase A)", () => {
+  it("ChildInstanceSpawned sets childInstanceId and parks the step in awaitingChild", () => {
+    const state = project([
+      started,
+      stepStart("inv", "exec-inv"),
+      childSpawned("exec-inv"),
+    ])!;
+    expect(state.executions[0].status).toBe("awaitingChild");
+    expect(state.executions[0].childInstanceId).toBe(CHILD);
+    // The instance reuses the "awaitingHuman" aggregate (no dedicated status).
+    expect(state.status).toBe("awaitingHuman");
+    // Compute time stops at the spawn, like a human gate.
+    expect(state.executions[0].executionEndedAt).toBeDefined();
+    expect(state.executions[0].endedAt).toBeUndefined();
+  });
+
+  it("ChildInstanceCompleted{completed} re-activates the parent step (running)", () => {
+    const state = project([
+      started,
+      stepStart("inv", "exec-inv"),
+      childSpawned("exec-inv"),
+      childCompleted("exec-inv", {
+        outcome: "completed",
+        outputs: [{ variableName: "summary", artifactId: "art-out" }],
+      }),
+    ])!;
+    // Back to running — the orchestrator then assigns outputs + emits
+    // StepValidated (that chain is orchestrated, not projected).
+    expect(state.executions[0].status).toBe("running");
+    expect(state.executions[0].error).toBeUndefined();
+  });
+
+  it("a subsequent StepValidated after a completed child advances normally", () => {
+    const state = project([
+      started,
+      stepStart("inv", "exec-inv"),
+      childSpawned("exec-inv"),
+      childCompleted("exec-inv", { outcome: "completed" }),
+      stepValidated("exec-inv"),
+    ])!;
+    expect(state.executions[0].status).toBe("validated");
+  });
+
+  it("ChildInstanceCompleted{failed} fails the parent step and propagates the error", () => {
+    const state = project([
+      started,
+      stepStart("inv", "exec-inv"),
+      childSpawned("exec-inv"),
+      childCompleted("exec-inv", { outcome: "failed", error: "child blew up" }),
+    ])!;
+    expect(state.executions[0].status).toBe("failed");
+    expect(state.executions[0].error).toBe("child blew up");
+    expect(state.status).toBe("failed");
+  });
+
+  it("a child-waiting step is the instance's active execution (summarize)", () => {
+    const state = project([
+      started,
+      stepStart("inv", "exec-inv"),
+      childSpawned("exec-inv"),
+    ])!;
+    expect(summarize(state, at()).activeStepId).toBe("inv");
+  });
+
+  it("is a no-op when the parent exec is unknown (replay safety net)", () => {
+    // Both child events reference an exec that was never started.
+    const spawnOrphan = project([started, childSpawned("ghost-exec")])!;
+    expect(spawnOrphan.status).toBe("awaitingHuman"); // instance-level still flips
+    expect(spawnOrphan.executions).toHaveLength(0); // but no phantom exec created
+
+    const completeOrphan = project([
+      started,
+      childCompleted("ghost-exec", { outcome: "failed", error: "x" }),
+    ])!;
+    // Failure still marks the instance failed, but no phantom exec is created.
+    expect(completeOrphan.executions).toHaveLength(0);
+  });
+});
+
+describe("project — InstanceStarted Approach-A fields (Phase A)", () => {
+  it("defaults depth to 0, parent undefined and no snapshots on legacy events", () => {
+    const state = project([started])!;
+    expect(state.depth).toBe(0);
+    expect(state.parent).toBeUndefined();
+    expect(state.templateSnapshots).toBeUndefined();
+  });
+
+  it("projects depth, parent and templateSnapshots when present", () => {
+    const snapTpl = {
+      id: asTemplateId("sub-tpl"),
+      name: "Sub",
+      description: "",
+      version: asTemplateVersion("v1"),
+      entryStep: asStepId("s0"),
+      exitSteps: [asStepId("s0")],
+      steps: [],
+      transitions: [],
+      variables: [],
+      status: "published" as const,
+    };
+    const state = project([
+      {
+        ...started,
+        depth: 2,
+        parent: {
+          instanceId: asWorkflowId("wf-parent"),
+          stepExecId: asStepExecId("exec-parent"),
+        },
+        templateSnapshots: [{ ref: "sub-tpl@v1", template: snapTpl }],
+      },
+    ])!;
+    expect(state.depth).toBe(2);
+    expect(state.parent).toEqual({
+      instanceId: asWorkflowId("wf-parent"),
+      stepExecId: asStepExecId("exec-parent"),
+    });
+    expect(state.templateSnapshots?.get("sub-tpl@v1")).toEqual(snapTpl);
+  });
+
+  it("resumes a child-waiting step back to running on a later StepStarted", () => {
+    // Mirrors the awaitingHuman resume path: a re-entry StepStarted on the
+    // same exec flips the instance back to running.
+    const state = project([
+      started,
+      stepStart("inv", "exec-inv"),
+      childSpawned("exec-inv"),
+      stepStart("inv", "exec-inv"),
+    ])!;
+    expect(state.status).toBe("running");
+    expect(state.executions[0].status).toBe("running");
+  });
+});
+
+describe("project — replay equivalence with no child events", () => {
+  it("a pre-spec stream projects identically (no Approach-A leakage)", () => {
+    const legacy = [
+      started,
+      stepStart("a", "exec-a"),
+      stepValidated("exec-a"),
+      completed,
+    ];
+    const state = project(legacy)!;
+    expect(state.status).toBe("completed");
+    expect(state.depth).toBe(0);
+    expect(state.parent).toBeUndefined();
+    expect(state.templateSnapshots).toBeUndefined();
+    // No exec ever carries a childInstanceId.
+    expect(state.executions.every((e) => e.childInstanceId === undefined)).toBe(
+      true,
+    );
+  });
+});

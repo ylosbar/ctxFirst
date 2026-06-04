@@ -81,6 +81,7 @@ import { makeDebugStep } from "./application/use-cases/debug-step";
 import { makeDeleteInstance } from "./application/use-cases/delete-instance";
 import { makeExportInstance } from "./application/use-cases/export-instance";
 import { makeGetInstanceTimeline } from "./application/use-cases/get-instance-timeline";
+import { makeGetInstanceTree } from "./application/use-cases/get-instance-tree";
 import { makeGetRunTokenUsage } from "./application/use-cases/get-run-token-usage";
 import { makeGetTemplate } from "./application/use-cases/get-template";
 import { makeListAwaitingHuman } from "./application/use-cases/list-awaiting-human";
@@ -144,6 +145,7 @@ import { createTransformRunRunner } from "./plugins/transform-run";
 import { createWebhookCallRunner } from "./plugins/webhook-call";
 import { createWorkspaceSetRunner } from "./plugins/workspace-set";
 import { createWorkflowCallRunner } from "./plugins/workflow-call";
+import { createTemplateInvokeRunner } from "./plugins/template-invoke";
 import { attachBusLogger } from "./logging";
 
 // Composition root du module `wf` : seul endroit où les adapters concrets
@@ -158,6 +160,7 @@ export type WfEngine = {
   submitHumanDecision: ReturnType<typeof makeSubmitHumanDecision>;
   openFeedbackLoop: ReturnType<typeof makeOpenFeedbackLoop>;
   getInstanceTimeline: ReturnType<typeof makeGetInstanceTimeline>;
+  getInstanceTree: ReturnType<typeof makeGetInstanceTree>;
   getRunTokenUsage: ReturnType<typeof makeGetRunTokenUsage>;
   /**
    * Assembles the full self-contained {@link RunExportBundle} for an instance.
@@ -465,15 +468,16 @@ export const buildWfEngine = async ({
       .catch(() => undefined);
   };
   warmTemplateSnapshot();
-  runners.register(
-    createWorkflowCallRunner({
-      getChild: (ref) => {
-        const hit = templateSnapshot.get(`${ref.templateId}@${ref.templateVersion}`);
-        if (!hit) warmTemplateSnapshot();
-        return hit;
-      },
-    }),
-  );
+  const getChildTemplate = (ref: { templateId: string; templateVersion: string }) => {
+    const hit = templateSnapshot.get(`${ref.templateId}@${ref.templateVersion}`);
+    if (!hit) warmTemplateSnapshot();
+    return hit;
+  };
+  runners.register(createWorkflowCallRunner({ getChild: getChildTemplate }));
+  // `template.invoke` (Approach A) derives its ports from the same warm
+  // template snapshot as `workflow.call`; the orchestrator spawns the child at
+  // runtime, this accessor only feeds the pure/sync `resolveSpec`.
+  runners.register(createTemplateInvokeRunner({ getChild: getChildTemplate }));
   runners.register(createUserInputRunner());
   runners.register(createHumanGateRunner());
   runners.register(createClaudeCodeInvokeRunner());
@@ -610,6 +614,7 @@ export const buildWfEngine = async ({
     submitHumanDecision: makeSubmitHumanDecision({ bus, log, clock, ids }),
     openFeedbackLoop: makeOpenFeedbackLoop({ bus, log, clock, ids, templates, state }),
     getInstanceTimeline: makeGetInstanceTimeline({ state }),
+    getInstanceTree: makeGetInstanceTree({ state }),
     getRunTokenUsage: makeGetRunTokenUsage({ state, runLog }),
     // Reuse the same use-case instance already injected into the `export_run`
     // runner above — no need to rebuild its dependency closure.

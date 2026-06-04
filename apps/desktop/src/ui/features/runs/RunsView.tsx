@@ -1,4 +1,13 @@
-import { Check, Cog, Group, History, ListFilter, Plus } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Cog,
+  Group,
+  History,
+  ListFilter,
+  Plus,
+} from "lucide-react";
 import { Menu } from "@base-ui/react/menu";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
@@ -79,13 +88,13 @@ const formatRelativeTime = (iso: string, now: number): string => {
 type RunRowProps = {
   readonly item: RunsListItem;
   readonly now: number;
-  readonly isActive: boolean;
-  readonly isOpen: boolean;
-  readonly onPick: () => void;
-  readonly onPin: () => void;
-  readonly onUnpin: () => void;
-  readonly onExport: () => void;
-  readonly onDelete: () => void;
+  readonly isActive: (instanceId: string) => boolean;
+  readonly isOpen: (instanceId: string) => boolean;
+  readonly onPick: (instanceId: string) => void;
+  readonly onPin: (instanceId: string) => void;
+  readonly onUnpin: (instanceId: string) => void;
+  readonly onExport: (instanceId: string) => void;
+  readonly onDelete: (instanceId: string) => void;
 };
 
 const RunRow = ({
@@ -103,24 +112,46 @@ const RunRow = ({
   const shortId = instance.id.slice(0, 8);
   const ref = `${instance.templateId}@${instance.templateVersion}`;
   const relative = formatRelativeTime(instance.updatedAt, now);
+  const hasChildren = item.children.length > 0;
+  const [expanded, setExpanded] = useState(true);
+  const active = isActive(instance.id);
 
   const trigger = (
     <div>
       <button
         type="button"
-        onClick={onPick}
-        aria-pressed={isActive}
+        onClick={() => onPick(instance.id)}
+        aria-pressed={active}
         title={`${ref} · ${shortId}`}
-        style={{ paddingInlineStart: 8 + 1 * 6 }}
+        style={{ paddingInlineStart: 8 + (item.depth + 1) * 6 }}
         className={cn(
           "group/leaf flex h-7 w-full items-center gap-1.5 rounded-none px-2 text-left text-xs font-normal outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-          isActive
+          active
             ? "bg-gradient-to-r from-primary/40 via-primary/20 to-transparent text-foreground hover:from-primary/45 hover:via-primary/25 hover:to-transparent"
             : "hover:bg-accent/40 hover:text-foreground",
-          isOpen && !isActive && "text-foreground",
+          isOpen(instance.id) && !active && "text-foreground",
         )}
       >
-        <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        {hasChildren ? (
+          <span
+            role="button"
+            aria-label={expanded ? "Replier" : "Déplier"}
+            aria-expanded={expanded}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? (
+              <ChevronDown className="size-3" />
+            ) : (
+              <ChevronRight className="size-3" />
+            )}
+          </span>
+        ) : (
+          <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        )}
         <RunStatusGlyph status={instance.status} />
         <span className="min-w-0 flex-1 truncate">{instance.templateId}</span>
         <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">
@@ -131,16 +162,34 @@ const RunRow = ({
   );
 
   return (
-    <RunLeafMenu
-      trigger={trigger}
-      instanceId={instance.id}
-      isPinned={item.pinned}
-      onOpen={onPick}
-      onPin={onPin}
-      onUnpin={onUnpin}
-      onExport={onExport}
-      onDelete={onDelete}
-    />
+    <>
+      <RunLeafMenu
+        trigger={trigger}
+        instanceId={instance.id}
+        isPinned={item.pinned}
+        onOpen={() => onPick(instance.id)}
+        onPin={() => onPin(instance.id)}
+        onUnpin={() => onUnpin(instance.id)}
+        onExport={() => onExport(instance.id)}
+        onDelete={() => onDelete(instance.id)}
+      />
+      {hasChildren && expanded
+        ? item.children.map((child) => (
+            <RunRow
+              key={child.instance.id}
+              item={child}
+              now={now}
+              isActive={isActive}
+              isOpen={isOpen}
+              onPick={onPick}
+              onPin={onPin}
+              onUnpin={onUnpin}
+              onExport={onExport}
+              onDelete={onDelete}
+            />
+          ))
+        : null}
+    </>
   );
 };
 
@@ -426,35 +475,35 @@ const RunsView = ({ selectedRunId, onPick }: RunsViewProps = {}) => {
             />
           )
         ) : (
-          groups.map((group) => (
-            <RunGroup key={group.id} group={group} hasQuery={hasQuery}>
-              {group.items.map((item) => {
-                const id = item.instance.id;
-                const uri = runUriFor(id);
-                const workspaceMode = onPick != null;
-                return (
+          groups.map((group) => {
+            const workspaceMode = onPick != null;
+            const isActive = (id: string) =>
+              workspaceMode ? selectedRunId === id : activeUri === runUriFor(id);
+            const isOpen = (id: string) =>
+              workspaceMode
+                ? selectedRunId === id
+                : openUris.has(runUriFor(id));
+            const pick = (id: string) =>
+              onPick ? onPick(id) : wb.openEditor(runUriFor(id), { focus: true });
+            return (
+              <RunGroup key={group.id} group={group} hasQuery={hasQuery}>
+                {group.items.map((item) => (
                   <RunRow
-                    key={`${group.id}:${id}`}
+                    key={`${group.id}:${item.instance.id}`}
                     item={item}
                     now={now}
-                    isActive={
-                      workspaceMode ? selectedRunId === id : activeUri === uri
-                    }
-                    isOpen={workspaceMode ? selectedRunId === id : openUris.has(uri)}
-                    onPick={() =>
-                      onPick ? onPick(id) : wb.openEditor(uri, { focus: true })
-                    }
-                    onPin={() => pinRun(item.instance.id)}
-                    onUnpin={() => unpinRun(item.instance.id)}
-                    onExport={() => void handleExportRun(item.instance.id)}
-                    onDelete={() => {
-                      void deleteInstance(item.instance.id);
-                    }}
+                    isActive={isActive}
+                    isOpen={isOpen}
+                    onPick={pick}
+                    onPin={(id) => pinRun(id)}
+                    onUnpin={(id) => unpinRun(id)}
+                    onExport={(id) => void handleExportRun(id)}
+                    onDelete={(id) => void deleteInstance(id)}
                   />
-                );
-              })}
-            </RunGroup>
-          ))
+                ))}
+              </RunGroup>
+            );
+          })
         )}
       </ScrollArea>
 

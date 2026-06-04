@@ -139,4 +139,102 @@ describe("buildRunsList", () => {
     });
     expect(out[0].items[0].pinned).toBe(true);
   });
+
+  describe("template.invoke nesting (§11)", () => {
+    const withParent = (
+      r: InstanceSummaryView,
+      parentId: string,
+    ): InstanceSummaryView => ({
+      ...r,
+      parent: { instanceId: parentId, stepExecId: `exec-${r.id}` },
+    });
+
+    it("nests children under their parent and hides them from the top level", () => {
+      const root = mkRun("root", "running", "2026-05-27T10:00:00Z");
+      const childA = withParent(
+        mkRun("childA", "completed", "2026-05-27T10:01:00Z"),
+        "root",
+      );
+      const grandchild = withParent(
+        mkRun("gc", "completed", "2026-05-27T10:02:00Z"),
+        "childA",
+      );
+      const out = buildRunsList({
+        instances: [root, childA, grandchild],
+        pinnedIds: new Set(),
+        statusFilter: new Set(),
+        groupMode: "none",
+      });
+      // Only the root shows at the top level.
+      expect(out[0].items.map((i) => i.instance.id)).toEqual(["root"]);
+      const rootItem = out[0].items[0];
+      expect(rootItem.depth).toBe(0);
+      expect(rootItem.children.map((c) => c.instance.id)).toEqual(["childA"]);
+      const childItem = rootItem.children[0];
+      expect(childItem.depth).toBe(1);
+      expect(childItem.children.map((c) => c.instance.id)).toEqual(["gc"]);
+      expect(childItem.children[0].depth).toBe(2);
+    });
+
+    it("groups by the root's status, not the children's", () => {
+      const root = mkRun("root", "running", "2026-05-27T10:00:00Z");
+      const child = withParent(
+        mkRun("child", "failed", "2026-05-27T10:01:00Z"),
+        "root",
+      );
+      const out = buildRunsList({
+        instances: [root, child],
+        pinnedIds: new Set(),
+        statusFilter: new Set(),
+        groupMode: "status",
+      });
+      // Single "running" group containing root → child; no "failed" group.
+      expect(out.map((g) => g.id)).toEqual(["status:running"]);
+      expect(out[0].items[0].children.map((c) => c.instance.id)).toEqual([
+        "child",
+      ]);
+    });
+
+    it("promotes an orphan (parent filtered out) to a display root", () => {
+      const root = mkRun("root", "completed", "2026-05-27T10:00:00Z");
+      const child = withParent(
+        mkRun("child", "running", "2026-05-27T10:01:00Z"),
+        "root",
+      );
+      const out = buildRunsList({
+        instances: [root, child],
+        pinnedIds: new Set(),
+        statusFilter: new Set(["running"]),
+        groupMode: "status",
+      });
+      // root is filtered out → child has no present parent → shown as a root.
+      expect(out.map((g) => g.id)).toEqual(["status:running"]);
+      const item = out[0].items[0];
+      expect(item.instance.id).toBe("child");
+      expect(item.depth).toBe(0);
+      expect(item.children).toEqual([]);
+    });
+
+    it("renders pinned children flat in the Épinglés group (no nesting)", () => {
+      const root = mkRun("root", "running", "2026-05-27T10:00:00Z");
+      const child = withParent(
+        mkRun("child", "completed", "2026-05-27T10:01:00Z"),
+        "root",
+      );
+      const out = buildRunsList({
+        instances: [root, child],
+        pinnedIds: new Set(["child"]),
+        statusFilter: new Set(),
+        groupMode: "none",
+      });
+      const pinned = out.find((g) => g.id === "pinned");
+      expect(pinned?.items.map((i) => i.instance.id)).toEqual(["child"]);
+      expect(pinned?.items[0].children).toEqual([]);
+      // And it still nests under root in the natural group.
+      const all = out.find((g) => g.id === "all");
+      expect(all?.items[0].children.map((c) => c.instance.id)).toEqual([
+        "child",
+      ]);
+    });
+  });
 });

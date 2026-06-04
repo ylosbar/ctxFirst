@@ -92,6 +92,16 @@ export const registerWfHandlers = (win: BrowserWindow, engine: WfEngine) => {
     return view;
   });
 
+  ipcMain.handle("wf:getInstanceTree", async (_e, args: TimelineArgs) => {
+    const tree = await engine.getInstanceTree(args.instanceId as WorkflowId);
+    const count = (n: typeof tree): number =>
+      n ? 1 + n.children.reduce((acc, c) => acc + count(c), 0) : 0;
+    console.log(
+      `[wf:ipc] getInstanceTree instance=${short(args.instanceId)} → ${count(tree)} nodes`,
+    );
+    return tree;
+  });
+
   ipcMain.handle("wf:getRunTokenUsage", async (_e, args: TimelineArgs) => {
     const usage = await engine.getRunTokenUsage(args.instanceId as WorkflowId);
     console.log(

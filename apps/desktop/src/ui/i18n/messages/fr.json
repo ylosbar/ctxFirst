@@ -1162,7 +1162,8 @@
       "subworkflowStepCount_one": "sous-workflow · {{count}} étape",
       "subworkflowStepCount_other": "sous-workflow · {{count}} étapes",
       "collapseAll": "Tout replier",
-      "expandAll": "Tout déplier"
+      "expandAll": "Tout déplier",
+      "openChild": "Ouvrir le sous-run"
     },
     "stats": {
       "title": "Chronologie des étapes"
@@ -1491,6 +1492,7 @@
       "statusPending": "En attente",
       "statusRunning": "En cours",
       "statusAwaitingHuman": "Validation requise",
+      "statusAwaitingChild": "Attente sous-workflow",
       "statusValidated": "Validée",
       "statusLooped": "Rebouclée",
       "statusFailed": "Échouée",

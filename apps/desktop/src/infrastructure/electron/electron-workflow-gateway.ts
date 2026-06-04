@@ -10,6 +10,7 @@ import type {
   ChannelView,
   DebugStepResultView,
   InstanceSummaryView,
+  InstanceTreeNodeView,
   InstanceView,
   LlmSessionEvent,
   NodeSpecView,
@@ -34,6 +35,12 @@ export const createElectronWorkflowGateway = (): WorkflowGateway => ({
   async getTimeline(instanceId) {
     const raw = (await window.api.wf.getTimeline({ instanceId })) as
       | InstanceView
+      | null;
+    return raw;
+  },
+  async getInstanceTree(instanceId) {
+    const raw = (await window.api.wf.getInstanceTree({ instanceId })) as
+      | InstanceTreeNodeView
       | null;
     return raw;
   },

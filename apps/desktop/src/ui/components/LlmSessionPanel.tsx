@@ -45,6 +45,7 @@ const statusLabelKey = (s: StepExecutionView["status"]): string => {
     case "pending": return "llm.sessionPanel.statusPending";
     case "running": return "llm.sessionPanel.statusRunning";
     case "awaitingHuman": return "llm.sessionPanel.statusAwaitingHuman";
+    case "awaitingChild": return "llm.sessionPanel.statusAwaitingChild";
     case "validated": return "llm.sessionPanel.statusValidated";
     case "looped": return "llm.sessionPanel.statusLooped";
     case "failed": return "llm.sessionPanel.statusFailed";

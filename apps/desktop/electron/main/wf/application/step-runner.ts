@@ -203,6 +203,21 @@ export type StepOutcome =
        */
       kind: "workspace-set";
       cwd: string;
+    }
+  | {
+      /**
+       * The runner is a `template.invoke` (`sub-template-invoke.md` §2): it does
+       * not produce an artifact itself, it asks the orchestrator to spawn a
+       * **child instance** of the referenced sub-template and suspend this step
+       * in `awaitingChild`. The orchestrator resolves the child's seeds from the
+       * step's `readsFrom`, emits `ChildInstanceSpawned` + the child's
+       * `InstanceStarted`, and resumes the step on `ChildInstanceCompleted`
+       * (§5). Returned verbatim from `run()` so the runner stays pure — every
+       * event-log side-effect is materialized by the orchestrator, which owns
+       * the journal.
+       */
+      kind: "spawned-child";
+      config: Readonly<Record<string, unknown>>;
     };
 
 /**

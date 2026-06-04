@@ -18,6 +18,11 @@ export type TimelineRow = {
   readonly retryOfStepExecId: string | null;
   readonly templateStepOrder: number;
   readonly iterationIndex: number;
+  /**
+   * Child instance spawned by this step when it is a `template.invoke` (§11).
+   * `null` for ordinary steps. The timeline renders an "open child run" link.
+   */
+  readonly childInstanceId: string | null;
 };
 
 export type TimelineGap = {

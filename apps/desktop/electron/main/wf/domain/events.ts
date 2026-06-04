@@ -59,6 +59,28 @@ export type DomainEvent = DomainEventCommon &
          * registry qui a pu bouger. Absent for instances without sub-workflows.
          */
         effectiveTemplate?: WorkflowTemplate;
+        /**
+         * Invocation depth in the `template.invoke` tree (root = 0, child =
+         * parent + 1; `sub-template-invoke.md` §14). Absent on pre-spec events —
+         * the projection treats `undefined` as `0`.
+         */
+        depth?: number;
+        /**
+         * Set when this instance was spawned by a parent's `template.invoke`
+         * (Approach A, `sub-template-invoke.md` §4). Pins the filiation on the
+         * child side too. Absent for root instances and for every pre-spec
+         * event. Never present in Phase A (no runner spawns children yet).
+         */
+        parent?: { instanceId: WorkflowId; stepExecId: StepExecId };
+        /**
+         * JSON-safe array form of the transitive sub-template snapshot frozen at
+         * root-instance start (`sub-template-invoke.md` §7). The projection folds
+         * it into `WorkflowInstance.templateSnapshots` (a `Map`); the array form
+         * is used here because the event log persists raw JSON and `Map`s do not
+         * serialize. Absent when the root has no `template.invoke` — i.e. always
+         * in Phase A.
+         */
+        templateSnapshots?: ReadonlyArray<{ ref: string; template: WorkflowTemplate }>;
       }
     | {
         type: "WorkspaceChanged";
@@ -203,6 +225,47 @@ export type DomainEvent = DomainEventCommon &
         instanceId: WorkflowId;
         /** Artifact produced by the last validated step. */
         finalArtifact?: ArtifactId;
+      }
+    | {
+        /**
+         * Emitted when a `template.invoke` step starts a child instance
+         * (`sub-template-invoke.md` §4, Approach A). The orchestrator appends it
+         * right after `StepStarted` and before flipping the step to
+         * `awaitingChild`; the child receives its own `InstanceStarted` with
+         * `parent` populated. Carries `stepExecId` (not just `stepId`) so that a
+         * `template.invoke` inside a `loop.foreach` wakes the *exact* iteration
+         * exec (§15a).
+         *
+         * **Phase A:** defined and projected, but never emitted — no runner
+         * exists to spawn a child yet.
+         */
+        type: "ChildInstanceSpawned";
+        instanceId: WorkflowId; // parent
+        stepExecId: StepExecId; // parent step exec
+        childInstanceId: WorkflowId;
+        childTemplateId: TemplateId;
+        childTemplateVersion: TemplateVersion;
+        /** Seed artifacts forwarded to the child (one per child `input` variable). */
+        seedBindings: ReadonlyArray<{ variableName: string; artifactId: ArtifactId }>;
+      }
+    | {
+        /**
+         * Emitted when a child instance reaches a terminal state, to drive the
+         * parent step out of `awaitingChild` (`sub-template-invoke.md` §4/§5b).
+         * Outputs are captured at emission time (mapping child `output` variable
+         * name → ArtifactId) so the parent reducer never needs to peek into the
+         * child's projected state at replay time. Empty on `outcome: "failed"`.
+         *
+         * **Phase A:** defined and projected, but never emitted.
+         */
+        type: "ChildInstanceCompleted";
+        instanceId: WorkflowId; // parent
+        stepExecId: StepExecId; // parent step exec
+        childInstanceId: WorkflowId;
+        outputs: ReadonlyArray<{ variableName: string; artifactId: ArtifactId }>;
+        outcome: "completed" | "failed";
+        /** Set on failure to surface the child's error on the parent step. */
+        error?: string;
       }
   );
 

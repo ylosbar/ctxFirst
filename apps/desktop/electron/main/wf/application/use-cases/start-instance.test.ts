@@ -45,6 +45,20 @@ describe("startInstance use-case", () => {
     expect(evt.seed).toHaveLength(1);
   });
 
+  it("starts a root instance at depth 0 with no parent or templateSnapshots (sub-template-invoke.md §14)", async () => {
+    const { fakes, start } = buildDeps();
+    await start({
+      templateRef: `${TEMPLATE_LINEAR.id}@${TEMPLATE_LINEAR.version}`,
+      seeds: [],
+    });
+    const evt = fakes.bus.ofType("InstanceStarted")[0];
+    // Approach A filiation: a UI-launched run is always a root.
+    expect(evt.depth).toBe(0);
+    expect(evt.parent).toBeUndefined();
+    // No `template.invoke` exists yet (Phase A) → no transitive snapshot.
+    expect(evt.templateSnapshots).toBeUndefined();
+  });
+
   it("throws when the template ref cannot be resolved", async () => {
     const { start, fakes } = buildDeps();
     await expect(

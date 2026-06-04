@@ -105,6 +105,20 @@ const subWorkflowLabel = (config: Readonly<Record<string, unknown>>): string => 
   return passThrough ? `⊞ ${id}@${version} · sans données` : `⊞ ${id}@${version}`;
 };
 
+/**
+ * Subtitle for a `template.invoke` node (`sub-template-invoke.md` §9c): the ↳
+ * "spawn child" glyph plus the referenced sub-template ref. Distinct from the ⊞
+ * `workflow.call` glyph so the graph reads "inline" vs "spawn child" at a
+ * glance.
+ */
+const subInvokeLabel = (config: Readonly<Record<string, unknown>>): string => {
+  const id = typeof config["templateId"] === "string" ? config["templateId"] : "";
+  const version =
+    typeof config["templateVersion"] === "string" ? config["templateVersion"] : "";
+  if (!id || !version) return "↳ (choisir un sous-template)";
+  return `↳ ${id}@${version}`;
+};
+
 const StepNode = ({ data, selected }: NodeProps) => {
   const t = useT();
   const step = data as unknown as StepNodeData;
@@ -263,7 +277,9 @@ const StepNode = ({ data, selected }: NodeProps) => {
           <span className="truncate text-2xs leading-tight text-muted-foreground/80">
             {step.kind === "workflow.call"
               ? subWorkflowLabel(step.config)
-              : meta?.label ?? step.kind}
+              : step.kind === "template.invoke"
+                ? subInvokeLabel(step.config)
+                : meta?.label ?? step.kind}
           </span>
         </div>
       </div>

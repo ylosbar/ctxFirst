@@ -8,6 +8,10 @@ export type RunsGroupMode = "status" | "template" | "none";
 export type RunsListItem = {
   readonly instance: InstanceSummaryView;
   readonly pinned: boolean;
+  /** Nesting depth in the run tree: 0 for a root, +1 per `template.invoke` hop. */
+  readonly depth: number;
+  /** Child runs spawned by this run's `template.invoke` steps (§11). */
+  readonly children: ReadonlyArray<RunsListItem>;
 };
 
 export type RunsListGroup = {
@@ -46,20 +50,53 @@ const sortByUpdatedAtDesc = (
   return a.updatedAt < b.updatedAt ? 1 : -1;
 };
 
-const toItem = (
+/** Shared context for building nested items from a filtered instance set. */
+type TreeCtx = {
+  readonly pinnedIds: ReadonlySet<string>;
+  /** Child summaries keyed by `parent.instanceId`, restricted to the filtered set. */
+  readonly childrenByParent: ReadonlyMap<string, InstanceSummaryView[]>;
+};
+
+/** Flat item with no children — used for the pinned group. */
+const toFlatItem = (
   instance: InstanceSummaryView,
   pinnedIds: ReadonlySet<string>,
 ): RunsListItem => ({
   instance,
   pinned: pinnedIds.has(instance.id),
+  depth: 0,
+  children: [],
 });
 
+/**
+ * Builds an item plus its descendant subtree from {@link TreeCtx}. `seen`
+ * guards against a malformed parent link forming a cycle.
+ */
+const toTreeItem = (
+  instance: InstanceSummaryView,
+  ctx: TreeCtx,
+  depth: number,
+  seen: Set<string>,
+): RunsListItem => {
+  seen.add(instance.id);
+  const children = [...(ctx.childrenByParent.get(instance.id) ?? [])]
+    .filter((c) => !seen.has(c.id))
+    .sort(sortByUpdatedAtDesc)
+    .map((c) => toTreeItem(c, ctx, depth + 1, seen));
+  return {
+    instance,
+    pinned: ctx.pinnedIds.has(instance.id),
+    depth,
+    children,
+  };
+};
+
 const groupByStatus = (
-  instances: ReadonlyArray<InstanceSummaryView>,
-  pinnedIds: ReadonlySet<string>,
+  roots: ReadonlyArray<InstanceSummaryView>,
+  ctx: TreeCtx,
 ): ReadonlyArray<RunsListGroup> => {
   const byStatus = new Map<InstanceStatus, InstanceSummaryView[]>();
-  for (const inst of instances) {
+  for (const inst of roots) {
     const bucket = byStatus.get(inst.status) ?? [];
     bucket.push(inst);
     byStatus.set(inst.status, bucket);
@@ -73,18 +110,18 @@ const groupByStatus = (
       id: `status:${status}`,
       label: STATUS_LABEL[status],
       status,
-      items: bucket.map((i) => toItem(i, pinnedIds)),
+      items: bucket.map((i) => toTreeItem(i, ctx, 0, new Set())),
     });
   }
   return groups;
 };
 
 const groupByTemplate = (
-  instances: ReadonlyArray<InstanceSummaryView>,
-  pinnedIds: ReadonlySet<string>,
+  roots: ReadonlyArray<InstanceSummaryView>,
+  ctx: TreeCtx,
 ): ReadonlyArray<RunsListGroup> => {
   const byTemplate = new Map<string, InstanceSummaryView[]>();
-  for (const inst of instances) {
+  for (const inst of roots) {
     const ref = `${inst.templateId}@${inst.templateVersion}`;
     const bucket = byTemplate.get(ref) ?? [];
     bucket.push(inst);
@@ -97,31 +134,37 @@ const groupByTemplate = (
     return {
       id: `template:${ref}`,
       label: ref,
-      items: bucket.map((i) => toItem(i, pinnedIds)),
+      items: bucket.map((i) => toTreeItem(i, ctx, 0, new Set())),
     };
   });
 };
 
 const flatGroup = (
-  instances: ReadonlyArray<InstanceSummaryView>,
-  pinnedIds: ReadonlySet<string>,
+  roots: ReadonlyArray<InstanceSummaryView>,
+  ctx: TreeCtx,
 ): ReadonlyArray<RunsListGroup> => {
-  const sorted = [...instances].sort(sortByUpdatedAtDesc);
+  const sorted = [...roots].sort(sortByUpdatedAtDesc);
   if (sorted.length === 0) return [];
   return [
     {
       id: "all",
       label: "Tous",
-      items: sorted.map((i) => toItem(i, pinnedIds)),
+      items: sorted.map((i) => toTreeItem(i, ctx, 0, new Set())),
     },
   ];
 };
 
 /**
  * Pure: filtre par statut, trie par updatedAt desc, groupe selon `groupMode`.
- * Les runs épinglés sont toujours remontés dans un groupe "Épinglés" en tête,
- * indépendamment du groupMode (et restent dans leur groupe naturel sinon —
- * comportement VSCode-like).
+ *
+ * Les runs issus d'un `template.invoke` (`parent` défini, §11) sont **imbriqués**
+ * sous leur parent : seuls les "roots d'affichage" — instances sans parent, ou
+ * dont le parent est absent du jeu filtré — apparaissent au top niveau de chaque
+ * groupe ; leurs descendants pendent en dessous (`item.children`). Le groupe
+ * d'un root est déterminé par le statut/template du root.
+ *
+ * Les runs épinglés sont toujours remontés dans un groupe "Épinglés" en tête
+ * (rendu à plat, sans imbrication), indépendamment du groupMode.
  */
 export const buildRunsList = (
   args: BuildRunsListArgs,
@@ -132,16 +175,33 @@ export const buildRunsList = (
       : args.instances.filter((i) => args.statusFilter.has(i.status));
   if (filtered.length === 0) return [];
 
+  const presentIds = new Set(filtered.map((i) => i.id));
+  const childrenByParent = new Map<string, InstanceSummaryView[]>();
+  for (const inst of filtered) {
+    const parentId = inst.parent?.instanceId;
+    if (parentId === undefined || !presentIds.has(parentId)) continue;
+    const bucket = childrenByParent.get(parentId);
+    if (bucket) bucket.push(inst);
+    else childrenByParent.set(parentId, [inst]);
+  }
+  const ctx: TreeCtx = { pinnedIds: args.pinnedIds, childrenByParent };
+
+  // Display roots: no parent, or a parent that was filtered out (orphan → root).
+  const roots = filtered.filter((i) => {
+    const parentId = i.parent?.instanceId;
+    return parentId === undefined || !presentIds.has(parentId);
+  });
+
   let groups: ReadonlyArray<RunsListGroup>;
   switch (args.groupMode) {
     case "status":
-      groups = groupByStatus(filtered, args.pinnedIds);
+      groups = groupByStatus(roots, ctx);
       break;
     case "template":
-      groups = groupByTemplate(filtered, args.pinnedIds);
+      groups = groupByTemplate(roots, ctx);
       break;
     case "none":
-      groups = flatGroup(filtered, args.pinnedIds);
+      groups = flatGroup(roots, ctx);
       break;
   }
 
@@ -152,7 +212,7 @@ export const buildRunsList = (
   const pinnedGroup: RunsListGroup = {
     id: "pinned",
     label: "Épinglés",
-    items: sortedPinned.map((i) => toItem(i, args.pinnedIds)),
+    items: sortedPinned.map((i) => toFlatItem(i, args.pinnedIds)),
   };
   return [pinnedGroup, ...groups];
 };

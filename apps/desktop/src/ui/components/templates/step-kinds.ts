@@ -584,6 +584,18 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     category: "transform",
     buildDefaultConfig: () => ({ templateId: "", templateVersion: "" }),
   },
+  {
+    id: "template.invoke",
+    label: "Invoquer un template",
+    description:
+      "Démarre une instance enfant isolée d'un autre template publié (template.invoke). L'enfant tourne dans son propre run, branché au parent par ses variables d'interface.",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: GitFork,
+    family: "library",
+    category: "transform",
+    buildDefaultConfig: () => ({ templateId: "", templateVersion: "" }),
+  },
 ];
 
 export const getKindMeta = (kind: StepKindId): StepKindMeta | undefined =>

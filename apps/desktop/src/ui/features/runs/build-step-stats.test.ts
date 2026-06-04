@@ -340,6 +340,7 @@ describe("buildStepStats", () => {
       pending: 1,
       running: 0,
       awaitingHuman: 0,
+      awaitingChild: 0,
       validated: 2,
       looped: 1,
       failed: 0,

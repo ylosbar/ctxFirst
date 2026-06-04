@@ -149,6 +149,7 @@ export const buildTimeline = (args: BuildTimelineArgs): TimelineModel => {
       retryOfStepExecId: p.exec.loopFrom ?? null,
       templateStepOrder: orderFor(p.exec.stepId),
       iterationIndex,
+      childInstanceId: p.exec.childInstanceId ?? null,
     };
   });
 

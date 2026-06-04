@@ -125,4 +125,56 @@ describe("listAwaitingHuman use-case", () => {
     const list = makeListAwaitingHuman({ state, templates, channels });
     expect(await list()).toEqual([]);
   });
+
+  it("does NOT surface a step that is awaitingChild (it is a sub-workflow wait, not a human gate)", async () => {
+    // sub-template-invoke.md §6: a `template.invoke` step parks in `awaitingChild`
+    // while its child runs. That is not human-actionable on the parent — any
+    // human gate lives on the *child* instance — so the parent must stay out of
+    // the human inbox.
+    const state = createEngineState();
+    const templates = createFakeTemplateRegistry([TEMPLATE_LINEAR]);
+    const channels = createFakeChannelContext("default");
+
+    const instanceId = asWorkflowId("wf-invoke");
+    const invokeExec = asStepExecId("wf-invoke-inv");
+    const at = "2026-01-01T00:00:00.000Z";
+    const events: DomainEvent[] = [
+      {
+        type: "InstanceStarted",
+        eventId: asEventId("wf-invoke-e1"),
+        at,
+        instanceId,
+        templateId: TEMPLATE_LINEAR.id,
+        templateVersion: TEMPLATE_LINEAR.version,
+        seed: [],
+        channelId: "default",
+        depth: 0,
+      },
+      {
+        type: "StepStarted",
+        eventId: asEventId("wf-invoke-e2"),
+        at,
+        instanceId,
+        stepExecId: invokeExec,
+        stepId: asStepId("inv"),
+        kind: "template.invoke",
+        inputArtifacts: [],
+      },
+      {
+        type: "ChildInstanceSpawned",
+        eventId: asEventId("wf-invoke-e3"),
+        at,
+        instanceId,
+        stepExecId: invokeExec,
+        childInstanceId: asWorkflowId("wf-child"),
+        childTemplateId: TEMPLATE_LINEAR.id,
+        childTemplateVersion: TEMPLATE_LINEAR.version,
+        seedBindings: [],
+      },
+    ];
+    for (const e of events) state.apply(e);
+
+    const list = makeListAwaitingHuman({ state, templates, channels });
+    expect(await list()).toEqual([]);
+  });
 });

@@ -14,6 +14,7 @@ import type {
   DebugStepInputView,
   DebugStepResultView,
   InstanceSummaryView,
+  InstanceTreeNodeView,
   InstanceView,
   LlmSessionEvent,
   MoveEntityInputView,
@@ -53,6 +54,8 @@ export interface WorkflowGateway {
     comments?: ReadonlyArray<ReviewCommentView>;
   }): Promise<void>;
   getTimeline(instanceId: string): Promise<InstanceView | null>;
+  /** Hierarchy of instances rooted at `instanceId` (root + descendants, §11). */
+  getInstanceTree(instanceId: string): Promise<InstanceTreeNodeView | null>;
   /** Per-step token / cost totals for a run (aggregated from the LLM run log). */
   getRunTokenUsage(instanceId: string): Promise<ReadonlyArray<StepTokenUsage>>;
   getTemplate(templateRef: string): Promise<TemplateView>;

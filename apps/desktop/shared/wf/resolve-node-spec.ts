@@ -421,6 +421,27 @@ export const resolveNodeSpec = (
           .map((v) => ({ name: v.name, kind: v.kind })),
       };
     }
+    case "template.invoke": {
+      // Mirrors `createTemplateInvokeRunner.resolveSpec` (plugins/template-invoke.ts).
+      // Identical port derivation to `workflow.call` — one input per `input`
+      // role, one output per `output` role — but Approach A (spawns a child
+      // instance) rather than inlining. Child variables come from
+      // `ctx.subTemplates`; on a miss we fall back to the portless base.
+      const id = readStr(config.templateId);
+      const version = readStr(config.templateVersion);
+      if (!id || !version) return base;
+      const vars = ctx.subTemplates?.get(`${id}@${version}`);
+      if (!vars) return base;
+      return {
+        ...base,
+        inputs: vars
+          .filter((v) => v.role === "input")
+          .map((v) => ({ name: v.name, kinds: [v.kind] })),
+        outputs: vars
+          .filter((v) => v.role === "output")
+          .map((v) => ({ name: v.name, kind: v.kind })),
+      };
+    }
     default:
       return base;
   }
