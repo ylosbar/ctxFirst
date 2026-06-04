@@ -674,6 +674,33 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Inline rename (TemplateTitleBar) — met à jour l'état local ET persiste le
+  // nouveau nom en base via `renameWorkflowTemplate` (rename-in-place : ne
+  // touche que la colonne `name`, sans re-valider toute la structure ni écrire
+  // les éventuelles éditions structurelles non sauvegardées). Pour un template
+  // « nouveau »/dupliqué (editingRef null, pas encore de ligne), on ne persiste
+  // pas : le nom sera écrit au premier Save qui crée la ligne. En mode view-run,
+  // ce callback n'est pas branché (handle.setName est un noop).
+  const persistName = useCallback(
+    (next: string) => {
+      setName(next);
+      if (isViewRun || editingRef === null) return;
+      const ref = editingRef;
+      void (async () => {
+        try {
+          await services.renameWorkflowTemplate({
+            templateRef: ref,
+            newName: next,
+          });
+          await queryClient.invalidateQueries({ queryKey: ["templates"] });
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      })();
+    },
+    [isViewRun, editingRef, services, queryClient],
+  );
   const [loading, setLoading] = useState<boolean>(!isNew || Boolean(fromRef));
   // Layout chargé une seule fois à l'ouverture. Sert à initialiser les
   // positions de `templateToGraph` et le `defaultViewport` (uncontrolled) de
@@ -2363,7 +2390,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       templateId,
       version,
       description,
-      setName,
+      setName: persistName,
       setTemplateId,
       setVersion,
       setDescription,
@@ -2390,6 +2417,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     templateId,
     version,
     description,
+    persistName,
     addStep,
     updateSelectedStep,
     deleteSelectedStep,
