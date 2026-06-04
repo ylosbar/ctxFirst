@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   AlignHorizontalSpaceAround,
   AlignVerticalSpaceAround,
+  BadgeCheck,
   Check,
   ChevronDown,
   Columns2,
@@ -38,6 +39,7 @@ import {
   Minimize2,
   NotebookPen,
   Play,
+  Rocket,
   Save,
   StickyNote,
   Trash2,
@@ -139,6 +141,7 @@ import TemplateInspectorView from "./TemplateInspectorView";
 import TemplateSaveMissingModal, {
   type RequiredField as MissingRequiredField,
 } from "./TemplateSaveMissingModal";
+import TemplatePublishModal from "./TemplatePublishModal";
 import LaunchRunDialog from "./LaunchRunDialog";
 import {
   collectMissingTemplateDeps,
@@ -674,6 +677,12 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Statut persisté du template chargé (`draft` tant qu'on écrit, `published`
+  // une fois figé). Sert à savoir si la publication est encore possible : une
+  // ref publiée est immuable, on itère en bumpant la version (ce qui repasse le
+  // statut à `draft`, cf. `handleTemplateIdChange` / `handleVersionChange`).
+  const [status, setStatus] = useState<"draft" | "published">("draft");
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   // Inline rename (TemplateTitleBar) — met à jour l'état local ET persiste le
   // nouveau nom en base via `renameWorkflowTemplate` (rename-in-place : ne
@@ -701,6 +710,19 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     },
     [isViewRun, editingRef, services, queryClient],
   );
+  // Éditer l'ID ou la version cible vise une *nouvelle* ref qui n'est pas encore
+  // publiée : on rebascule le statut local sur `draft` pour rouvrir la
+  // publication (une ref publiée reste immuable, on itère donc en bumpant la
+  // version). Le chargement initial utilise les setters bruts + un `setStatus`
+  // explicite, il n'est pas affecté.
+  const handleTemplateIdChange = useCallback((next: string) => {
+    setTemplateId(next);
+    setStatus("draft");
+  }, []);
+  const handleVersionChange = useCallback((next: string) => {
+    setVersion(next);
+    setStatus("draft");
+  }, []);
   const [loading, setLoading] = useState<boolean>(!isNew || Boolean(fromRef));
   // Layout chargé une seule fois à l'ouverture. Sert à initialiser les
   // positions de `templateToGraph` et le `defaultViewport` (uncontrolled) de
@@ -1040,10 +1062,13 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           setName(tpl.name);
           setTemplateId(tpl.id);
           setVersion(tpl.version);
+          setStatus(tpl.status);
         } else {
+          // Une copie repart toujours d'un brouillon : nouvelle ref à publier.
           setName(`${tpl.name} (copie)`);
           setTemplateId(`${tpl.id}-copy`);
           setVersion(tpl.version);
+          setStatus("draft");
         }
         setDescription(tpl.description);
         setNodes(graph.nodes);
@@ -2391,8 +2416,8 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       version,
       description,
       setName: persistName,
-      setTemplateId,
-      setVersion,
+      setTemplateId: handleTemplateIdChange,
+      setVersion: handleVersionChange,
       setDescription,
       addStep,
       updateSelectedStep,
@@ -2418,6 +2443,8 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     version,
     description,
     persistName,
+    handleTemplateIdChange,
+    handleVersionChange,
     addStep,
     updateSelectedStep,
     deleteSelectedStep,
@@ -2435,6 +2462,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     name?: string;
     id?: string;
     version?: string;
+    status?: "draft" | "published";
   }): TemplateDraft => {
     const steps: TemplateStepDraft[] = nodes
       .filter((n) => n.type === "step")
@@ -2482,7 +2510,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       steps,
       transitions,
       variables,
-      status: "draft",
+      // Par défaut on préserve le statut courant (un simple Save ne dé-publie
+      // pas) ; la publication passe explicitement `status: "published"`.
+      status: overrides?.status ?? status,
     };
   };
 
@@ -2595,6 +2625,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setBusy(true);
     try {
       await services.saveWorkflowTemplate(draft);
+      // Refléter le statut effectivement persisté (publication incluse) pour
+      // que la toolbar passe en mode « publié » sans recharger.
+      setStatus(draft.status);
       // Pour un template fraîchement créé (ou dupliqué depuis un `fromRef`),
       // l'auto-save layout est inactif tant qu'il n'y a pas de ligne cible.
       // On capture donc l'état courant ici, juste après que la ligne vient
@@ -2609,9 +2642,16 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           console.warn("[wf:templates] first layout save failed", e);
         }
       }
-      toast.success(t("template.editor.toast.saved"), {
-        description: `${draft.name} · ${draft.id}@${draft.version}`,
-      });
+      toast.success(
+        t(
+          draft.status === "published"
+            ? "template.editor.toast.published"
+            : "template.editor.toast.saved",
+        ),
+        {
+          description: `${draft.name} · ${draft.id}@${draft.version}`,
+        },
+      );
       await queryClient.invalidateQueries({ queryKey: ["templates"] });
       // Pour un template fraîchement créé, on bascule l'onglet sur l'URI
       // canonique du template (`template://<id>@<version>`) — sans ça,
@@ -2645,6 +2685,31 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       return;
     }
     await performSave(draft);
+  };
+
+  // Publier = sauvegarder avec `status: "published"`. On valide exactement comme
+  // un Save (champs requis + structure) avant d'ouvrir la confirmation, car une
+  // ref publiée est immuable côté MCP (`ctxfirst_save_template` refuse de
+  // ré-écrire une ref déjà publiée — on itère en bumpant la version).
+  const handlePublish = () => {
+    setError(null);
+    const draft = buildDraft({ status: "published" });
+    const missing = missingRequiredFields(draft);
+    if (missing.length > 0) {
+      setMissingFieldsModal({ fields: missing });
+      return;
+    }
+    const local = validateDraft(draft);
+    if (local) {
+      setError(local);
+      return;
+    }
+    setPublishConfirmOpen(true);
+  };
+
+  const confirmPublish = async () => {
+    setPublishConfirmOpen(false);
+    await performSave(buildDraft({ status: "published" }));
   };
 
   const handleMissingFieldsConfirm = async (values: {
@@ -3008,9 +3073,31 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
             ) : null}
             <ToolbarButton
               icon={Save}
-              label={busy ? "Sauvegarde…" : "Sauvegarder le brouillon"}
+              label={t(
+                busy
+                  ? "template.editor.toolbar.saving"
+                  : status === "published"
+                    ? "template.editor.toolbar.saveLocked"
+                    : "template.editor.toolbar.saveDraft",
+              )}
               onClick={handleSave}
-              disabled={busy}
+              disabled={busy || status === "published"}
+            />
+            <ToolbarButton
+              icon={status === "published" ? BadgeCheck : Rocket}
+              variant={status === "published" ? "ghost" : "secondary"}
+              label={t(
+                status === "published"
+                  ? "template.editor.toolbar.published"
+                  : "template.editor.toolbar.publish",
+              )}
+              onClick={handlePublish}
+              disabled={busy || status === "published"}
+              className={
+                status === "published"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : undefined
+              }
             />
           </div>
           <div className="ml-auto flex items-center gap-0.5">
@@ -3262,6 +3349,13 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         busy={busy}
         onConfirm={(values) => void handleMissingFieldsConfirm(values)}
         onCancel={() => setMissingFieldsModal(null)}
+      />
+      <TemplatePublishModal
+        open={publishConfirmOpen}
+        templateRef={`${templateId}@${version}`}
+        busy={busy}
+        onConfirm={() => void confirmPublish()}
+        onCancel={() => setPublishConfirmOpen(false)}
       />
       <VariableEditorModal
         open={variableModal.open}

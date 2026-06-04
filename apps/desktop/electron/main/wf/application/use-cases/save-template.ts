@@ -25,10 +25,32 @@ type Deps = {
 
 export type SaveTemplate = (tpl: WorkflowTemplate) => Promise<void>;
 
+/** Thrown when attempting to overwrite an already-published (immutable) ref. */
+export class TemplateImmutableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TemplateImmutableError";
+  }
+}
+
 export const makeSaveTemplate =
   ({ templates, runners, artifactSchemas }: Deps): SaveTemplate =>
   async (tpl) => {
     validateTemplate(tpl);
+    // Immutabilité : une fois `published`, la ref `(id, version)` est figée — on
+    // refuse toute ré-écriture, l'auteur itère en bumpant la version. Même
+    // garde-fou que côté MCP (`ctxfirst_save_template`). `resolve` lève si la
+    // ref est absente : on convertit en `null` (rien à protéger), et la garde
+    // ne mord donc que sur une ré-écriture d'une ref déjà publiée.
+    const existing = await templates
+      .resolve(tpl.id, tpl.version)
+      .catch(() => null);
+    if (existing && existing.status === "published") {
+      throw new TemplateImmutableError(
+        `${tpl.id}@${tpl.version} est publié (immuable). ` +
+          "Crée une nouvelle version (ex. v2) pour itérer.",
+      );
+    }
     validateTemplatePorts(tpl, runners, artifactSchemas);
     // §8: validate every `workflow.call` against its referenced sub-template —
     // literal ref, published, invocable, exhaustive + kind-compatible bindings,
