@@ -303,3 +303,96 @@ describe("resolveNodeSpec — branch.json", () => {
     ).toEqual([]);
   });
 });
+
+describe("resolveNodeSpec — select.markdown", () => {
+  // The engine's listNodeSpecs falls back to a permissive `input?`/`out`
+  // because select.markdown's resolveSpec throws on empty config.
+  const base: NodeSpecView = {
+    kind: "select.markdown",
+    title: "select.markdown",
+    inputs: [{ name: "input", kinds: ["*"], optional: true }],
+    outputs: [{ name: "out", kind: "Markdown" }],
+  };
+
+  it("overrides the base with the static cond/value/out ports", () => {
+    const spec = resolveNodeSpec("select.markdown", { path: "$.flag" }, base);
+    expect(spec.inputs).toEqual([
+      { name: "cond", kinds: ["*"], primary: true },
+      { name: "value", kinds: ["Markdown", "Json"], optional: true },
+    ]);
+    expect(spec.outputs).toEqual([
+      { name: "out", kind: "Markdown", primary: true },
+    ]);
+  });
+
+  it("keeps the same static ports regardless of config (no per-case fan-out)", () => {
+    const spec = resolveNodeSpec("select.markdown", {}, base);
+    expect(spec.inputs.map((i) => i.name)).toEqual(["cond", "value"]);
+    expect(spec.outputs).toEqual([
+      { name: "out", kind: "Markdown", primary: true },
+    ]);
+  });
+});
+
+describe("resolveNodeSpec — loop.foreach", () => {
+  const base: NodeSpecView = {
+    kind: "loop.foreach",
+    title: "For each",
+    inputs: [
+      { name: "items", kinds: ["MarkdownList"], primary: true, optional: true },
+    ],
+    outputs: [{ name: "item", kind: "Markdown", primary: true }],
+  };
+
+  it("returns the Markdown/MarkdownList defaults when itemKind is absent", () => {
+    const spec = resolveNodeSpec("loop.foreach", {}, base);
+    expect(spec).toBe(base);
+  });
+
+  it("types items as List<Json> and item as Json for itemKind=Json (mirrors the runner)", () => {
+    const spec = resolveNodeSpec("loop.foreach", { itemKind: "Json" }, base);
+    expect(spec.inputs[0]).toMatchObject({
+      name: "items",
+      kinds: ["List<Json>"],
+      primary: true,
+      optional: true,
+    });
+    expect(spec.outputs[0]).toEqual({
+      name: "item",
+      kind: "Json",
+      primary: true,
+    });
+  });
+
+  it("keeps the legacy PathList spelling for itemKind=Path", () => {
+    const spec = resolveNodeSpec("loop.foreach", { itemKind: "Path" }, base);
+    expect(spec.inputs[0]).toMatchObject({ kinds: ["PathList"] });
+    expect(spec.outputs[0]).toMatchObject({ kind: "Path" });
+  });
+});
+
+describe("resolveNodeSpec — loop.collect", () => {
+  const base: NodeSpecView = {
+    kind: "loop.collect",
+    title: "Collect",
+    inputs: [
+      { name: "item", kinds: ["Markdown"], isList: true, primary: true },
+    ],
+    outputs: [{ name: "items", kind: "MarkdownList", primary: true }],
+  };
+
+  it("types item as Json and items as List<Json> for itemKind=Json", () => {
+    const spec = resolveNodeSpec("loop.collect", { itemKind: "Json" }, base);
+    expect(spec.inputs[0]).toMatchObject({
+      name: "item",
+      kinds: ["Json"],
+      isList: true,
+      primary: true,
+    });
+    expect(spec.outputs[0]).toEqual({
+      name: "items",
+      kind: "List<Json>",
+      primary: true,
+    });
+  });
+});

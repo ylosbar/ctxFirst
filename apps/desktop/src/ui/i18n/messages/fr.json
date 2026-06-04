@@ -675,6 +675,12 @@
           "description": "JSONPath dans le JSON d'entrée, pointant vers un scalaire unique. Sa valeur (coercée en string) est comparée aux cases ci-dessous. Note : un JSON Transform en amont enveloppe sa sortie dans un tableau — cible donc l'élément (ex. <code>$[0].flag</code>) plutôt que la racine <code>$.flag</code>."
         }
       },
+      "selectMarkdown": {
+        "path": {
+          "label": "Champ booléen (JSONPath)",
+          "description": "Le fragment <code>value</code> n'est injecté que si ce chemin vaut vrai."
+        }
+      },
       "jsonTransform": {
         "projections": {
           "label": "Projections JSONPath",

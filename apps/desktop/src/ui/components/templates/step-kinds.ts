@@ -24,6 +24,7 @@ import {
   Split,
   Terminal,
   Ticket,
+  ToggleRight,
   UserCheck,
   Webhook,
   Workflow,
@@ -276,6 +277,18 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
       cases: ["true", "false"],
       inputKind: "Json",
     }),
+  },
+  {
+    id: "select.markdown",
+    label: "Select (Markdown)",
+    description:
+      "Injecte un fragment Markdown si un flag JSONPath est vrai, sinon rien. Passe-plat, jamais de branchement — remplace un diamant branch.json d'injection conditionnelle.",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: ToggleRight,
+    family: "transform",
+    category: "control",
+    buildDefaultConfig: () => ({ path: "$.flag" }),
   },
   {
     id: "workspace.set",

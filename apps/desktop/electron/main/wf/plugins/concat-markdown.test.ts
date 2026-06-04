@@ -208,6 +208,22 @@ describe("concat.markdown — mode concat (legacy)", () => {
     expect(bodyOfStored(store.all()[0])).toBe("x");
   });
 
+  it("omits a wired port whose body is empty, wrappers included", async () => {
+    const store = createStubArtifactStore();
+    const ctx = buildCtx({
+      config: {
+        entries: { markdown3: { header: "<design_system>", footer: "</design_system>" } },
+      },
+      // markdown3 wired but empty (e.g. `select.markdown` with a false flag):
+      // no content AND no <design_system></design_system> wrapper.
+      inputs: [md("main", "x"), md("markdown3", "")],
+      store,
+    });
+    await runner.run(ctx);
+    expect(bodyOfStored(store.all()[0])).toBe("x");
+    expect(store.all()[0].metadata.partCount).toBe("1");
+  });
+
   it("keeps entry wrappers attached to their part when reversing the order", async () => {
     const store = createStubArtifactStore();
     const ctx = buildCtx({

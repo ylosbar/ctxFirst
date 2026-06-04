@@ -6,5 +6,5 @@ export const markdownType = {
   name: "Markdown",
   description: "Markdown body.",
   parent: null,
-  schema: TextEnvelope(["markdown"] as const),
+  schema: TextEnvelope(["markdown"] as const, { allowEmpty: true }),
 } as const satisfies BuiltinTypeDef;

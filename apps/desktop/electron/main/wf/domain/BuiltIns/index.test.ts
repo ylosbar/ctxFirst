@@ -36,3 +36,22 @@ describe("BUILTIN_SAMPLES", () => {
     }
   });
 });
+
+describe("Markdown / Json empty-body rule", () => {
+  // An empty Markdown document is the "omit this fragment" signal that
+  // select.markdown emits (flag false) and concat.markdown skips. It must be
+  // storable, so the Markdown envelope accepts an empty body.
+  it("Markdown accepts an empty body", () => {
+    expect(
+      BUILTIN_SCHEMAS.Markdown.safeParse({ format: "markdown", body: "" })
+        .success,
+    ).toBe(true);
+  });
+
+  // Json stays strict: "" is not valid JSON.
+  it("Json rejects an empty body", () => {
+    expect(
+      BUILTIN_SCHEMAS.Json.safeParse({ format: "json", body: "" }).success,
+    ).toBe(false);
+  });
+});
