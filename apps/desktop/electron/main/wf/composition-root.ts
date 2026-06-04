@@ -124,6 +124,7 @@ import { createBranchMatchRunner } from "./plugins/branch-match";
 import { createClaudeCodeInvokeRunner } from "./plugins/claude-code-invoke";
 import { createCodexInvokeRunner } from "./plugins/codex-invoke";
 import { createLlmJudgeRunner } from "./plugins/llm-judge";
+import { createClaudeCodeJudgeRunner } from "./plugins/claude-code-judge";
 import { createFormatValidateRunner } from "./plugins/format-validate";
 import { createOpenRouterInvokeRunner } from "./plugins/openrouter-invoke";
 import { createExportRunRunner } from "./plugins/export-run";
@@ -483,6 +484,7 @@ export const buildWfEngine = async ({
   runners.register(createClaudeCodeInvokeRunner());
   runners.register(createCodexInvokeRunner({ codex: codexGateway }));
   runners.register(createLlmJudgeRunner());
+  runners.register(createClaudeCodeJudgeRunner());
   runners.register(createFormatValidateRunner());
   runners.register(
     createOpenRouterInvokeRunner({

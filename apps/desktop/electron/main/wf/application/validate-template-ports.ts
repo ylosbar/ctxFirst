@@ -302,7 +302,11 @@ export const validateTemplatePorts = (
  * prevents a stray `isLoop: true` on a `claude_code.invoke` from silently
  * looping forever. See `specs/llm-judge-bounded-retries.md` §Risques.
  */
-const AUTO_LOOP_WHITELIST: ReadonlyArray<string> = ["llm.judge", "format.validate"];
+const AUTO_LOOP_WHITELIST: ReadonlyArray<string> = [
+  "llm.judge",
+  "format.validate",
+  "claude_code.judge",
+];
 
 const validateAutoLoopWhitelist = (tpl: WorkflowTemplate): void => {
   const kindOf = new Map<StepId, string>(

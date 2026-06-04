@@ -158,6 +158,23 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     }),
   },
   {
+    id: "claude_code.judge",
+    label: "Claude Code Judge",
+    description:
+      "Juge agentique (CLI Claude Code) piloté par une Skill : évalue le subject et route vers approved / rejected / exhausted. Sur rejected avec une transition isLoop, l'orchestrateur ré-invoque le step amont avec le feedback. Critères via l'input `criteria` (skill.loader) ou `config.judgePrompt`.",
+    defaultActor: "LLMAgent",
+    defaultHumanGateRequired: false,
+    icon: Gavel,
+    family: "ai",
+    category: "ai",
+    buildDefaultConfig: () => ({
+      judgePrompt: "",
+      model: "claude-opus-4-7",
+      maxAttempts: 3,
+      maxTokens: 8000,
+    }),
+  },
+  {
     id: "openrouter.invoke",
     label: "OpenRouter Invoke",
     description:
