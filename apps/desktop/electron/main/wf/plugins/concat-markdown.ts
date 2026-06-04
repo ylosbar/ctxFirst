@@ -157,10 +157,16 @@ export const createConcatMarkdownRunner = (): StepRunner => ({
     const parts: string[] = [];
     for (const port of SLOT_PORTS) {
       const input = ctx.inputs.find((i) => i.port === port);
+      // Skip un port sans arête OU câblé mais au body vide : un fragment vide
+      // (ex. `select.markdown` flag faux) ne doit émettre ni contenu ni
+      // header/footer, sinon le wrapper produit des balises vides
+      // (`<design_system></design_system>`) dans le prompt.
       if (!input) continue;
+      const body = bodyOf(input);
+      if (body.length === 0) continue;
       const eh = readEntryWrapper(cfg, port, "header");
       const ef = readEntryWrapper(cfg, port, "footer");
-      parts.push(wrapPart(bodyOf(input), eh, ef, separator));
+      parts.push(wrapPart(body, eh, ef, separator));
     }
     if (order === "bottom-to-top") parts.reverse();
 

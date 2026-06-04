@@ -21,6 +21,20 @@ import type { NodeSpecView, TemplateVariableView } from "./types";
 const readStr = (v: unknown): string | null =>
   typeof v === "string" && v.length > 0 ? v : null;
 
+/**
+ * Renderer mirror of the loop runners' `listKindFor` (`loop-foreach.ts` /
+ * `loop-collect.ts`): maps a per-iteration item kind to its list-artifact
+ * kind, preserving the legacy `MarkdownList` / `PathList` spellings. Lets the
+ * editor keep `loop.foreach`/`loop.collect` port kinds in sync with the engine
+ * when `config.itemKind` overrides the default `Markdown` (e.g. a
+ * `json.transform` producing `List<Json>` wired into a foreach).
+ */
+const listKindForItem = (itemKind: string): string => {
+  if (itemKind === "Path") return "PathList";
+  if (itemKind === "Markdown") return "MarkdownList";
+  return `List<${itemKind}>`;
+};
+
 const CASE_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
 
 type ExitCodeValue = number | "timeout";
@@ -336,6 +350,24 @@ export const resolveNodeSpec = (
         })),
       };
     }
+    case "select.markdown": {
+      // Mirrors `createSelectMarkdownRunner.resolveSpec`
+      // (plugins/select-markdown.ts). Ports are STATIC (independent of
+      // `config.path`): a primary `cond` (any kind, carries the flag), an
+      // optional `value` Markdown|Json fragment, and a single primary `out`
+      // Markdown. Unlike `branch.*` there is no per-case fan-out, so the
+      // shape never depends on config — we override the permissive base
+      // unconditionally (the engine's `listNodeSpecs` falls back to
+      // `input?`/`out` because `resolveSpec` throws on empty config).
+      return {
+        ...base,
+        inputs: [
+          { name: "cond", kinds: ["*"], primary: true },
+          { name: "value", kinds: ["Markdown", "Json"], optional: true },
+        ],
+        outputs: [{ name: "out", kind: "Markdown", primary: true }],
+      };
+    }
     case "branch.match": {
       // Mirrors `createBranchMatchRunner.resolveSpec` (plugins/branch-match.ts).
       // `targetKind` is a `OneOf<A,B,…>` sum; each variant becomes an
@@ -440,6 +472,40 @@ export const resolveNodeSpec = (
         outputs: vars
           .filter((v) => v.role === "output")
           .map((v) => ({ name: v.name, kind: v.kind })),
+      };
+    }
+    case "loop.foreach": {
+      // Mirror `createLoopForeachRunner.resolveSpec`: `config.itemKind`
+      // (default `Markdown`) drives the `items` input kind (`listKindFor`) and
+      // the per-iteration `item` output kind. Absent ⇒ `base` already carries
+      // the `Markdown`/`MarkdownList` defaults from `listNodeSpecs()`.
+      const itemKind = readStr(config.itemKind);
+      if (!itemKind) return base;
+      const listKind = listKindForItem(itemKind);
+      return {
+        ...base,
+        inputs: base.inputs.map((p) =>
+          p.name === "items" ? { ...p, kinds: [listKind] } : p,
+        ),
+        outputs: base.outputs.map((p) =>
+          p.name === "item" ? { ...p, kind: itemKind } : p,
+        ),
+      };
+    }
+    case "loop.collect": {
+      // Symmetric to `loop.foreach`: `config.itemKind` drives the `item` input
+      // kind and the aggregated `items` output kind (`listKindFor`).
+      const itemKind = readStr(config.itemKind);
+      if (!itemKind) return base;
+      const listKind = listKindForItem(itemKind);
+      return {
+        ...base,
+        inputs: base.inputs.map((p) =>
+          p.name === "item" ? { ...p, kinds: [itemKind] } : p,
+        ),
+        outputs: base.outputs.map((p) =>
+          p.name === "items" ? { ...p, kind: listKind } : p,
+        ),
       };
     }
     default:

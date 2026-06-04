@@ -121,6 +121,7 @@ import { createHumanGateRunner } from "./plugins/human-gate";
 import { createBranchBoolRunner } from "./plugins/branch-bool";
 import { createBranchJsonRunner } from "./plugins/branch-json";
 import { createBranchMatchRunner } from "./plugins/branch-match";
+import { createSelectMarkdownRunner } from "./plugins/select-markdown";
 import { createClaudeCodeInvokeRunner } from "./plugins/claude-code-invoke";
 import { createCodexInvokeRunner } from "./plugins/codex-invoke";
 import { createLlmJudgeRunner } from "./plugins/llm-judge";
@@ -500,6 +501,7 @@ export const buildWfEngine = async ({
   runners.register(createBranchBoolRunner());
   runners.register(createBranchJsonRunner());
   runners.register(createBranchMatchRunner());
+  runners.register(createSelectMarkdownRunner());
   runners.register(createWorkspaceSetRunner());
   runners.register(createShellExecRunner());
   runners.register(createGitWorktreeCreateRunner());
