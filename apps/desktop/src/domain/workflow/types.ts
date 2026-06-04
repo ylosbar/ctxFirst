@@ -291,6 +291,11 @@ export type StepExecutionView = {
   /** Opaque `${loopStepId}:${index}` ; même clé = même itération de boucle. */
   iterationKey?: string;
   error?: string;
+  /**
+   * Set when this exec is a `template.invoke` that spawned a child instance
+   * (§3). The runs UI renders an "open child instance" link from it.
+   */
+  childInstanceId?: string;
 };
 
 export type OpenLoopView = {
@@ -310,6 +315,11 @@ export type InstanceView = {
   executions: ReadonlyArray<StepExecutionView>;
   createdAt: string;
   openLoops: ReadonlyArray<OpenLoopView>;
+  /**
+   * Set when this instance was spawned by a `template.invoke` step in another
+   * instance (§3). Lets the run panel show a "back to parent" breadcrumb.
+   */
+  parent?: { instanceId: string; stepExecId: string };
 };
 
 /**
@@ -343,6 +353,17 @@ export type InstanceSummaryView = {
   activeStepId?: string;
   stepCount: number;
   channelId: string;
+  /**
+   * Set when this instance was spawned by a `template.invoke` step in another
+   * instance (§3). The runs list nests a child under its parent via this link.
+   */
+  parent?: { instanceId: string; stepExecId: string };
+};
+
+/** A node in the instance hierarchy: one instance plus its direct children (§11). */
+export type InstanceTreeNodeView = {
+  instance: InstanceSummaryView;
+  children: ReadonlyArray<InstanceTreeNodeView>;
 };
 
 export type ChannelIconImageMimeView = "image/png" | "image/jpeg";

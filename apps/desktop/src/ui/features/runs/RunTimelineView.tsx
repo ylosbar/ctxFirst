@@ -3,6 +3,7 @@ import {
   Boxes,
   ChevronDown,
   ChevronRight,
+  CornerDownRight,
   Hourglass,
   Repeat,
   RotateCw,
@@ -24,6 +25,7 @@ import { useWorkbench } from "../../workbench/WorkbenchProvider";
 import { useT } from "../../i18n";
 import { templateUriFor } from "../templates/template-uri";
 import { buildTimeline } from "./build-timeline";
+import { runUriFor } from "./run-uri";
 import { formatDurationMs } from "./build-step-stats";
 import type {
   TimelineGap,
@@ -282,6 +284,7 @@ const TimelineTree = ({
   onExport,
 }: TimelineTreeProps) => {
   const t = useT();
+  const wb = useWorkbench();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -407,6 +410,9 @@ const TimelineTree = ({
                   depth={item.depth}
                   isSelected={item.row.stepExecId === selectedExecId}
                   onClick={() => onSelectExec(item.row.stepExecId)}
+                  onOpenChild={(childId) =>
+                    wb.openEditor(runUriFor(childId), { focus: true })
+                  }
                 />
                 {gapsAfter.map((gap, gi) => (
                   <TimelineGapItem
@@ -432,9 +438,16 @@ type RowProps = {
   readonly depth: number;
   readonly isSelected: boolean;
   readonly onClick: () => void;
+  readonly onOpenChild: (childInstanceId: string) => void;
 };
 
-const TimelineRowItem = ({ row, depth, isSelected, onClick }: RowProps) => {
+const TimelineRowItem = ({
+  row,
+  depth,
+  isSelected,
+  onClick,
+  onOpenChild,
+}: RowProps) => {
   const t = useT();
   const isRetry = row.retryOfStepExecId !== null;
   return (
@@ -483,6 +496,29 @@ const TimelineRowItem = ({ row, depth, isSelected, onClick }: RowProps) => {
             >
               {STATUS_LABEL[row.status]}
             </span>
+            {row.childInstanceId ? (
+              <span
+                role="link"
+                tabIndex={0}
+                aria-label={t("runs.timeline.openChild")}
+                title={t("runs.timeline.openChild")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (row.childInstanceId) onOpenChild(row.childInstanceId);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (row.childInstanceId) onOpenChild(row.childInstanceId);
+                  }
+                }}
+                className="ml-1 inline-flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-2xs text-primary outline-none hover:bg-primary/10 focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <CornerDownRight className="size-3" />
+                {t("runs.timeline.openChild")}
+              </span>
+            ) : null}
           </div>
           {row.hasError && row.errorMessage ? (
             <div className="mt-1 flex items-start gap-1.5 text-2xs text-destructive">

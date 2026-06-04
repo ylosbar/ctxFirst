@@ -1162,7 +1162,8 @@
       "subworkflowStepCount_one": "sub-workflow · {{count}} step",
       "subworkflowStepCount_other": "sub-workflow · {{count}} steps",
       "collapseAll": "Collapse all",
-      "expandAll": "Expand all"
+      "expandAll": "Expand all",
+      "openChild": "Open child run"
     },
     "stats": {
       "title": "Step timeline"

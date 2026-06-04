@@ -56,6 +56,15 @@ export type InstanceSummary = {
   activeStepId?: StepId;
   stepCount: number;
   channelId: string;
+  /**
+   * Set when this instance was spawned by a `template.invoke` step in another
+   * instance (§3). Lets the runs UI nest a child under its parent without a
+   * second round-trip. Absent for root instances.
+   */
+  parent?: {
+    instanceId: WorkflowId;
+    stepExecId: StepExecId;
+  };
 };
 
 /**
@@ -94,6 +103,7 @@ export const summarize = (
     activeStepId: active?.stepId,
     stepCount: state.executions.length,
     channelId: state.channelId,
+    parent: state.parent,
   };
 };
 

@@ -81,6 +81,7 @@ import { makeDebugStep } from "./application/use-cases/debug-step";
 import { makeDeleteInstance } from "./application/use-cases/delete-instance";
 import { makeExportInstance } from "./application/use-cases/export-instance";
 import { makeGetInstanceTimeline } from "./application/use-cases/get-instance-timeline";
+import { makeGetInstanceTree } from "./application/use-cases/get-instance-tree";
 import { makeGetRunTokenUsage } from "./application/use-cases/get-run-token-usage";
 import { makeGetTemplate } from "./application/use-cases/get-template";
 import { makeListAwaitingHuman } from "./application/use-cases/list-awaiting-human";
@@ -159,6 +160,7 @@ export type WfEngine = {
   submitHumanDecision: ReturnType<typeof makeSubmitHumanDecision>;
   openFeedbackLoop: ReturnType<typeof makeOpenFeedbackLoop>;
   getInstanceTimeline: ReturnType<typeof makeGetInstanceTimeline>;
+  getInstanceTree: ReturnType<typeof makeGetInstanceTree>;
   getRunTokenUsage: ReturnType<typeof makeGetRunTokenUsage>;
   /**
    * Assembles the full self-contained {@link RunExportBundle} for an instance.
@@ -612,6 +614,7 @@ export const buildWfEngine = async ({
     submitHumanDecision: makeSubmitHumanDecision({ bus, log, clock, ids }),
     openFeedbackLoop: makeOpenFeedbackLoop({ bus, log, clock, ids, templates, state }),
     getInstanceTimeline: makeGetInstanceTimeline({ state }),
+    getInstanceTree: makeGetInstanceTree({ state }),
     getRunTokenUsage: makeGetRunTokenUsage({ state, runLog }),
     // Reuse the same use-case instance already injected into the `export_run`
     // runner above — no need to rebuild its dependency closure.

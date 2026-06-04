@@ -1162,7 +1162,8 @@
       "subworkflowStepCount_one": "sous-workflow · {{count}} étape",
       "subworkflowStepCount_other": "sous-workflow · {{count}} étapes",
       "collapseAll": "Tout replier",
-      "expandAll": "Tout déplier"
+      "expandAll": "Tout déplier",
+      "openChild": "Ouvrir le sous-run"
     },
     "stats": {
       "title": "Chronologie des étapes"

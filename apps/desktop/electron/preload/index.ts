@@ -458,6 +458,8 @@ const api = {
      */
     getTimeline: (args: { instanceId: string }): Promise<unknown> =>
       ipcRenderer.invoke("wf:getTimeline", args),
+    getInstanceTree: (args: { instanceId: string }): Promise<unknown> =>
+      ipcRenderer.invoke("wf:getInstanceTree", args),
 
     /** Charge un template de workflow par sa référence stable. */
     getTemplate: (args: { templateRef: string }): Promise<unknown> =>
