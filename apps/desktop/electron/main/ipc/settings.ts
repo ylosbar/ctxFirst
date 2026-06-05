@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { is } from "@electron-toolkit/utils";
 import {
   MAX_CHAT_SYSTEM_PROMPT_CHARS,
   type SettingsStore,
@@ -8,6 +9,7 @@ import {
   CHAT_TOOLS_SECTION,
   DEFAULT_CHAT_BASE_PROMPT,
 } from "../chat/system-prompt";
+import { startPerfMonitor, stopPerfMonitor } from "../perf-monitor";
 
 export const registerSettingsHandlers = (settings: SettingsStore) => {
   ipcMain.handle("settings:getLinearApiKeyStatus", async () => {
@@ -115,6 +117,26 @@ export const registerSettingsHandlers = (settings: SettingsStore) => {
         toolsSection: CHAT_TOOLS_SECTION,
         maxChars: MAX_CHAT_SYSTEM_PROMPT_CHARS,
       };
+    },
+  );
+
+  // --- Dev perf monitoring (Sentry memory gauges) ---
+  // The toggle persists regardless of environment, but starting/stopping the
+  // sampler only matters in dev — in a packaged build the monitor is never
+  // wired, so the setting is a no-op there.
+  ipcMain.handle("settings:dev:getPerfMonitoring", async () =>
+    settings.isDevPerfMonitoringEnabled(),
+  );
+
+  ipcMain.handle(
+    "settings:dev:setPerfMonitoring",
+    async (_e, args: { enabled: boolean }) => {
+      settings.setDevPerfMonitoringEnabled(args.enabled);
+      if (is.dev) {
+        if (args.enabled) startPerfMonitor();
+        else stopPerfMonitor();
+      }
+      return settings.isDevPerfMonitoringEnabled();
     },
   );
 

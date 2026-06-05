@@ -52,6 +52,9 @@ Thumbs.db
 # Private / confidential — never commit (legal grants, side letters, etc.)
 private/
 
+# Specs de travail — locales, hors tracking
+specs/
+
 *storybook.log
 storybook-static
 

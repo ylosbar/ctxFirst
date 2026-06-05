@@ -63,4 +63,11 @@ export const createElectronSettingsGateway = (): SettingsGateway => ({
   setChatSystemPrompt(value) {
     return window.api.settings.chat.setSystemPrompt(value);
   },
+
+  getDevPerfMonitoring() {
+    return window.api.settings.dev.getPerfMonitoring();
+  },
+  setDevPerfMonitoring(enabled) {
+    return window.api.settings.dev.setPerfMonitoring(enabled);
+  },
 });

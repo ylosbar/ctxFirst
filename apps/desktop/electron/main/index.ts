@@ -44,6 +44,7 @@ import { createSystemClock } from "./wf/adapters/clock/system-clock";
 import { createCryptoIdGenerator } from "./wf/adapters/id-generator/crypto-uuid";
 import { parseValidationMode } from "./wf/application/artifact-io";
 import { startMcpServer, stopMcpServer } from "./mcp/server";
+import { startPerfMonitor, stopPerfMonitor } from "./perf-monitor";
 import { createMcpToolProvider } from "./mcp/tools";
 import { registerMcpHandlers } from "./ipc/mcp";
 import { loadPlugins, unloadAllPlugins } from "./plugins/loader";
@@ -132,6 +133,15 @@ let pluginRegistry: PluginRegistry | null = null;
 // This keeps the UI unchanged; it just gives the GPU process more headroom.
 app.commandLine.appendSwitch("force-gpu-mem-available-mb", "1024");
 
+// Stopgap dev-only: Fast Refresh accumulates V8 heap across saves (the old
+// module graph isn't GC'd between cycles), so the renderer OOMs after N hot
+// reloads. Raising the old-space ceiling buys enough headroom to absorb that
+// churn — règle ~80 % des crashs HMR. Never applied to packaged builds.
+// See specs/electron-memory-dev.md § Stopgap immédiat.
+if (is.dev) {
+  app.commandLine.appendSwitch("js-flags", "--max-old-space-size=4096");
+}
+
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
 
@@ -160,6 +170,12 @@ app.whenReady().then(async () => {
   migrateOpenRouterPluginSecrets(db, settings);
   registerSettingsHandlers(settings);
   registerMaintenanceHandlers(db);
+
+  // Dev-only: start the Sentry memory sampler unless the user opted out. The
+  // Settings page toggles it live via `settings:dev:setPerfMonitoring`.
+  if (is.dev && settings.isDevPerfMonitoringEnabled()) {
+    startPerfMonitor();
+  }
 
   // Managed root for `git.clone` checkouts. Created up-front so the runner can
   // use it as the default `baseDir` (the clone's cwd must already exist).
@@ -320,6 +336,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  stopPerfMonitor();
   void stopMcpServer();
   if (pluginRegistry) void unloadAllPlugins(pluginRegistry);
   if (chatService) void chatService.shutdown();
