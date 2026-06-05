@@ -533,6 +533,42 @@
           "subpathPlaceholder": "subfolder/file.md"
         }
       },
+      "filesLoadManifest": {
+        "selector": {
+          "label": "File list (JSONPath)",
+          "description": "JSONPath to an array of file names in the <code>source</code> input. Matches must be strings; 0 matches yields an empty output."
+        },
+        "subdir": {
+          "label": "Subdirectory",
+          "description": "Prefix added under the base before each name."
+        },
+        "outputKind": {
+          "label": "Per-file read type",
+          "description": "Type used to read & validate each file (early-fail on malformed Json). The output port stays Markdown."
+        },
+        "wrap": {
+          "label": "Per-file wrapper",
+          "description": "Header and footer wrapped around each file body. <code>{name}</code> is replaced by the file name."
+        },
+        "separator": {
+          "label": "Separator",
+          "description": "Inserted between files. Default is a blank line."
+        },
+        "dedupe": {
+          "label": "De-duplicate names",
+          "description": "Load a repeated name only once, at its first position."
+        },
+        "onMissing": {
+          "label": "Missing file",
+          "description": "Behavior when a named file does not exist.",
+          "fail": "Fail (default)",
+          "skip": "Skip"
+        },
+        "maxFiles": {
+          "label": "Max files",
+          "description": "Guardrail: fail if the selector matches more than this many files. Empty = unlimited."
+        }
+      },
       "fileLoadMarkdown": {
         "path": {
           "label": "Markdown file path",

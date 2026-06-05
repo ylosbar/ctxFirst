@@ -533,6 +533,42 @@
           "subpathPlaceholder": "sous-dossier/fichier.md"
         }
       },
+      "filesLoadManifest": {
+        "selector": {
+          "label": "Liste de fichiers (JSONPath)",
+          "description": "JSONPath vers un tableau de noms de fichiers dans l'entrée <code>source</code>. Les matchs doivent être des chaînes ; 0 match produit une sortie vide."
+        },
+        "subdir": {
+          "label": "Sous-répertoire",
+          "description": "Préfixe ajouté sous la base avant chaque nom."
+        },
+        "outputKind": {
+          "label": "Type de lecture par fichier",
+          "description": "Type utilisé pour lire et valider chaque fichier (échec précoce si Json malformé). Le port de sortie reste Markdown."
+        },
+        "wrap": {
+          "label": "Encadrement par fichier",
+          "description": "En-tête et pied encadrant le corps de chaque fichier. <code>{name}</code> est remplacé par le nom du fichier."
+        },
+        "separator": {
+          "label": "Séparateur",
+          "description": "Inséré entre les fichiers. Défaut : une ligne vide."
+        },
+        "dedupe": {
+          "label": "Dédoublonner les noms",
+          "description": "Ne charge un nom répété qu'une seule fois, à sa première position."
+        },
+        "onMissing": {
+          "label": "Fichier introuvable",
+          "description": "Comportement quand un fichier nommé n'existe pas.",
+          "fail": "Échec (défaut)",
+          "skip": "Ignorer"
+        },
+        "maxFiles": {
+          "label": "Nombre max de fichiers",
+          "description": "Garde-fou : échoue si le sélecteur matche plus de fichiers que ça. Vide = illimité."
+        }
+      },
       "fileLoadMarkdown": {
         "path": {
           "label": "Chemin du fichier Markdown",
