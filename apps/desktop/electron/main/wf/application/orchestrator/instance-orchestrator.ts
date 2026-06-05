@@ -1049,7 +1049,6 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         artifactId: outcome.artifact.id,
         port,
       });
-      await maybeAssignVariable(port, outcome.artifact.id);
       if (isForeach) {
         await materializeForeachIterations(
           inst,
@@ -1058,6 +1057,11 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
           stepExecId,
           outcome.artifact.id,
         );
+        // `writesTo.item` is published per-iteration (see `assignForeachItem`),
+        // NOT as the whole list here — that would write the list before the
+        // first iteration and be immediately overwritten, misleading on replay.
+      } else {
+        await maybeAssignVariable(port, outcome.artifact.id);
       }
       if (step.humanGateRequired) {
         const cfgRole = step.config["actorRole"];
@@ -1193,6 +1197,33 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         itemArtifactId: itemArtifact.id,
       });
     }
+  };
+
+  /**
+   * Publishes the current iteration's unit item into the variable bound by the
+   * foreach's `writesTo.item`, if any. Emitted just before the iteration body's
+   * `startStep` so the body root (and the whole cascade) already reads the right
+   * value. Iteration-safe because the engine is strictly sequential: the next
+   * iteration's write hasn't happened yet (see spec
+   * `loop-foreach-item-variable.md`). The event is attached to the foreach's own
+   * exec (`record.loopStepExecId`) and routed last-writer-wins by the projection.
+   */
+  const assignForeachItem = async (
+    inst: InstanceState,
+    foreachStep: StepDef,
+    record: IterationRecord,
+  ): Promise<void> => {
+    const varName = foreachStep.writesTo?.["item"];
+    if (!varName) return;
+    await emit({
+      type: "VariableAssigned",
+      eventId: asEventId(deps.ids.newId()),
+      at: deps.clock.now(),
+      instanceId: inst.id,
+      stepExecId: record.loopStepExecId,
+      variableName: varName,
+      artifactId: record.itemArtifactId,
+    });
   };
 
   /**
@@ -1719,6 +1750,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       }
       if (!next) return;
       const first = records[0];
+      await assignForeachItem(refreshed, step, first);
       await startStep(refreshed, template, next, undefined, first.iterationKey);
       return;
     }
@@ -1776,6 +1808,11 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         if (nextRec) {
           const firstBody = successors(template, foreachId)[0]?.to;
           if (firstBody) {
+            await assignForeachItem(
+              refreshed,
+              findStep(template, foreachId),
+              nextRec,
+            );
             await startStep(
               refreshed,
               template,
