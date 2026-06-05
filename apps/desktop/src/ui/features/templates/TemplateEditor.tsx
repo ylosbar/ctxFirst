@@ -120,7 +120,6 @@ import {
 } from "./template-uri";
 import {
   useRegisterTemplateCanvas,
-  type SelectedEdgeInfo,
   type TemplateCanvasHandle,
 } from "../../stores/template-canvas-store";
 import TemplateMissingDepsModal from "./TemplateMissingDepsModal";
@@ -141,6 +140,7 @@ import { useNodeReparenting } from "./template-editor/hooks/useNodeReparenting";
 import { useAutoLayout } from "./template-editor/hooks/useAutoLayout";
 import { useStickyNotes } from "./template-editor/hooks/useStickyNotes";
 import { useGroupTools } from "./template-editor/hooks/useGroupTools";
+import { useStepMutations } from "./template-editor/hooks/useStepMutations";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -449,23 +449,30 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const byKind: ByKind | null = specs.status === "ready" ? specs.byKind : null;
 
-  const selectedStep = useMemo<TemplateStepDraft | null>(() => {
-    if (!selectedNodeId) return null;
-    const n = nodes.find((x) => x.id === selectedNodeId);
-    return n ? (n.data as unknown as TemplateStepDraft) : null;
-  }, [nodes, selectedNodeId]);
-
-  const selectedEdgeInfo = useMemo<SelectedEdgeInfo | null>(() => {
-    if (!selectedEdgeId) return null;
-    const e = edges.find((x) => x.id === selectedEdgeId);
-    if (!e) return null;
-    return {
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      isLoop: (e.data as EdgeData | undefined)?.isLoop ?? false,
-    };
-  }, [edges, selectedEdgeId]);
+  // Dérivés de sélection + mutateurs de domaine sur l'élément sélectionné
+  // (édition/suppression de step, (dé)marquage entrée, toggle/suppression
+  // d'edge). La sélection elle-même (`selectedNodeId` / `selectedEdgeId`) reste
+  // possédée ici : de nombreux autres handlers la fixent.
+  const {
+    selectedStep,
+    selectedEdgeInfo,
+    updateSelectedStep,
+    deleteSelectedStep,
+    setSelectedAsEntry,
+    toggleSelectedEdgeLoop,
+    deleteSelectedEdge,
+  } = useStepMutations({
+    nodes,
+    edges,
+    selectedNodeId,
+    selectedEdgeId,
+    entryStepId,
+    setNodes,
+    setEdges,
+    setEntryStepId,
+    setSelectedNodeId,
+    setSelectedEdgeId,
+  });
 
   const variableByName = useMemo(() => {
     const map = new Map<string, TemplateVariableDraft>();
@@ -1223,78 +1230,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     },
     [isViewRun, gridSnap.enabled, snapGrid, screenToFlowPosition, addStep],
   );
-
-  const updateSelectedStep = useCallback(
-    (next: TemplateStepDraft) => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id !== selectedNodeId) return n;
-          const prev = n.data as unknown as TemplateStepDraft & {
-            isEntry: boolean;
-          };
-          if (next.id !== prev.id) {
-            if (entryStepId === prev.id) setEntryStepId(next.id);
-            setEdges((eds) =>
-              eds.map((e) => ({
-                ...e,
-                source: e.source === prev.id ? next.id : e.source,
-                target: e.target === prev.id ? next.id : e.target,
-              })),
-            );
-            setSelectedNodeId(next.id);
-            return {
-              ...n,
-              id: next.id,
-              data: { ...next, isEntry: prev.isEntry },
-            };
-          }
-          return { ...n, data: { ...next, isEntry: prev.isEntry } };
-        }),
-      );
-    },
-    [entryStepId, selectedNodeId],
-  );
-
-  const deleteSelectedStep = useCallback(() => {
-    if (!selectedNodeId) return;
-    setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId));
-    setEdges((eds) =>
-      eds.filter(
-        (e) => e.source !== selectedNodeId && e.target !== selectedNodeId,
-      ),
-    );
-    if (entryStepId === selectedNodeId) setEntryStepId(null);
-    setSelectedNodeId(null);
-  }, [entryStepId, selectedNodeId]);
-
-  const setSelectedAsEntry = useCallback(() => {
-    if (!selectedNodeId) return;
-    const next = entryStepId === selectedNodeId ? null : selectedNodeId;
-    setEntryStepId(next);
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...(n.data as object), isEntry: n.id === next },
-      })),
-    );
-  }, [entryStepId, selectedNodeId]);
-
-  const toggleSelectedEdgeLoop = useCallback(() => {
-    if (!selectedEdgeId) return;
-    setEdges((eds) =>
-      eds.map((e) => {
-        if (e.id !== selectedEdgeId) return e;
-        const next = !((e.data as EdgeData | undefined)?.isLoop ?? false);
-        return { ...e, data: { isLoop: next }, ...edgeStyle(next) };
-      }),
-    );
-  }, [selectedEdgeId]);
-
-  const deleteSelectedEdge = useCallback(() => {
-    if (!selectedEdgeId) return;
-    setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId));
-    setSelectedEdgeId(null);
-  }, [selectedEdgeId]);
 
   const addVariable = useCallback((variable: TemplateVariableDraft) => {
     setVariables((vs) => [...vs, variable]);
