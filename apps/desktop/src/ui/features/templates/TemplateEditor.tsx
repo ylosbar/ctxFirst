@@ -72,24 +72,16 @@ import {
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import type { TemplateVariableView } from "@shared/wf/types";
 import { transitionTypable } from "@shared/wf/port-accepts";
-import type {
-  GroupLayout,
-  NodePositionEntry,
-  StickyNoteLayout,
-  TemplateLayout,
-} from "@shared/wf/layout";
+import type { TemplateLayout } from "@shared/wf/layout";
 import ToolbarButton from "../../components/ToolbarButton";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
 import {
   kindForArtifactSchema,
   type ArtifactKind,
-  type NodeSpecView,
-  type StepKindId,
   type TemplateDraft,
   type TemplateStepDraft,
   type TemplateVariableDraft,
-  type TemplateView,
 } from "../../../domain/workflow/types";
 import StepNode, {
   NotesVisibilityProvider,
@@ -164,6 +156,50 @@ import {
   renderWorkflowSvg,
 } from "./exportWorkflowSvg";
 import type { RunOverlay } from "./run-overlay";
+import {
+  AUTO_LOOP_SOURCE_KINDS,
+  GROUP_NODE_PREFIX,
+  START_EDGE_ID,
+  START_NODE_ID,
+  STICKY_NODE_PREFIX,
+  VARIABLE_EDGE_PREFIX,
+  VARIABLE_NODE_PREFIX,
+  highestCounterForKind,
+  isSyntheticId,
+  makeStepId,
+} from "./template-editor/graph/ids";
+import {
+  GROUP_MIN_DRAW_SIZE,
+  GROUP_PADDING,
+  absPosOf,
+  findContainingGroupId,
+  resizeGroupToFit,
+  stepCenterAbs,
+} from "./template-editor/graph/geometry";
+import {
+  AUTO_LAYOUT_BASE_X,
+  AUTO_LAYOUT_BASE_Y,
+  AUTO_LAYOUT_DEFAULT_HEIGHT,
+  AUTO_LAYOUT_DEFAULT_WIDTH,
+  computeAutoLayoutOrder,
+  layoutLine,
+  nodeToSized,
+  type AutoLayoutMode,
+  type SizedItem,
+} from "./template-editor/graph/auto-layout";
+import { buildTemplateLayout } from "./template-editor/graph/build-layout";
+import { templateToGraph } from "./template-editor/graph/template-to-graph";
+import {
+  buildDefaultStep,
+  resolveStepSpec,
+  type ByKind,
+} from "./template-editor/graph/step-spec";
+import {
+  edgeStyle,
+  minimapNodeColor,
+  minimapNodeStrokeColor,
+  type EdgeData,
+} from "./template-editor/graph/edge-style";
 
 const nodeTypes = {
   step: StepNode,
@@ -173,472 +209,6 @@ const nodeTypes = {
   stickyNote: StickyNoteNode,
 } as const;
 const edgeTypes = { selfLoop: SelfLoopEdge, step: StepEdge } as const;
-
-const START_NODE_ID = "__start__";
-const START_EDGE_ID = "__start-edge__";
-const VARIABLE_NODE_PREFIX = "__var-";
-const VARIABLE_EDGE_PREFIX = "__var-edge-";
-const GROUP_NODE_PREFIX = "grp-";
-const STICKY_NODE_PREFIX = "note-";
-const GROUP_MIN_DRAW_SIZE = 24;
-// Marge intérieure d'un groupe : espace entre le bord du groupe et la bbox
-// des steps qu'il contient. Utilisé pour le placement initial des enfants
-// (lors du draw-to-create) et pour le resize auto-layout / drop.
-const GROUP_PADDING = 24;
-
-const isSyntheticId = (id: string): boolean =>
-  id === START_NODE_ID ||
-  id === START_EDGE_ID ||
-  id.startsWith(VARIABLE_NODE_PREFIX) ||
-  id.startsWith(VARIABLE_EDGE_PREFIX);
-
-type EdgeData = { isLoop: boolean; order?: number };
-
-type ByKind = ReadonlyMap<StepKindId, NodeSpecView>;
-
-/**
- * Step kinds whose loop edges are *auto-loops* (the orchestrator re-invokes
- * automatically on the pinned `fromPort`). These keep their `fromPort` on save;
- * loop edges from any other kind are human-feedback loops and drop it. Mirrors
- * `AUTO_LOOP_WHITELIST` in the main-process `validateAutoLoopWhitelist`.
- */
-const AUTO_LOOP_SOURCE_KINDS: ReadonlySet<string> = new Set([
-  "llm.judge",
-  "format.validate",
-]);
-
-const makeStepId = (kind: string, counter: number) =>
-  `${kind.replace(/\./g, "-")}-${counter}`;
-
-const highestCounterForKind = (
-  kind: string,
-  ids: ReadonlyArray<string>,
-): number => {
-  const prefix = `${kind.replace(/\./g, "-")}-`;
-  let max = 0;
-  for (const id of ids) {
-    if (!id.startsWith(prefix)) continue;
-    const n = Number(id.slice(prefix.length));
-    if (Number.isInteger(n) && n > max) max = n;
-  }
-  return max;
-};
-
-const buildDefaultStep = (
-  kind: StepKindMeta,
-  id: string,
-): TemplateStepDraft => ({
-  id,
-  name: kind.label,
-  kind: kind.id,
-  actorRole: kind.defaultActor,
-  humanGateRequired: kind.defaultHumanGateRequired,
-  config: kind.buildDefaultConfig(),
-});
-
-const edgeStyle = (isLoop: boolean): Partial<Edge> => ({
-  animated: false,
-  style: isLoop
-    ? { strokeDasharray: "2 4", stroke: "var(--color-orange-500, #f97316)" }
-    : undefined,
-  label: isLoop ? "Human validation" : undefined,
-});
-
-const minimapNodeColor = (node: Node): string => {
-  if (node.type === "start") return "var(--primary)";
-  if (node.type === "variable") return "var(--muted-foreground)";
-  return node.selected ? "var(--primary)" : "var(--card)";
-};
-
-const minimapNodeStrokeColor = (node: Node): string =>
-  node.selected ? "var(--primary)" : "var(--border)";
-
-const computeStepLevels = (
-  stepIds: ReadonlyArray<string>,
-  transitions: ReadonlyArray<{ from: string; to: string; isLoop: boolean }>,
-  entryStepId: string,
-): Map<string, number> => {
-  const forward = new Map<string, string[]>();
-  for (const t of transitions) {
-    if (t.isLoop || t.from === t.to) continue;
-    const arr = forward.get(t.from) ?? [];
-    arr.push(t.to);
-    forward.set(t.from, arr);
-  }
-  const level = new Map<string, number>();
-  const queue: Array<{ id: string; lv: number }> = [{ id: entryStepId, lv: 0 }];
-  while (queue.length > 0) {
-    const { id, lv } = queue.shift()!;
-    if ((level.get(id) ?? -1) >= lv) continue;
-    level.set(id, lv);
-    for (const next of forward.get(id) ?? []) {
-      queue.push({ id: next, lv: lv + 1 });
-    }
-  }
-  for (const id of stepIds) {
-    if (!level.has(id)) level.set(id, 0);
-  }
-  return level;
-};
-
-const groupLayoutToNode = (g: GroupLayout): Node => ({
-  id: g.id,
-  type: "group",
-  position: { x: g.position.x, y: g.position.y },
-  width: g.size.width,
-  height: g.size.height,
-  data: { label: g.label ?? "" },
-  zIndex: -1,
-});
-
-const stickyNoteLayoutToNode = (s: StickyNoteLayout): Node => ({
-  id: s.id,
-  type: "stickyNote",
-  position: { x: s.position.x, y: s.position.y },
-  width: s.size.width,
-  height: s.size.height,
-  data: { text: s.text, color: s.color ?? "yellow" },
-  zIndex: -1,
-});
-
-// Position absolue d'une node : si elle est enfant d'un groupe, sa `position`
-// xyflow est relative au parent — il faut ajouter l'absolu du parent. Les
-// groupes ne s'imbriquent pas (un seul niveau), donc la récursion termine
-// en pratique en 1 saut, mais on l'écrit générale pour rester safe.
-const absPosOf = (
-  node: Node,
-  byId: ReadonlyMap<string, Node>,
-): { x: number; y: number } => {
-  if (!node.parentId) return node.position;
-  const parent = byId.get(node.parentId);
-  if (!parent) return node.position;
-  const parentAbs = absPosOf(parent, byId);
-  return {
-    x: parentAbs.x + node.position.x,
-    y: parentAbs.y + node.position.y,
-  };
-};
-
-const stepCenterAbs = (
-  n: Node,
-  byId: ReadonlyMap<string, Node>,
-): { x: number; y: number } => {
-  const w = n.measured?.width ?? n.width ?? AUTO_LAYOUT_DEFAULT_WIDTH;
-  const h = n.measured?.height ?? n.height ?? AUTO_LAYOUT_DEFAULT_HEIGHT;
-  const p = absPosOf(n, byId);
-  return { x: p.x + w / 2, y: p.y + h / 2 };
-};
-
-const groupBounds = (
-  g: Node,
-): { x: number; y: number; w: number; h: number } => {
-  const w = g.width ?? (g.style?.width as number | undefined) ?? 0;
-  const h = g.height ?? (g.style?.height as number | undefined) ?? 0;
-  return { x: g.position.x, y: g.position.y, w, h };
-};
-
-// Trouve le groupe dont le bbox absolu contient le point passé. Si plusieurs
-// groupes contiennent le point (overlap), on prend le dernier de l'ordre de
-// la liste (= dessiné en dernier visuellement). Renvoie `null` sinon.
-const findContainingGroupId = (
-  point: { x: number; y: number },
-  groups: ReadonlyArray<Node>,
-): string | null => {
-  let hit: string | null = null;
-  for (const g of groups) {
-    const { x, y, w, h } = groupBounds(g);
-    if (point.x >= x && point.x <= x + w && point.y >= y && point.y <= y + h) {
-      hit = g.id;
-    }
-  }
-  return hit;
-};
-
-// Grow-only : assure que `groupId` enclos tous ses enfants step avec une
-// marge `GROUP_PADDING`. Si des enfants débordent à gauche/au-dessus, on
-// décale le groupe en monde et on compense les positions locales des
-// enfants pour préserver leurs coordonnées monde. Ne rétrécit jamais —
-// seul l'auto-layout, qui recompose tout, autorise le shrink.
-const resizeGroupToFit = (
-  nodes: ReadonlyArray<Node>,
-  groupId: string,
-): Node[] => {
-  const group = nodes.find((n) => n.id === groupId);
-  if (!group) return [...nodes];
-  const children = nodes.filter(
-    (n) => n.parentId === groupId && n.type === "step",
-  );
-  if (children.length === 0) return [...nodes];
-
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const c of children) {
-    const w = c.measured?.width ?? AUTO_LAYOUT_DEFAULT_WIDTH;
-    const h = c.measured?.height ?? AUTO_LAYOUT_DEFAULT_HEIGHT;
-    if (c.position.x < minX) minX = c.position.x;
-    if (c.position.y < minY) minY = c.position.y;
-    if (c.position.x + w > maxX) maxX = c.position.x + w;
-    if (c.position.y + h > maxY) maxY = c.position.y + h;
-  }
-
-  const currentWidth = group.width ?? 0;
-  const currentHeight = group.height ?? 0;
-  const shiftX = Math.min(0, minX - GROUP_PADDING);
-  const shiftY = Math.min(0, minY - GROUP_PADDING);
-  const rightLocal = Math.max(currentWidth, maxX + GROUP_PADDING);
-  const bottomLocal = Math.max(currentHeight, maxY + GROUP_PADDING);
-  const newWidth = rightLocal - shiftX;
-  const newHeight = bottomLocal - shiftY;
-
-  if (
-    shiftX === 0 &&
-    shiftY === 0 &&
-    newWidth === currentWidth &&
-    newHeight === currentHeight
-  ) {
-    return [...nodes];
-  }
-
-  return nodes.map((n) => {
-    if (n.id === groupId) {
-      return {
-        ...n,
-        position: {
-          x: group.position.x + shiftX,
-          y: group.position.y + shiftY,
-        },
-        width: newWidth,
-        height: newHeight,
-      };
-    }
-    if (n.parentId === groupId) {
-      return {
-        ...n,
-        position: { x: n.position.x - shiftX, y: n.position.y - shiftY },
-      };
-    }
-    return n;
-  });
-};
-
-const templateToGraph = (
-  tpl: TemplateView,
-  layout: TemplateLayout | null,
-): { nodes: Node[]; edges: Edge[]; entryStepId: string } => {
-  const levels = computeStepLevels(
-    tpl.steps.map((s) => s.id),
-    tpl.transitions,
-    tpl.entryStep,
-  );
-  const yIndexByLevel = new Map<number, number>();
-
-  const groupNodes: Node[] = (layout?.groups ?? []).map(groupLayoutToNode);
-  const groupById = new Map(groupNodes.map((g) => [g.id, g]));
-  const noteNodes: Node[] = (layout?.stickyNotes ?? []).map(
-    stickyNoteLayoutToNode,
-  );
-
-  const stepNodes: Node[] = tpl.steps.map((s) => {
-    const lv = levels.get(s.id) ?? 0;
-    const yIdx = yIndexByLevel.get(lv) ?? 0;
-    yIndexByLevel.set(lv, yIdx + 1);
-    const stepData: TemplateStepDraft = {
-      id: s.id,
-      name: s.name,
-      kind: s.kind,
-      actorRole: s.actorRole,
-      config: s.config ?? {},
-      humanGateRequired: s.humanGateRequired,
-      writesTo: s.writesTo,
-      readsFrom: s.readsFrom,
-      note: s.note,
-    };
-    const saved = layout?.positions[s.id];
-    if (saved && saved.parentId && groupById.has(saved.parentId)) {
-      // Layout au nouveau format : position déjà relative au parent.
-      return {
-        id: s.id,
-        type: "step",
-        position: { x: saved.x, y: saved.y },
-        parentId: saved.parentId,
-        data: { ...stepData, isEntry: s.id === tpl.entryStep },
-      };
-    }
-    // Fallback : position absolue (anciens layouts ou nouveau step sans
-    // sauvegarde). On détecte l'appartenance par containment du centre du
-    // step dans une bbox de groupe, puis on traduit en coords locales si
-    // un parent est trouvé — migration silencieuse vers le modèle parentId.
-    const absPos = saved
-      ? { x: saved.x, y: saved.y }
-      : { x: 80 + lv * 280, y: 80 + yIdx * 140 };
-    const center = {
-      x: absPos.x + AUTO_LAYOUT_DEFAULT_WIDTH / 2,
-      y: absPos.y + AUTO_LAYOUT_DEFAULT_HEIGHT / 2,
-    };
-    const parentId = findContainingGroupId(center, groupNodes);
-    if (parentId) {
-      const parent = groupById.get(parentId)!;
-      return {
-        id: s.id,
-        type: "step",
-        position: {
-          x: absPos.x - parent.position.x,
-          y: absPos.y - parent.position.y,
-        },
-        parentId,
-        data: { ...stepData, isEntry: s.id === tpl.entryStep },
-      };
-    }
-    return {
-      id: s.id,
-      type: "step",
-      position: absPos,
-      data: { ...stepData, isEntry: s.id === tpl.entryStep },
-    };
-  });
-  const edges: Edge[] = tpl.transitions.map((t, i) => {
-    const isSelfLoop = t.from === t.to;
-    return {
-      id: `e-${t.from}-${t.to}-${i}`,
-      source: t.from,
-      sourceHandle: t.fromPort,
-      target: t.to,
-      targetHandle: t.toPort,
-      type: isSelfLoop ? "selfLoop" : "step",
-      data: {
-        isLoop: t.isLoop,
-        ...(typeof t.order === "number" ? { order: t.order } : {}),
-      },
-      zIndex: isSelfLoop ? 1000 : undefined,
-      ...edgeStyle(t.isLoop),
-    };
-  });
-  // React Flow exige que les parents apparaissent AVANT leurs enfants dans
-  // le tableau de nodes (sinon le mounting des enfants se fait sans ancrage
-  // correct). Comme les groupes sont déjà en tête, et qu'on ne nest pas les
-  // groupes, l'ordre `[groupes…, steps…]` satisfait l'invariant.
-  return {
-    nodes: [...groupNodes, ...noteNodes, ...stepNodes],
-    edges,
-    entryStepId: tpl.entryStep,
-  };
-};
-
-const AUTO_LAYOUT_BASE_X = 80;
-const AUTO_LAYOUT_BASE_Y = 80;
-const AUTO_LAYOUT_VERTICAL_GAP = 60;
-const AUTO_LAYOUT_HORIZONTAL_GAP = 80;
-const AUTO_LAYOUT_DEFAULT_WIDTH = 220;
-const AUTO_LAYOUT_DEFAULT_HEIGHT = 120;
-
-type AutoLayoutMode = "vertical" | "horizontal" | "two-columns";
-
-// Ordering used for every auto-layout: BFS from the entry step along
-// non-loop transitions, then any unreachable steps appended in their
-// existing array order — keeps the visible flow direction stable.
-const computeAutoLayoutOrder = (
-  nodes: ReadonlyArray<Node>,
-  edges: ReadonlyArray<Edge>,
-  entryStepId: string | null,
-): string[] => {
-  const stepIds = nodes.map((n) => n.id);
-  const adj = new Map<string, string[]>();
-  for (const e of edges) {
-    if ((e.data as EdgeData | undefined)?.isLoop) continue;
-    if (e.source === e.target) continue;
-    const arr = adj.get(e.source) ?? [];
-    arr.push(e.target);
-    adj.set(e.source, arr);
-  }
-  const visited = new Set<string>();
-  const order: string[] = [];
-  const start =
-    entryStepId && stepIds.includes(entryStepId) ? entryStepId : stepIds[0];
-  if (start) {
-    const queue: string[] = [start];
-    while (queue.length > 0) {
-      const id = queue.shift()!;
-      if (visited.has(id)) continue;
-      visited.add(id);
-      order.push(id);
-      for (const next of adj.get(id) ?? []) {
-        if (!visited.has(next)) queue.push(next);
-      }
-    }
-  }
-  for (const id of stepIds) {
-    if (!visited.has(id)) order.push(id);
-  }
-  return order;
-};
-
-type SizedItem = { id: string; width: number; height: number };
-
-// Place une liste d'items dimensionnés selon le mode choisi, à partir
-// de l'origine (baseX, baseY). Renvoie une map id → position. Pure : ne
-// dépend pas des constantes BASE_X/Y → réutilisable pour layouter à
-// l'intérieur d'un groupe (origine = padding) ou au niveau supernode
-// (origine = base globale du canvas).
-const layoutLine = (
-  items: ReadonlyArray<SizedItem>,
-  order: ReadonlyArray<string>,
-  mode: AutoLayoutMode,
-  baseX: number,
-  baseY: number,
-): Map<string, { x: number; y: number }> => {
-  const sizeById = new Map(items.map((i) => [i.id, i]));
-  const widthOf = (id: string) =>
-    sizeById.get(id)?.width ?? AUTO_LAYOUT_DEFAULT_WIDTH;
-  const heightOf = (id: string) =>
-    sizeById.get(id)?.height ?? AUTO_LAYOUT_DEFAULT_HEIGHT;
-  const positions = new Map<string, { x: number; y: number }>();
-
-  if (mode === "vertical") {
-    let y = baseY;
-    for (const id of order) {
-      positions.set(id, { x: baseX, y });
-      y += heightOf(id) + AUTO_LAYOUT_VERTICAL_GAP;
-    }
-  } else if (mode === "horizontal") {
-    let x = baseX;
-    for (const id of order) {
-      positions.set(id, { x, y: baseY });
-      x += widthOf(id) + AUTO_LAYOUT_HORIZONTAL_GAP;
-    }
-  } else {
-    const columnXOffset =
-      AUTO_LAYOUT_DEFAULT_WIDTH + AUTO_LAYOUT_HORIZONTAL_GAP;
-    let y = baseY;
-    order.forEach((id, idx) => {
-      const col = idx % 2;
-      positions.set(id, { x: baseX + col * columnXOffset, y });
-      y += heightOf(id) + AUTO_LAYOUT_VERTICAL_GAP;
-    });
-  }
-  return positions;
-};
-
-const nodeToSized = (n: Node): SizedItem => ({
-  id: n.id,
-  width: n.measured?.width ?? AUTO_LAYOUT_DEFAULT_WIDTH,
-  height: n.measured?.height ?? AUTO_LAYOUT_DEFAULT_HEIGHT,
-});
-
-const resolveStepSpec = (
-  step: TemplateStepDraft,
-  byKind: ByKind,
-  variables?: ReadonlyArray<TemplateVariableDraft>,
-  subTemplates?: ReadonlyMap<string, ReadonlyArray<TemplateVariableView>>,
-): NodeSpecView | null => {
-  const base = byKind.get(step.kind);
-  if (!base) return null;
-  return resolveNodeSpec(step.kind, step.config, base, {
-    variables,
-    subTemplates,
-  });
-};
 
 type PendingConnect = {
   fromNodeId: string;
@@ -2733,36 +2303,19 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     return null;
   };
 
-  const buildLayoutSnapshot = useCallback((): TemplateLayout => {
-    const positions: Record<string, NodePositionEntry> = {};
-    const groups: GroupLayout[] = [];
-    for (const n of nodes) {
-      if (isSyntheticId(n.id)) continue;
-      if (n.type === "group") {
-        const data = (n.data ?? {}) as { label?: string };
-        const w = n.width ?? (n.style?.width as number | undefined) ?? 0;
-        const h = n.height ?? (n.style?.height as number | undefined) ?? 0;
-        groups.push({
-          id: n.id,
-          position: { x: n.position.x, y: n.position.y },
-          size: { width: w, height: h },
-          label: data.label ?? "",
-        });
-        continue;
-      }
-      positions[n.id] = {
-        x: n.position.x,
-        y: n.position.y,
-        ...(n.parentId ? { parentId: n.parentId } : {}),
-      };
-    }
-    return {
-      positions,
-      ...(groups.length > 0 ? { groups } : {}),
-      viewport: rf.getViewport(),
-      updatedAt: new Date().toISOString(),
-    };
-  }, [nodes, rf]);
+  // Snapshot du 1er save d'un template neuf (avant que l'auto-save debounced
+  // ne soit actif). Délègue au builder pur partagé avec [useLayoutAutosave] —
+  // ce qui inclut désormais les sticky notes, qu'une version antérieure
+  // omettait (post-its perdus au 1er save d'un nouveau template).
+  const buildLayoutSnapshot = useCallback(
+    (): TemplateLayout =>
+      buildTemplateLayout(nodes, {
+        viewport: rf.getViewport(),
+        updatedAt: new Date().toISOString(),
+        isSynthetic: isSyntheticId,
+      }),
+    [nodes, rf],
+  );
 
   const missingRequiredFields = (
     draft: TemplateDraft,
