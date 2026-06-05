@@ -141,6 +141,7 @@ import { useAutoLayout } from "./template-editor/hooks/useAutoLayout";
 import { useStickyNotes } from "./template-editor/hooks/useStickyNotes";
 import { useGroupTools } from "./template-editor/hooks/useGroupTools";
 import { useStepMutations } from "./template-editor/hooks/useStepMutations";
+import { useTemplateVariables } from "./template-editor/hooks/useTemplateVariables";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -236,9 +237,11 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const [entryStepId, setEntryStepId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [variables, setVariables] = useState<
-    ReadonlyArray<TemplateVariableDraft>
-  >([]);
+  // État des variables + mutations avec cascade dans les nodes (un renommage
+  // se propage dans les `writesTo`/`readsFrom` ; une suppression purge les
+  // références). `setVariables` brut sert au chargement initial du template.
+  const { variables, setVariables, addVariable, updateVariable, deleteVariable } =
+    useTemplateVariables({ setNodes });
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -445,7 +448,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [editingRef, fromRef, services]);
+    // `setVariables` provient désormais de `useTemplateVariables` (prop stable) :
+    // listé pour exhaustive-deps, les autres setters bruts restent reconnus.
+  }, [editingRef, fromRef, services, setVariables]);
 
   const byKind: ByKind | null = specs.status === "ready" ? specs.byKind : null;
 
@@ -1230,97 +1235,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     },
     [isViewRun, gridSnap.enabled, snapGrid, screenToFlowPosition, addStep],
   );
-
-  const addVariable = useCallback((variable: TemplateVariableDraft) => {
-    setVariables((vs) => [...vs, variable]);
-  }, []);
-
-  // Renaming propagates into every step that references the variable in its
-  // `writesTo` / `readsFrom`. Kind / description edits are local to the
-  // declaration; only the name change cascades.
-  const updateVariable = useCallback(
-    (previousName: string, next: TemplateVariableDraft) => {
-      setVariables((vs) => vs.map((v) => (v.name === previousName ? next : v)));
-      if (next.name === previousName) return;
-      setNodes((nds) =>
-        nds.map((n) => {
-          const data = n.data as unknown as TemplateStepDraft & {
-            isEntry: boolean;
-          };
-          let writesTo = data.writesTo;
-          let readsFrom = data.readsFrom;
-          let mutated = false;
-          if (writesTo) {
-            const remapped: Record<string, string> = {};
-            for (const [port, varName] of Object.entries(writesTo)) {
-              if (varName === previousName) {
-                remapped[port] = next.name;
-                mutated = true;
-              } else {
-                remapped[port] = varName;
-              }
-            }
-            writesTo = remapped;
-          }
-          if (readsFrom) {
-            const remapped: Record<string, string> = {};
-            for (const [port, varName] of Object.entries(readsFrom)) {
-              if (varName === previousName) {
-                remapped[port] = next.name;
-                mutated = true;
-              } else {
-                remapped[port] = varName;
-              }
-            }
-            readsFrom = remapped;
-          }
-          if (!mutated) return n;
-          return { ...n, data: { ...data, writesTo, readsFrom } };
-        }),
-      );
-    },
-    [],
-  );
-
-  const deleteVariable = useCallback((name: string) => {
-    setVariables((vs) => vs.filter((v) => v.name !== name));
-    // Strip references to the deleted variable from all steps to keep the
-    // template consistent.
-    setNodes((nds) =>
-      nds.map((n) => {
-        const data = n.data as unknown as TemplateStepDraft & {
-          isEntry: boolean;
-        };
-        let writesTo = data.writesTo;
-        let readsFrom = data.readsFrom;
-        let mutated = false;
-        if (writesTo) {
-          const filtered: Record<string, string> = {};
-          for (const [port, varName] of Object.entries(writesTo)) {
-            if (varName === name) {
-              mutated = true;
-              continue;
-            }
-            filtered[port] = varName;
-          }
-          writesTo = Object.keys(filtered).length > 0 ? filtered : undefined;
-        }
-        if (readsFrom) {
-          const filtered: Record<string, string> = {};
-          for (const [port, varName] of Object.entries(readsFrom)) {
-            if (varName === name) {
-              mutated = true;
-              continue;
-            }
-            filtered[port] = varName;
-          }
-          readsFrom = Object.keys(filtered).length > 0 ? filtered : undefined;
-        }
-        if (!mutated) return n;
-        return { ...n, data: { ...data, writesTo, readsFrom } };
-      }),
-    );
-  }, []);
 
   const isSelectedEntry =
     entryStepId === selectedNodeId && selectedNodeId !== null;
