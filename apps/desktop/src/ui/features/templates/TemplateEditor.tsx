@@ -70,14 +70,12 @@ import {
   menuPopupClass,
 } from "../explorer/menus/menu-styles";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
-import type { TemplateVariableView } from "@shared/wf/types";
 import { transitionTypable } from "@shared/wf/port-accepts";
 import type { TemplateLayout } from "@shared/wf/layout";
 import ToolbarButton from "../../components/ToolbarButton";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
 import {
-  kindForArtifactSchema,
   type ArtifactKind,
   type TemplateDraft,
   type TemplateStepDraft,
@@ -109,9 +107,6 @@ import NodesPickerMenu from "./NodesPickerMenu";
 import VariablesPickerMenu from "./VariablesPickerMenu";
 import VariableEditorModal from "./VariableEditorModal";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
-import useSkills from "../../hooks/useSkills";
-import useArtifactSchemas from "../../hooks/useArtifactSchemas";
-import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
 import {
   setTemplateEditorGridSnap,
@@ -128,7 +123,6 @@ import {
   type SelectedEdgeInfo,
   type TemplateCanvasHandle,
 } from "../../stores/template-canvas-store";
-import { postImportStore } from "./post-import-store";
 import TemplateMissingDepsModal from "./TemplateMissingDepsModal";
 import TemplateTitleBar from "./TemplateTitleBar";
 import TemplateInspectorView from "./TemplateInspectorView";
@@ -137,14 +131,12 @@ import TemplateSaveMissingModal, {
 } from "./TemplateSaveMissingModal";
 import TemplatePublishModal from "./TemplatePublishModal";
 import LaunchRunDialog from "./LaunchRunDialog";
-import {
-  collectMissingTemplateDeps,
-  totalMissing as totalMissingDeps,
-} from "../../../application/use-cases/collect-missing-template-deps";
+import { totalMissing as totalMissingDeps } from "../../../application/use-cases/collect-missing-template-deps";
 import { useLayoutAutosave } from "./useLayoutAutosave";
 import { useInspectorResize } from "./template-editor/hooks/useInspectorResize";
 import { useMaximize } from "./template-editor/hooks/useMaximize";
 import { useSkillHandoff } from "./template-editor/hooks/useSkillHandoff";
+import { useTemplateDeps } from "./template-editor/hooks/useTemplateDeps";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -365,63 +357,24 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   // imported templates. Derived from the react-query caches so an external
   // mutation (skill saved, artifact type created, …) propagates without
   // re-mounting this editor.
-  const { skills: availableSkills } = useSkills();
-  const { types: availableArtifactSchemas } = useArtifactSchemas();
-  // `workflow.call` ports are derived from the referenced sub-template's
-  // interface variables, so feed `resolveNodeSpec` a ref→variables map built
-  // from the cached template list. Used by `resolveStepSpec` for canvas
-  // handles, `isValidConnection`, and save-time port validation alike — without
-  // it a `workflow.call` reads as portless (`[∅]`) and its edges are rejected.
-  const { templates: availableTemplates } = useWorkflowTemplates();
-  const subTemplates = useMemo(() => {
-    const map = new Map<string, ReadonlyArray<TemplateVariableView>>();
-    for (const tpl of availableTemplates) {
-      map.set(
-        `${tpl.id}@${tpl.version}`,
-        tpl.variables.map((v) => ({
-          name: v.name,
-          kind: v.kind,
-          role: v.role,
-          description: v.description,
-          defaultValue: v.defaultValue,
-        })),
-      );
-    }
-    return map;
-  }, [availableTemplates]);
-  const availableSkillRefs = useMemo(
-    () => new Set(availableSkills.map((s) => s.ref)),
-    [availableSkills],
-  );
-  const availableArtifactKinds = useMemo(
-    () =>
-      new Set(
-        availableArtifactSchemas.map((t) => {
-          if (t.source.kind === "user") return `user:${t.id}@${t.version}`;
-          if (t.source.kind === "plugin")
-            return `plugin:${t.source.pluginId}:${t.id}@${t.version}`;
-          return `${t.id}@${t.version}`;
-        }),
-      ),
-    [availableArtifactSchemas],
-  );
-  // Resolver consumed by `transitionTypable` / `portAccepts` for §2 covariance
-  // (e.g. a `Url` producer flows into a `String` port) and §5 content-addressed
-  // equality (two records with the same `structuralHash` are interchangeable).
-  // Built from the cached schema list — TanStack-Query refetches it on every
-  // relevant mutation so the editor reacts without a remount.
-  const refinementResolver = useMemo(() => {
-    type Entry = { extends: ArtifactKind | null; structuralHash: string };
-    const byKindIndex = new Map<string, Entry>();
-    for (const t of availableArtifactSchemas) {
-      byKindIndex.set(kindForArtifactSchema(t), {
-        extends: t.extends ?? null,
-        structuralHash: t.structuralHash,
-      });
-    }
-    return (kind: string) => byKindIndex.get(kind) ?? null;
-  }, [availableArtifactSchemas]);
-  const [missingDepsModalOpen, setMissingDepsModalOpen] = useState(false);
+  const {
+    subTemplates,
+    refinementResolver,
+    missingDeps,
+    hasMissingDeps,
+    missingDepsModalOpen,
+    setMissingDepsModalOpen,
+  } = useTemplateDeps({
+    nodes,
+    templateId,
+    version,
+    name,
+    description,
+    entryStepId,
+    variables,
+    editingRef,
+    loading,
+  });
 
   const [missingFieldsModal, setMissingFieldsModal] = useState<{
     fields: ReadonlyArray<MissingRequiredField>;
@@ -447,76 +400,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     id: string;
     startFlow: { x: number; y: number };
   } | null>(null);
-
-  const currentDraft = useMemo<{
-    steps: ReadonlyArray<TemplateStepDraft>;
-  } | null>(() => {
-    const steps: TemplateStepDraft[] = nodes
-      .filter((n) => n.type === "step")
-      .map((n) => {
-        const { isEntry: _isEntry, ...rest } =
-          n.data as unknown as TemplateStepDraft & {
-            isEntry: boolean;
-          };
-        return rest;
-      });
-    return steps.length > 0 ? { steps } : null;
-  }, [nodes]);
-
-  const missingDeps = useMemo(() => {
-    if (!currentDraft) return { skillRefs: [], artifactKinds: [] };
-    return collectMissingTemplateDeps(
-      {
-        // Shape only `steps` is read by `collectMissingTemplateDeps`; the
-        // narrow input lets us reuse the live `nodes` state without
-        // round-tripping a full TemplateView.
-        id: templateId,
-        version,
-        name,
-        description,
-        entryStep: entryStepId ?? "",
-        exitSteps: [],
-        steps: currentDraft.steps,
-        transitions: [],
-        variables,
-        status: "draft",
-      },
-      {
-        skillRefs: availableSkillRefs,
-        artifactKinds: availableArtifactKinds,
-      },
-    );
-  }, [
-    currentDraft,
-    templateId,
-    version,
-    name,
-    description,
-    entryStepId,
-    variables,
-    availableSkillRefs,
-    availableArtifactKinds,
-  ]);
-
-  const hasMissingDeps = totalMissingDeps(missingDeps) > 0;
-
-  // Track whether we've already consumed the "fresh import" flag for the
-  // currently displayed ref, so the deps modal only auto-opens once even if
-  // `hasMissingDeps` flips multiple times while the user creates/deletes
-  // skills in another tab.
-  const consumedFreshForRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!editingRef) return;
-    if (consumedFreshForRef.current === editingRef) return;
-    // Wait until the template + deps catalog have settled (i.e. at least one
-    // step is loaded) before consuming the flag — otherwise we'd "consume"
-    // the flag against an empty draft and never see the missing refs.
-    if (loading || nodes.length === 0) return;
-    consumedFreshForRef.current = editingRef;
-    if (postImportStore.consume(editingRef) && hasMissingDeps) {
-      setMissingDepsModalOpen(true);
-    }
-  }, [editingRef, loading, nodes.length, hasMissingDeps]);
 
   // Load an existing template by ref, or seed a new one from a "from" ref.
   useEffect(() => {
