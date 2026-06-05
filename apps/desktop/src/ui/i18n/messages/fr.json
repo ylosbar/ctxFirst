@@ -1521,6 +1521,7 @@
       "emptyObject": "{} vide",
       "readable": "Lisible",
       "raw": "Brut",
+      "fullSection": "Full",
       "copyContent": "Copier le contenu",
       "displayLabel": "Affichage :",
       "viaParser": "Vu via parser",
