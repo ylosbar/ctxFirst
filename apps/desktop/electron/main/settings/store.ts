@@ -16,6 +16,7 @@ const KEY_OPENROUTER_API_KEY = "openrouter.apiKey";
 const KEY_OPENROUTER_DEFAULT_MODEL = "openrouter.defaultModel";
 const KEY_OPENROUTER_MODELS = "openrouter.models";
 const KEY_CHAT_SYSTEM_PROMPT = "chat.systemPrompt";
+const KEY_DEV_PERF_MONITORING = "dev.perfMonitoring";
 
 export const OPENROUTER_DEFAULT_MODEL_FALLBACK = "openai/gpt-4o-mini";
 
@@ -83,6 +84,15 @@ export type SettingsStore = {
   getChatSystemPrompt: () => string | null;
   setChatSystemPrompt: (value: string) => void;
   clearChatSystemPrompt: () => void;
+
+  // --- Dev tooling ---
+  /**
+   * Whether the dev-only Sentry perf monitor (periodic memory gauges) runs.
+   * Defaults to `true` — only an explicit opt-out persists. No effect in
+   * packaged builds; the monitor is gated on `is.dev` at the call site.
+   */
+  isDevPerfMonitoringEnabled: () => boolean;
+  setDevPerfMonitoringEnabled: (enabled: boolean) => void;
 
   /**
    * Efface intégralement les réglages utilisateur : vide la table
@@ -280,6 +290,15 @@ export const createSettingsStore = ({ db }: Deps): SettingsStore => {
     },
     clearChatSystemPrompt() {
       deleteSecret(KEY_CHAT_SYSTEM_PROMPT);
+    },
+
+    // --- Dev tooling ---
+    isDevPerfMonitoringEnabled() {
+      // Default on: only a stored "false" opts out.
+      return readPlain(KEY_DEV_PERF_MONITORING) !== "false";
+    },
+    setDevPerfMonitoringEnabled(enabled: boolean) {
+      writePlain(KEY_DEV_PERF_MONITORING, enabled ? "true" : "false");
     },
 
     clearAll() {

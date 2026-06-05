@@ -862,6 +862,10 @@
       "general": "General"
     },
     "general": {
+      "perfMonitoring": {
+        "title": "Memory monitoring (dev)",
+        "description": "Periodically report each process's memory usage to Sentry (custom gauges) to track the RAM trend during a dev session. Dev-only; has no effect in packaged builds."
+      },
       "resetAll": {
         "title": "Reset all settings",
         "description": "Permanently delete all user settings: API keys, LLM models, active channel, base prompt, theme, language and density. The app then restarts on its default values.",

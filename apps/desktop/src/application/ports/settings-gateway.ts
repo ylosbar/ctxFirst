@@ -117,4 +117,8 @@ export interface SettingsGateway {
   // Chat system prompt (global default applied to new conversations only).
   getChatSystemPrompt(): Promise<ChatSystemPrompt>;
   setChatSystemPrompt(value: string): Promise<ChatSystemPrompt>;
+
+  // Dev tooling: toggle the Sentry memory sampler (dev-only effect).
+  getDevPerfMonitoring(): Promise<boolean>;
+  setDevPerfMonitoring(enabled: boolean): Promise<boolean>;
 }

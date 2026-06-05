@@ -862,6 +862,10 @@
       "general": "Général"
     },
     "general": {
+      "perfMonitoring": {
+        "title": "Monitoring mémoire (dev)",
+        "description": "Envoie périodiquement la consommation mémoire de chaque process à Sentry (gauges custom) pour suivre la tendance RAM pendant une session de dev. Réservé au dev ; sans effet dans un build packagé."
+      },
       "resetAll": {
         "title": "Réinitialiser tous les réglages",
         "description": "Supprime définitivement tous les réglages utilisateur : clés API, modèles LLM, canal actif, prompt de base, thème, langue et densité. L'application redémarre ensuite sur les valeurs par défaut.",

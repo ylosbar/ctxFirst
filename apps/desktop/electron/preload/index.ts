@@ -402,6 +402,18 @@ const api = {
       setSystemPrompt: (value: string): Promise<ChatSystemPrompt> =>
         ipcRenderer.invoke("settings:chat:setSystemPrompt", { value }),
     },
+
+    /**
+     * Sous-API dev : réglages d'outillage qui n'ont d'effet qu'en mode dev.
+     * `perfMonitoring` pilote le sampler mémoire Sentry (gauges périodiques) ;
+     * le toggle se persiste partout mais ne démarre/arrête le sampler qu'en dev.
+     */
+    dev: {
+      getPerfMonitoring: (): Promise<boolean> =>
+        ipcRenderer.invoke("settings:dev:getPerfMonitoring"),
+      setPerfMonitoring: (enabled: boolean): Promise<boolean> =>
+        ipcRenderer.invoke("settings:dev:setPerfMonitoring", { enabled }),
+    },
   },
 
   /**
