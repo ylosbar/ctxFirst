@@ -128,7 +128,6 @@ import {
   type SelectedEdgeInfo,
   type TemplateCanvasHandle,
 } from "../../stores/template-canvas-store";
-import { onSkillCreated } from "../skills/events";
 import { postImportStore } from "./post-import-store";
 import TemplateMissingDepsModal from "./TemplateMissingDepsModal";
 import TemplateTitleBar from "./TemplateTitleBar";
@@ -145,6 +144,7 @@ import {
 import { useLayoutAutosave } from "./useLayoutAutosave";
 import { useInspectorResize } from "./template-editor/hooks/useInspectorResize";
 import { useMaximize } from "./template-editor/hooks/useMaximize";
+import { useSkillHandoff } from "./template-editor/hooks/useSkillHandoff";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -355,38 +355,11 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   // Handoff state: when the user requests inline skill creation from the
   // StepInspector, we remember which step is waiting so that when the new
   // skill is saved we can auto-assign it and refocus this editor tab.
-  const [pendingSkillForStep, setPendingSkillForStep] = useState<string | null>(
-    null,
-  );
-
-  const handleRequestCreateSkill = useCallback(
-    (stepId: string) => {
-      setPendingSkillForStep(stepId);
-      api.openEditor("skill://new", { focus: true });
-    },
-    [api],
-  );
-
-  // Subscribe to skill:created events. When a handoff is pending, auto-assign
-  // the newly created skill to the waiting step and refocus the template tab.
-  useEffect(() => {
-    return onSkillCreated((ref) => {
-      if (!pendingSkillForStep) return;
-      setNodes((prev) =>
-        prev.map((n) => {
-          if (n.id !== pendingSkillForStep || n.type !== "step") return n;
-          const data = n.data;
-          const config = (data["config"] ?? {}) as Record<string, unknown>;
-          return {
-            ...n,
-            data: { ...data, config: { ...config, skillRef: ref } },
-          };
-        }),
-      );
-      api.openEditor(uri, { focus: true });
-      setPendingSkillForStep(null);
-    });
-  }, [pendingSkillForStep, api, uri]);
+  const { handleRequestCreateSkill } = useSkillHandoff({
+    api,
+    uri,
+    setNodes,
+  });
 
   // Available skill refs / artifact kinds — used to detect missing deps on
   // imported templates. Derived from the react-query caches so an external
