@@ -17,7 +17,7 @@
  *     outside).
  */
 import type { StepId } from "../ids";
-import type { StepDef, WorkflowTemplate } from "../template";
+import type { WorkflowTemplate } from "../template";
 
 /** Distinguishes the scope-rule violations for caller messaging. */
 export type IterationScopeErrorCode =
@@ -318,12 +318,3 @@ export const parseIterationIndex = (iterationKey: string): number => {
   const segment = sep >= 0 ? iterationKey.slice(sep + 1) : iterationKey;
   return Number(segment);
 };
-
-/**
- * `true` when a `loop.foreach` step opts into sequential iteration via
- * `config.sequential === true`. Pure read of the step config — the timing
- * delta it controls lives entirely in the orchestrator (fan-out + join).
- * Defaults to `false` (fan-out), keeping legacy templates unchanged.
- */
-export const isSequentialForeach = (step: StepDef): boolean =>
-  step.config["sequential"] === true;

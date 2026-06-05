@@ -458,18 +458,32 @@ const TimelineRowItem = ({
         aria-selected={isSelected}
         style={indentStyle(depth, isRetry ? INDENT_STEP_REM : 0)}
         className={cn(
-          "flex w-full items-start gap-3 py-2 pr-3 text-left transition-colors",
+          "relative flex w-full items-start gap-3 py-2 pr-3 text-left transition-colors",
           "hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          // Status tint: surface the active step (blue) and any failure (red)
+          // beyond the badge, so they pop while scanning a long timeline.
+          row.inProgress && "bg-blue-500/5",
+          row.hasError && "bg-destructive/5",
           isSelected &&
             "bg-accent ring-1 ring-ring/40 ring-inset",
         )}
       >
+        {/* Status rail — a per-row colored spine on the far left, keyed to the
+            step status, so the run reads top-to-bottom as a status column. */}
+        <span
+          className={cn(
+            "absolute inset-y-0 left-0 w-[3px]",
+            STATUS_STYLE[row.status].bar,
+            row.inProgress && "animate-pulse",
+          )}
+          aria-hidden
+        />
         <StatusDot status={row.status} inProgress={row.inProgress} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-xs">
             {isRetry ? (
               <RotateCw
-                className="size-3.5 shrink-0 text-muted-foreground"
+                className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
                 aria-label="reprise"
               />
             ) : null}
@@ -541,11 +555,21 @@ const TimelineRowItem = ({
             </div>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center gap-3 text-2xs text-muted-foreground tabular-nums">
-          <span className={cn(row.inProgress && "text-blue-600 dark:text-blue-400")}>
+        <div className="flex shrink-0 items-center gap-3 text-2xs tabular-nums">
+          {/* Duration is the primary metric (weight + status color when
+              notable); the wall-clock start recedes as secondary context. */}
+          <span
+            className={cn(
+              "font-medium text-muted-foreground",
+              row.inProgress && "text-blue-600 dark:text-blue-400",
+              row.hasError && "text-destructive",
+            )}
+          >
             {formatDurationMs(row.durationMs)}
           </span>
-          <span>{formatClock(row.startedAtMs)}</span>
+          <span className="text-muted-foreground/60">
+            {formatClock(row.startedAtMs)}
+          </span>
         </div>
       </button>
     </li>
@@ -579,6 +603,9 @@ const LoopHeaderItem = ({
         className={cn(
           "flex w-full items-center gap-1.5 py-2 pr-3 transition-colors",
           "hover:bg-muted/40",
+          // Loop = structural container: a faint band reads it as a frame, not
+          // a step. An in-flight loop tints blue to flag the active branch.
+          inProgress ? "bg-blue-500/5" : "bg-muted/20",
           isSelected && "bg-accent ring-1 ring-ring/40 ring-inset",
         )}
       >
@@ -638,10 +665,10 @@ const IterationHeaderItem = ({
         onClick={onToggle}
         aria-expanded={!collapsed}
         style={indentStyle(depth)}
-        className="flex w-full items-center gap-1.5 py-1.5 pr-3 text-left text-2xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="flex w-full items-center gap-1.5 bg-muted/20 py-1.5 pr-3 text-left text-2xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <Chevron className="size-3.5 shrink-0" aria-hidden />
-        <span className="truncate">
+        <span className="truncate text-primary">
           {t("runs.timeline.iterationHeader", { index: iteration.index })}
         </span>
       </button>
@@ -676,7 +703,7 @@ const SubworkflowHeaderItem = ({
     <li>
       <div
         style={indentStyle(depth)}
-        className="flex w-full items-center gap-1.5 py-1.5 pr-3 transition-colors hover:bg-muted/40"
+        className="flex w-full items-center gap-1.5 bg-muted/20 py-1.5 pr-3 transition-colors hover:bg-muted/40"
       >
         <button
           type="button"
@@ -720,15 +747,23 @@ const TimelineGapItem = ({
   readonly gap: TimelineGap;
   readonly depth: number;
 }) => {
-  const Icon = gap.kind === "humanWait" ? Hourglass : null;
+  const isHumanWait = gap.kind === "humanWait";
+  const Icon = isHumanWait ? Hourglass : null;
   return (
     <li
       style={indentStyle(depth, INDENT_STEP_REM)}
-      className="flex items-center gap-2 py-1 pr-3 text-2xs text-muted-foreground"
+      className={cn(
+        "flex items-center gap-2 py-1 pr-3 text-2xs",
+        // Human-wait gaps share the amber/orange identity of the human family
+        // (human.gate validation boxes) so a pause for a human reads at a glance.
+        isHumanWait
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-muted-foreground",
+      )}
     >
       {Icon ? <Icon className="size-3 shrink-0" aria-hidden /> : <span>{"⋯"}</span>}
       <span>
-        {gap.kind === "humanWait" ? "Attente humaine" : "Pause"}
+        {isHumanWait ? "Attente humaine" : "Pause"}
         {" · "}
         {formatDurationMs(gap.durationMs)}
       </span>

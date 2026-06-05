@@ -8,13 +8,11 @@ import type { WorkflowTemplate } from "../template";
 import {
   buildIterationKey,
   inferIterationScopes,
-  isSequentialForeach,
   IterationScopeError,
   type IterationScopeErrorCode,
   iterationKeyMatches,
   parseIterationIndex,
 } from "./iteration-scopes";
-import type { StepDef } from "../template";
 
 const expectThrowsWithCode = (
   fn: () => unknown,
@@ -238,20 +236,5 @@ describe("parseIterationIndex", () => {
   });
   it("splits on the last `:` so a colon in the step id is tolerated", () => {
     expect(parseIterationIndex("scope:nested:3")).toBe(3);
-  });
-});
-
-describe("isSequentialForeach", () => {
-  const foreach = (config: Record<string, unknown>): StepDef => ({
-    ...step("fe", "loop.foreach"),
-    config,
-  });
-
-  it("is false when the flag is absent (fan-out default)", () => {
-    expect(isSequentialForeach(foreach({ itemKind: "Markdown" }))).toBe(false);
-  });
-  it("is true only when `sequential === true`", () => {
-    expect(isSequentialForeach(foreach({ sequential: true }))).toBe(true);
-    expect(isSequentialForeach(foreach({ sequential: false }))).toBe(false);
   });
 });

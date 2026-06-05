@@ -117,6 +117,7 @@ import { createConcatMarkdownRunner } from "./plugins/concat-markdown";
 import { createFileLoadMarkdownRunner } from "./plugins/file-load-markdown";
 import { createFileLoadRunner } from "./plugins/file-load";
 import { createFilesLoadRunner } from "./plugins/files-load";
+import { createFilesLoadManifestRunner } from "./plugins/files-load-manifest";
 import { createHumanGateRunner } from "./plugins/human-gate";
 import { createBranchBoolRunner } from "./plugins/branch-bool";
 import { createBranchJsonRunner } from "./plugins/branch-json";
@@ -530,6 +531,7 @@ export const buildWfEngine = async ({
   runners.register(createFileLoadMarkdownRunner());
   runners.register(createFileLoadRunner());
   runners.register(createFilesLoadRunner());
+  runners.register(createFilesLoadManifestRunner());
   runners.register(createSkillLoaderRunner());
   runners.register(createLoopForeachRunner());
   runners.register(createLoopCollectRunner());

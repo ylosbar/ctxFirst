@@ -321,9 +321,9 @@ const childBitem: WorkflowTemplate = buildTemplate(
  *   seed → fe → inv(child) → col
  * The invoke seeds its child from `seedVar` (§5a — seeds resolve from variables;
  * sequential is the safe per-item regime). The foreach drives one child per
- * item; collect joins the per-iteration child outputs.
+ * item, strictly one at a time; collect joins the per-iteration child outputs.
  */
-const makeForeachRoot = (sequential: boolean, items: string[]): WorkflowTemplate =>
+const makeForeachRoot = (items: string[]): WorkflowTemplate =>
   buildTemplate(
     "Afe",
     [
@@ -336,7 +336,7 @@ const makeForeachRoot = (sequential: boolean, items: string[]): WorkflowTemplate
       {
         id: "fe",
         kind: "loop.foreach",
-        config: { items, itemKind: "Markdown", sequential },
+        config: { items, itemKind: "Markdown" },
       },
       {
         id: "inv",
@@ -365,8 +365,8 @@ const makeForeachRoot = (sequential: boolean, items: string[]): WorkflowTemplate
   );
 
 describe("InstanceOrchestrator — template.invoke inside loop.foreach", () => {
-  it("parallel foreach fans out one child per item before any completes", async () => {
-    const A = makeForeachRoot(false, ["a", "b", "c"]);
+  it("spawns the next child only after the prior completes (one child at a time)", async () => {
+    const A = makeForeachRoot(["a", "b", "c"]);
     harness = makeHarness([A, childBitem]);
     const { instanceId } = await harness.startInstance({
       templateRef: refOf(A),
@@ -389,30 +389,7 @@ describe("InstanceOrchestrator — template.invoke inside loop.foreach", () => {
       harness.fakes.bus.ofType("ChildInstanceSpawned").map((e) => e.stepExecId),
     );
     expect(spawnExecs.size).toBe(3);
-    // Fan-out discriminator: every child is spawned before the first completes.
-    expect(Math.max(...spawnedIdx)).toBeLessThan(Math.min(...completedIdx));
     expect(harness.fakes.bus.ofType("InstanceStarted")).toHaveLength(4); // root + 3 children
-  });
-
-  it("sequential foreach spawns the next child only after the prior completes", async () => {
-    const A = makeForeachRoot(true, ["a", "b", "c"]);
-    harness = makeHarness([A, childBitem]);
-    const { instanceId } = await harness.startInstance({
-      templateRef: refOf(A),
-      seeds: [{ kind: "Markdown", content: "seed" }],
-    });
-    await harness.waitForStatus(instanceId, "completed");
-
-    const published = harness.fakes.bus.published;
-    const spawnedIdx = published
-      .map((e, i) => (e.type === "ChildInstanceSpawned" ? i : -1))
-      .filter((i) => i >= 0);
-    const completedIdx = published
-      .map((e, i) => (e.type === "ChildInstanceCompleted" ? i : -1))
-      .filter((i) => i >= 0);
-
-    expect(spawnedIdx).toHaveLength(3);
-    expect(completedIdx).toHaveLength(3);
     // Strictly one child alive at a time: spawn[k] only after completed[k-1].
     expect(completedIdx[0]).toBeLessThan(spawnedIdx[1]);
     expect(completedIdx[1]).toBeLessThan(spawnedIdx[2]);

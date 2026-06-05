@@ -17,6 +17,7 @@ import {
   GitPullRequest,
   Layers,
   ListChecks,
+  ListTree,
   Radio,
   Repeat,
   Replace,
@@ -363,6 +364,23 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     buildDefaultConfig: () => ({
       path: "",
       slots: [{ port: "out", subpath: "", outputKind: "Markdown" }],
+    }),
+  },
+  {
+    id: "files.load-manifest",
+    label: "Load Files (manifest)",
+    description:
+      "Charge les fichiers nommés dans un tableau JSONPath de l'artifact d'entrée (0..N), sous une base + subdir, et émet leur concaténation wrappée. Noms calculés au runtime — pas de slots statiques.",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: ListTree,
+    family: "input",
+    category: "source",
+    buildDefaultConfig: () => ({
+      selector: "$.files[*]",
+      subdir: "",
+      outputKind: "Json",
+      wrap: { header: '<file name="{name}">', footer: "</file>" },
     }),
   },
   {

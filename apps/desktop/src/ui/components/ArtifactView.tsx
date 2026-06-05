@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import hljs from "highlight.js/lib/core";
 import jsonLang from "highlight.js/lib/languages/json";
 import { extractDisplayableContent } from "@/lib/artifact-display";
+import { splitTaggedSections } from "@/lib/markdown-sections";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -126,6 +127,81 @@ const markdownComponents: Components = {
       <table>{children}</table>
     </div>
   ),
+};
+
+// Single markdown document render — shared by every section tab and by the
+// no-section fallback, so tables/links/highlighting stay identical regardless
+// of which slice is shown.
+const MarkdownDoc = ({ body }: { body: string }) => (
+  <div className="markdown-body markdown-body--doc mx-auto max-w-4xl px-6 py-5">
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      components={markdownComponents}
+    >
+      {body}
+    </ReactMarkdown>
+  </div>
+);
+
+const sectionTabClass = (active: boolean): string =>
+  `rounded px-1.5 py-0.5 ${
+    active
+      ? "bg-muted text-foreground"
+      : "text-muted-foreground hover:bg-muted/40"
+  }`;
+
+// Renders a concatenated Markdown body. When it carries top-level
+// `<tag>…</tag>` wrapped sections (cf. `concat.markdown`), shows a "segmented"
+// tab bar — `Full` (the whole body, default) plus one tab per section showing
+// only its inner content. With no detected section it renders exactly as
+// before (full retro-compat). Purely presentational, derived from the rendered
+// Markdown — no main/IPC coupling. See
+// `specs/markdown-artifact-section-tabs.md`.
+const MarkdownSectionsView = ({ markdownBody }: { markdownBody: string }) => {
+  const t = useT();
+  const split = useMemo(
+    () => splitTaggedSections(markdownBody),
+    [markdownBody],
+  );
+  const [active, setActive] = useState<"full" | number>("full");
+
+  if (split.sections.length === 0) {
+    return <MarkdownDoc body={markdownBody} />;
+  }
+
+  // Guard against a stale index when `markdownBody` changes and the section
+  // count shrinks: fall back to the full body rather than indexing out of range.
+  const activeSection =
+    active !== "full" && active < split.sections.length
+      ? split.sections[active]
+      : null;
+  const body = activeSection ? activeSection.content : split.full;
+
+  return (
+    <>
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b bg-background/95 px-3 py-1.5 text-2xs backdrop-blur">
+        <button
+          type="button"
+          onClick={() => setActive("full")}
+          className={sectionTabClass(active === "full")}
+        >
+          {t("artifacts.view.fullSection")}
+        </button>
+        {split.sections.map((section, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setActive(i)}
+            className={`font-mono ${sectionTabClass(active === i)}`}
+          >
+            {section.label}
+          </button>
+        ))}
+      </div>
+      <MarkdownDoc body={body} />
+    </>
+  );
 };
 
 // --- "Lisible" JSON document renderer -------------------------------------
@@ -418,15 +494,7 @@ export const ArtifactInlineView = ({
         ) : jsonHtml ? (
           jsonMode === "readable" ? (
             hasRendered ? (
-              <div className="markdown-body markdown-body--doc mx-auto max-w-4xl px-6 py-5">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
-                  components={markdownComponents}
-                >
-                  {markdownBody}
-                </ReactMarkdown>
-              </div>
+              <MarkdownSectionsView markdownBody={markdownBody} />
             ) : (
               <JsonDocumentView value={parsedJson} />
             )
@@ -439,15 +507,7 @@ export const ArtifactInlineView = ({
             </pre>
           )
         ) : isMarkdownish ? (
-          <div className="markdown-body markdown-body--doc mx-auto max-w-4xl px-6 py-5">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={markdownComponents}
-            >
-              {markdownBody}
-            </ReactMarkdown>
-          </div>
+          <MarkdownSectionsView markdownBody={markdownBody} />
         ) : (
           <pre className="whitespace-pre-wrap break-words bg-muted/20 p-4 font-mono text-xs">
             {body}
