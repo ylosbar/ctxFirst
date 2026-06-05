@@ -51,7 +51,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Menu } from "@base-ui/react/menu";
 import { motion } from "motion/react";
 
@@ -133,12 +132,7 @@ import { useTemplateVariables } from "./template-editor/hooks/useTemplateVariabl
 import { useEdgeDropSuggestions } from "./template-editor/hooks/useEdgeDropSuggestions";
 import { useLaunchRun } from "./template-editor/hooks/useLaunchRun";
 import { useTemplateSave } from "./template-editor/hooks/useTemplateSave";
-import {
-  buildPngFileName,
-  buildSvgFileName,
-  renderWorkflowPng,
-  renderWorkflowSvg,
-} from "./exportWorkflowSvg";
+import { useWorkflowExport } from "./template-editor/hooks/useWorkflowExport";
 import type { RunOverlay } from "./run-overlay";
 import {
   START_EDGE_ID,
@@ -1187,74 +1181,11 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setBusy,
   });
 
-  const handleExportSvg = useCallback(async () => {
-    try {
-      const svg = renderWorkflowSvg(rf, rf.getNodes(), rf.getEdges(), {
-        byKind,
-        variables,
-      });
-      // eslint-disable-next-line no-restricted-syntax -- TODO(dette technique) : exposer `system.saveTextFile` via un port FileSystem injecté par useServices() pour rétablir l'isolation hexagonale (cf. ARCHITECTURE.md §9.4-9.5).
-      const written = await window.api.system.saveTextFile({
-        content: svg,
-        defaultFileName: buildSvgFileName(name),
-        title: "Exporter le workflow en SVG",
-        filters: [{ name: "SVG", extensions: ["svg"] }],
-      });
-      if (written) {
-        toast.success(t("template.editor.toast.exportedSvg"), {
-          description: written,
-        });
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      toast.error(t("template.editor.toast.exportSvgFailed"), {
-        description: message,
-      });
-    }
-  }, [name, rf, byKind, variables, t]);
-
-  const handleExportPng = useCallback(async () => {
-    try {
-      const png = await renderWorkflowPng(rf, rf.getNodes(), rf.getEdges(), {
-        byKind,
-        variables,
-      });
-      // eslint-disable-next-line no-restricted-syntax -- TODO(dette technique) : exposer `system.saveBinaryFile` via un port FileSystem injecté par useServices() pour rétablir l'isolation hexagonale (cf. ARCHITECTURE.md §9.4-9.5).
-      const written = await window.api.system.saveBinaryFile({
-        content: png,
-        defaultFileName: buildPngFileName(name),
-        title: "Exporter le workflow en PNG",
-        filters: [{ name: "PNG", extensions: ["png"] }],
-      });
-      if (written) {
-        toast.success(t("template.editor.toast.exportedPng"), {
-          description: written,
-        });
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      toast.error(t("template.editor.toast.exportPngFailed"), {
-        description: message,
-      });
-    }
-  }, [name, rf, byKind, variables, t]);
-
-  const handleExportJson = useCallback(async () => {
-    if (!editingRef) return;
-    try {
-      const { path } = await services.exportWorkflowTemplate(editingRef);
-      if (path) {
-        toast.success(t("template.editor.toast.exportedJson"), {
-          description: path,
-        });
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      toast.error(t("template.editor.toast.exportJsonFailed"), {
-        description: message,
-      });
-    }
-  }, [editingRef, services, t]);
+  // Export du workflow : SVG / PNG (rendus client) + JSON (réexport persisté).
+  // Les appels `window.api.system.save*` portent leur `eslint-disable` dans le
+  // hook (cf. ARCHITECTURE.md §9.4-9.5).
+  const { handleExportSvg, handleExportPng, handleExportJson } =
+    useWorkflowExport({ rf, byKind, variables, name, editingRef, services, t });
 
   if (loading || specs.status === "loading") {
     return (
