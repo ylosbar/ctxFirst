@@ -15,7 +15,6 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  addEdge,
   applyEdgeChanges,
   applyNodeChanges,
   useReactFlow,
@@ -23,11 +22,9 @@ import {
   type Edge,
   type EdgeChange,
   type EdgeMouseHandler,
-  type FinalConnectionState,
   type Node,
   type NodeChange,
   type NodeMouseHandler,
-  type OnConnectStartParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -69,7 +66,6 @@ import {
   menuItemClass,
   menuPopupClass,
 } from "../explorer/menus/menu-styles";
-import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { transitionTypable } from "@shared/wf/port-accepts";
 import type { TemplateLayout } from "@shared/wf/layout";
 import ToolbarButton from "../../components/ToolbarButton";
@@ -95,14 +91,11 @@ import StickyNoteNode, {
 import SelfLoopEdge from "../../components/templates/SelfLoopEdge";
 import StepEdge from "../../components/templates/StepEdge";
 import {
-  STEP_KIND_CATALOG,
   getKindMeta,
   type StepKindMeta,
 } from "../../components/templates/step-kinds";
 import { STEP_KIND_DND_MIME } from "./picker-dnd";
-import EdgeDropSuggestions, {
-  type EdgeDropSuggestion,
-} from "../../components/templates/EdgeDropSuggestions";
+import EdgeDropSuggestions from "../../components/templates/EdgeDropSuggestions";
 import NodesPickerMenu from "./NodesPickerMenu";
 import VariablesPickerMenu from "./VariablesPickerMenu";
 import VariableEditorModal from "./VariableEditorModal";
@@ -142,6 +135,7 @@ import { useStickyNotes } from "./template-editor/hooks/useStickyNotes";
 import { useGroupTools } from "./template-editor/hooks/useGroupTools";
 import { useStepMutations } from "./template-editor/hooks/useStepMutations";
 import { useTemplateVariables } from "./template-editor/hooks/useTemplateVariables";
+import { useEdgeDropSuggestions } from "./template-editor/hooks/useEdgeDropSuggestions";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -172,7 +166,6 @@ import {
   type ByKind,
 } from "./template-editor/graph/step-spec";
 import {
-  edgeStyle,
   minimapNodeColor,
   minimapNodeStrokeColor,
   type EdgeData,
@@ -186,14 +179,6 @@ const nodeTypes = {
   stickyNote: StickyNoteNode,
 } as const;
 const edgeTypes = { selfLoop: SelfLoopEdge, step: StepEdge } as const;
-
-type PendingConnect = {
-  fromNodeId: string;
-  handleType: "source" | "target";
-  handleId: string | null;
-  popupPos: { x: number; y: number };
-  flowPos: { x: number; y: number };
-};
 
 type Props = {
   readonly uri: EditorUri;
@@ -302,10 +287,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   );
   const [layoutSaveError, setLayoutSaveError] = useState<string | null>(null);
 
-  const [pendingConnect, setPendingConnect] = useState<PendingConnect | null>(
-    null,
-  );
-
   type LaunchState = {
     text: string;
     busy: boolean;
@@ -376,11 +357,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const counterRef = useRef(0);
   const flowWrapperRef = useRef<HTMLDivElement>(null);
-  const connectingFromRef = useRef<{
-    nodeId: string;
-    handleType: "source" | "target";
-    handleId: string | null;
-  } | null>(null);
   // Load an existing template by ref, or seed a new one from a "from" ref.
   useEffect(() => {
     const sourceRef = editingRef ?? fromRef;
@@ -933,150 +909,31 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     [byKind, variables, subTemplates],
   );
 
-  const onConnect = useCallback((conn: Connection) => {
-    const isSelfLoop = conn.source === conn.target;
-    setEdges((eds) =>
-      addEdge(
-        {
-          ...conn,
-          id: `e-${conn.source}-${conn.target}-${Date.now()}`,
-          type: isSelfLoop ? "selfLoop" : "step",
-          data: { isLoop: isSelfLoop } satisfies EdgeData,
-          zIndex: isSelfLoop ? 1000 : undefined,
-          ...edgeStyle(isSelfLoop),
-        },
-        eds,
-      ),
-    );
-  }, []);
-
-  const onConnectStart = useCallback(
-    (_event: unknown, params: OnConnectStartParams) => {
-      if (!params.nodeId || !params.handleType) {
-        connectingFromRef.current = null;
-        return;
-      }
-      if (params.nodeId === START_NODE_ID) {
-        connectingFromRef.current = null;
-        return;
-      }
-      connectingFromRef.current = {
-        nodeId: params.nodeId,
-        handleType: params.handleType,
-        handleId: params.handleId ?? null,
-      };
-    },
-    [],
-  );
-
-  const onConnectEnd = useCallback(
-    (event: MouseEvent | TouchEvent, connectionState: FinalConnectionState) => {
-      const origin = connectingFromRef.current;
-      connectingFromRef.current = null;
-      if (!origin) return;
-      if (connectionState.isValid) return;
-
-      const point =
-        "changedTouches" in event && event.changedTouches.length > 0
-          ? event.changedTouches[0]
-          : (event as MouseEvent);
-      const clientX = point.clientX;
-      const clientY = point.clientY;
-      const rect = flowWrapperRef.current?.getBoundingClientRect();
-      const popupPos = rect
-        ? { x: clientX - rect.left, y: clientY - rect.top }
-        : { x: clientX, y: clientY };
-      const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
-
-      setPendingConnect({
-        fromNodeId: origin.nodeId,
-        handleType: origin.handleType,
-        handleId: origin.handleId,
-        popupPos,
-        flowPos,
-      });
-    },
-    [screenToFlowPosition],
-  );
-
-  const suggestions = useMemo<ReadonlyArray<EdgeDropSuggestion>>(() => {
-    if (!pendingConnect || !byKind) return [];
-    const origin = nodes.find((n) => n.id === pendingConnect.fromNodeId);
-    if (!origin) return [];
-    const originStep = origin.data as unknown as TemplateStepDraft;
-    const originSpec = resolveStepSpec(originStep, byKind, variables, subTemplates);
-    if (!originSpec) return [];
-    const result: EdgeDropSuggestion[] = [];
-    for (const kindMeta of STEP_KIND_CATALOG) {
-      const base = byKind.get(kindMeta.id);
-      if (!base) continue;
-      const candidateConfig = kindMeta.buildDefaultConfig();
-      const candidateSpec = resolveNodeSpec(
-        kindMeta.id,
-        candidateConfig,
-        base,
-        { variables, subTemplates },
-      );
-      const isCompatible =
-        pendingConnect.handleType === "source"
-          ? transitionTypable(originSpec, candidateSpec, {
-              fromPort: pendingConnect.handleId ?? undefined,
-              resolver: refinementResolver,
-            })
-          : transitionTypable(candidateSpec, originSpec, {
-              toPort: pendingConnect.handleId ?? undefined,
-              resolver: refinementResolver,
-            });
-      if (!isCompatible) continue;
-      result.push({
-        kind: kindMeta,
-        resolvedOutputKind: candidateSpec.outputs[0]?.kind ?? null,
-        resolvedInputKinds: candidateSpec.inputs[0]
-          ? [...candidateSpec.inputs[0].kinds]
-          : [],
-      });
-    }
-    return result;
-  }, [nodes, pendingConnect, byKind, variables, subTemplates]);
-
-  const handleSuggestionPick = (suggestion: EdgeDropSuggestion) => {
-    if (!pendingConnect) return;
-    const { kind } = suggestion;
-    const stepIds = nodes.filter((n) => n.type === "step").map((n) => n.id);
-    const kindMax = highestCounterForKind(kind.id, stepIds);
-    counterRef.current = Math.max(counterRef.current, kindMax) + 1;
-    const newId = makeStepId(kind.id, counterRef.current);
-    const step = buildDefaultStep(kind, newId);
-    const isFirst = stepIds.length === 0;
-    const newNode: Node = {
-      id: newId,
-      type: "step",
-      position: { x: pendingConnect.flowPos.x, y: pendingConnect.flowPos.y },
-      data: { ...step, isEntry: isFirst },
-    };
-    const sourceId =
-      pendingConnect.handleType === "source"
-        ? pendingConnect.fromNodeId
-        : newId;
-    const targetId =
-      pendingConnect.handleType === "source"
-        ? newId
-        : pendingConnect.fromNodeId;
-    const newEdge: Edge = {
-      id: `e-${sourceId}-${targetId}-${Date.now()}`,
-      source: sourceId,
-      target: targetId,
-      type: "step",
-      data: { isLoop: false } satisfies EdgeData,
-      ...edgeStyle(false),
-    };
-    setNodes((nds) => [...nds, newNode]);
-    setEdges((eds) => [...eds, newEdge]);
-    if (isFirst) setEntryStepId(newId);
-    setSelectedNodeId(newId);
-    setSelectedEdgeId(null);
-    setPendingConnect(null);
-  };
+  // Connexion d'edges + menu de suggestions au drop sur le vide. `counterRef`
+  // est partagé avec `addStep` (séquence d'IDs de step) → fourni en option.
+  const {
+    pendingConnect,
+    setPendingConnect,
+    suggestions,
+    handleSuggestionPick,
+    onConnect,
+    onConnectStart,
+    onConnectEnd,
+  } = useEdgeDropSuggestions({
+    nodes,
+    byKind,
+    variables,
+    subTemplates,
+    refinementResolver,
+    screenToFlowPosition,
+    flowWrapperRef,
+    counterRef,
+    setNodes,
+    setEdges,
+    setEntryStepId,
+    setSelectedNodeId,
+    setSelectedEdgeId,
+  });
 
   const addStep = useCallback(
     (kind: StepKindMeta, dropPosition?: { x: number; y: number }) => {
