@@ -83,7 +83,7 @@ const makeSeqRunner = (
     counter.n += 1;
     const cfgTag =
       typeof ctx.step.config["tag"] === "string"
-        ? `:${ctx.step.config["tag"] as string}`
+        ? `:${ctx.step.config["tag"]}`
         : "";
     const artifact = await putArtifactPayload(ctx.deps.artifactStore, "Markdown", {
       format: "markdown",
