@@ -144,6 +144,7 @@ import {
 } from "../../../application/use-cases/collect-missing-template-deps";
 import { useLayoutAutosave } from "./useLayoutAutosave";
 import { useInspectorResize } from "./template-editor/hooks/useInspectorResize";
+import { useMaximize } from "./template-editor/hooks/useMaximize";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -336,16 +337,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const [notesVisible, setNotesVisible] = useState<boolean>(false);
   // Full-app maximize: when true, the editor portals itself just under the
   // window title bar to cover the activity bar + dock. Escape exits.
-  const [isMaximized, setIsMaximized] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (!isMaximized) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsMaximized(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isMaximized]);
+  const { isMaximized, setIsMaximized } = useMaximize();
 
   // Grid snap (spec template-editor-grid-snap) — réglage global utilisateur
   // persisté dans WorkbenchPrefs, pas attaché au template.
