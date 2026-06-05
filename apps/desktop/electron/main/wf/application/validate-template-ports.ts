@@ -457,6 +457,22 @@ const validateTemplateVariables = (
     if (!step.writesTo) continue;
     const spec = specOf(step);
     const outputNames = new Set(spec.outputs.map((o) => o.name));
+    // Rule 5b: `loop.foreach` publishing the current item into a variable
+    // (`writesTo.item`) relies on strictly sequential execution — a variable is
+    // a shared cell, so a parallel loop would collapse every iteration onto the
+    // last item. Reject it when the config opts into parallel execution.
+    // (See spec `loop-foreach-item-variable.md` §4.)
+    if (
+      step.kind === "loop.foreach" &&
+      step.writesTo["item"] !== undefined &&
+      step.config["sequential"] === false
+    ) {
+      throw new TemplatePortError(
+        `loop.foreach "${step.id}": writesTo.item requires sequential execution ` +
+          `(a variable is a shared cell; in parallel every item would collapse onto ` +
+          `the last one). Use a data edge from the "item" port instead.`,
+      );
+    }
     for (const [portName, variableName] of Object.entries(step.writesTo)) {
       // Rule 3: writesTo key must reference a declared output slot.
       if (!outputNames.has(portName)) {

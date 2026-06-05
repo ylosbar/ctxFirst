@@ -27,6 +27,7 @@ const ZERO_STATUS_COUNTS: StatusCounts = {
   looped: 0,
   failed: 0,
   skipped: 0,
+  superseded: 0,
 };
 
 const EMPTY_SUMMARY: RunSummary = {
@@ -106,6 +107,9 @@ export const buildStepStats = (args: BuildStepStatsArgs): GanttModel => {
   const considered: StepExecutionView[] = [];
   for (const exec of instance.executions) {
     if (exec.status === "skipped") continue;
+    // Superseded execs are historical (replaced by a rewind & replay) — exclude
+    // them from compute/wall-clock stats so a replay doesn't double-count.
+    if (exec.status === "superseded") continue;
     if (!exec.startedAt) continue;
     considered.push(exec);
   }

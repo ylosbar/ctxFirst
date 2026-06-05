@@ -892,6 +892,10 @@
       "panelShadows": {
         "title": "Ombres des panneaux",
         "description": "Affiche l'ombre projetée par les panneaux latéraux gauche et droit sur l'éditeur."
+      },
+      "fpsCounter": {
+        "title": "Compteur de FPS",
+        "description": "Affiche un petit indicateur d'images par seconde en haut à gauche. Utile pour diagnostiquer les ralentissements de l'éditeur."
       }
     },
     "integrations": {
@@ -1218,7 +1222,10 @@
       "subworkflowStepCount_other": "sous-workflow · {{count}} étapes",
       "collapseAll": "Tout replier",
       "expandAll": "Tout déplier",
-      "openChild": "Ouvrir le sous-run"
+      "openChild": "Ouvrir le sous-run",
+      "rerunFromHere": "Relancer depuis ici",
+      "confirmRerun_one": "Relancer depuis « {{label}} » ? {{count}} étape en aval sera recalculée et ses exécutions précédentes remplacées.",
+      "confirmRerun_other": "Relancer depuis « {{label}} » ? {{count}} étapes en aval seront recalculées et leurs exécutions précédentes remplacées."
     },
     "stats": {
       "title": "Chronologie des étapes"
@@ -1553,6 +1560,7 @@
       "statusLooped": "Rebouclée",
       "statusFailed": "Échouée",
       "statusSkipped": "Ignorée",
+      "statusSuperseded": "Remplacée",
       "thinking": "thinking",
       "session": "session · {{model}}",
       "orphanResult": "(résultat orphelin)",

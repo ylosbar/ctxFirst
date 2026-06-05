@@ -18,7 +18,11 @@ import {
   type StepKindId,
   type WorkflowTemplate,
 } from "../../domain/template";
-import { isExit, successors } from "../../domain/services/transition-policy";
+import {
+  isExit,
+  successors,
+  transitiveSuccessors,
+} from "../../domain/services/transition-policy";
 import {
   buildIterationKey,
   inferIterationScopes,
@@ -582,8 +586,16 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     template: WorkflowTemplate,
     stepId: StepId,
     iterationKey?: string,
+    configOverride?: Readonly<Record<string, unknown>>,
   ): Promise<{ inputs: RunContextInput[]; inputIds: ArtifactId[] }> => {
-    const step = findStep(template, stepId);
+    const baseStep = findStep(template, stepId);
+    // A rewind & replay can correct the target's config; apply the patch so a
+    // polymorphic runner's declared ports and any `readsFrom` resolution reflect
+    // the corrected config when building this exec's inputs (downstream steps
+    // never carry an override — they read the target's new output normally).
+    const step: StepDef = configOverride
+      ? { ...baseStep, config: { ...baseStep.config, ...configOverride } }
+      : baseStep;
     const runner = deps.runners.resolve(step.kind);
     const spec = runner.resolveSpec({
       config: step.config,
@@ -722,12 +734,14 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     stepId: StepId,
     loopFrom?: StepExecId,
     iterationKey?: string,
+    configOverride?: Readonly<Record<string, unknown>>,
   ): Promise<void> => {
     const { inputs, inputIds } = await buildInputs(
       inst,
       template,
       stepId,
       iterationKey,
+      configOverride,
     );
     const loopHistory = await buildLoopHistory(
       inst,
@@ -746,7 +760,14 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         e.status === "looped" &&
         iterationKeyMatches(e.iterationKey, iterationKey),
     ).length;
-    const step = findStep(template, stepId);
+    const baseStep = findStep(template, stepId);
+    // Apply a one-off config override (rewind & replay / retry-from-failed) to
+    // the effective step used everywhere below — runner.run, output-shape
+    // checks, actorRole resolution. The template snapshot is never mutated; the
+    // patch is persisted on the `StepStarted` event for deterministic replay.
+    const step: StepDef = configOverride
+      ? { ...baseStep, config: { ...baseStep.config, ...configOverride } }
+      : baseStep;
     const stepExecId = asStepExecId(deps.ids.newId());
     deps.logger.info(
       `[wf:orch] startStep step=${stepId} kind=${step.kind} inputs=${inputs.length} loopHistory=${loopHistory.length}${loopFrom ? ` loopFrom=${loopFrom.slice(0, 8)}` : ""}${iterationKey ? ` iter=${iterationKey}` : ""}`,
@@ -762,6 +783,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       inputArtifacts: inputIds,
       loopFrom,
       iterationKey,
+      ...(configOverride ? { configOverride } : {}),
     };
     await emit(started);
 
@@ -1049,7 +1071,6 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         artifactId: outcome.artifact.id,
         port,
       });
-      await maybeAssignVariable(port, outcome.artifact.id);
       if (isForeach) {
         await materializeForeachIterations(
           inst,
@@ -1058,6 +1079,11 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
           stepExecId,
           outcome.artifact.id,
         );
+        // `writesTo.item` is published per-iteration (see `assignForeachItem`),
+        // NOT as the whole list here — that would write the list before the
+        // first iteration and be immediately overwritten, misleading on replay.
+      } else {
+        await maybeAssignVariable(port, outcome.artifact.id);
       }
       if (step.humanGateRequired) {
         const cfgRole = step.config["actorRole"];
@@ -1193,6 +1219,33 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         itemArtifactId: itemArtifact.id,
       });
     }
+  };
+
+  /**
+   * Publishes the current iteration's unit item into the variable bound by the
+   * foreach's `writesTo.item`, if any. Emitted just before the iteration body's
+   * `startStep` so the body root (and the whole cascade) already reads the right
+   * value. Iteration-safe because the engine is strictly sequential: the next
+   * iteration's write hasn't happened yet (see spec
+   * `loop-foreach-item-variable.md`). The event is attached to the foreach's own
+   * exec (`record.loopStepExecId`) and routed last-writer-wins by the projection.
+   */
+  const assignForeachItem = async (
+    inst: InstanceState,
+    foreachStep: StepDef,
+    record: IterationRecord,
+  ): Promise<void> => {
+    const varName = foreachStep.writesTo?.["item"];
+    if (!varName) return;
+    await emit({
+      type: "VariableAssigned",
+      eventId: asEventId(deps.ids.newId()),
+      at: deps.clock.now(),
+      instanceId: inst.id,
+      stepExecId: record.loopStepExecId,
+      variableName: varName,
+      artifactId: record.itemArtifactId,
+    });
   };
 
   /**
@@ -1719,6 +1772,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       }
       if (!next) return;
       const first = records[0];
+      await assignForeachItem(refreshed, step, first);
       await startStep(refreshed, template, next, undefined, first.iterationKey);
       return;
     }
@@ -1776,6 +1830,11 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         if (nextRec) {
           const firstBody = successors(template, foreachId)[0]?.to;
           if (firstBody) {
+            await assignForeachItem(
+              refreshed,
+              findStep(template, foreachId),
+              nextRec,
+            );
             await startStep(
               refreshed,
               template,
@@ -1832,6 +1891,77 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       instanceId,
       loopId: loopId as never,
     });
+  };
+
+  /**
+   * "Rewind & replay" (`specs/run-rerun-from-node.md`): re-run the run from
+   * `fromExecId`'s step. The target and its transitive downstream are recomputed;
+   * the upstream is untouched (its validated artifacts are reused by
+   * `buildInputs`).
+   *
+   * The critical bit is the **transitive supersede**: before re-starting the
+   * target we mark the last live exec of every step in the downstream closure
+   * `superseded` (which `classify` ranges as `unresolved`). Without it, a
+   * convergent step could start on a *stale* validated output of a sibling that
+   * hasn't been re-run yet.
+   */
+  const onRerunRequested = async (
+    instanceId: WorkflowId,
+    fromExecId: StepExecId,
+    configOverride?: Readonly<Record<string, unknown>>,
+  ): Promise<void> => {
+    const inst = deps.state.getInstance(instanceId);
+    if (!inst) return;
+    const template = await templateForInstance(inst);
+    const target = inst.executions.find((e) => e.id === fromExecId);
+    if (!target) return;
+    const iterationKey = target.iterationKey;
+
+    // 1) The subgraph to replay: target + its transitive (non-loop) downstream.
+    const toReplay = new Set<StepId>([
+      target.stepId,
+      ...transitiveSuccessors(template, target.stepId),
+    ]);
+
+    // 2) Supersede the last LIVE exec of each step in the subgraph, within the
+    //    same iteration scope. Order-independent — no fresh exec is started
+    //    before step 3, so the supersede can't race the cascade.
+    for (const stepId of toReplay) {
+      const live = [...inst.executions]
+        .reverse()
+        .find(
+          (e) =>
+            e.stepId === stepId &&
+            iterationKeyMatches(e.iterationKey, iterationKey) &&
+            (e.status === "validated" ||
+              e.status === "failed" ||
+              e.status === "awaitingHuman" ||
+              e.status === "awaitingChild"),
+        );
+      if (live) {
+        await emit({
+          type: "StepSuperseded",
+          eventId: asEventId(deps.ids.newId()),
+          at: deps.clock.now(),
+          instanceId: inst.id,
+          stepExecId: live.id,
+        });
+      }
+    }
+
+    // 3) Re-start the target. `afterValidated` cascades the whole downstream;
+    //    convergent steps wait because their superseded upstreams are now
+    //    `unresolved` until they produce a fresh validated exec. No loopFrom:
+    //    this is a replay, not a feedback loop.
+    const refreshed = deps.state.getInstance(inst.id) ?? inst;
+    await startStep(
+      refreshed,
+      template,
+      target.stepId,
+      undefined,
+      iterationKey,
+      configOverride,
+    );
   };
 
   let unsub: (() => void) | null = null;
@@ -1922,6 +2052,11 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
           case "LoopOpened":
             schedule(evt.instanceId, () =>
               onLoopOpened(evt.instanceId, evt.fromStepExec, evt.toStepId, evt.loopId),
+            );
+            return;
+          case "StepRerunRequested":
+            schedule(evt.instanceId, () =>
+              onRerunRequested(evt.instanceId, evt.stepExecId, evt.configOverride),
             );
             return;
           case "InstanceCompleted":

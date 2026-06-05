@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,9 +22,11 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type EdgeMouseHandler,
   type FinalConnectionState,
   type Node,
   type NodeChange,
+  type NodeMouseHandler,
   type OnConnectStartParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -228,8 +237,10 @@ const buildDefaultStep = (
 });
 
 const edgeStyle = (isLoop: boolean): Partial<Edge> => ({
-  animated: isLoop,
-  style: isLoop ? { strokeDasharray: "6 4" } : undefined,
+  animated: false,
+  style: isLoop
+    ? { strokeDasharray: "2 4", stroke: "var(--color-orange-500, #f97316)" }
+    : undefined,
   label: isLoop ? "Human validation" : undefined,
 });
 
@@ -668,6 +679,14 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  // Live mirrors of the node/edge state, read by handlers that need the current
+  // graph at call time without capturing the arrays in their closure — keeping
+  // those callbacks (e.g. `isValidConnection`) referentially stable across the
+  // re-renders a drag triggers (guide §2).
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
   const [entryStepId, setEntryStepId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -1143,12 +1162,15 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     const portColumnPaddingTop = 4;
     const portRowHeight = 16;
     const variablePillYOffset = 40;
+    // Extra vertical spacing between stacked variable pills so they don't
+    // overlap (pills are taller than a port row) and stay easy to read.
+    const variablePillVerticalGap = 18;
     const pillYForPortIndex = (nodeY: number, portIdx: number) =>
       nodeY +
       headerHeight +
       1 +
       portColumnPaddingTop +
-      portIdx * portRowHeight +
+      portIdx * (portRowHeight + variablePillVerticalGap) +
       portRowHeight / 2 -
       variablePillHeight / 2 +
       variablePillYOffset;
@@ -1316,8 +1338,40 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         })
       : edges;
     const withVars = [...styledEdges, ...variableArtifacts.edges];
-    if (!entryStepId) return withVars;
-    if (!nodes.some((n) => n.id === entryStepId)) return withVars;
+
+    // When a node is selected, emphasise every edge touching it — incoming,
+    // outgoing, and the variable pill edges — so its data/flow connections
+    // stand out from the rest of the graph.
+    const selectedIds = new Set(
+      nodes.filter((n) => n.selected).map((n) => n.id),
+    );
+    const highlight = (list: Edge[]): Edge[] => {
+      if (selectedIds.size === 0) return list;
+      return list.map((e) => {
+        const connected =
+          selectedIds.has(e.source) || selectedIds.has(e.target);
+        if (!connected) {
+          // Dim unrelated edges so the highlighted ones pop.
+          return {
+            ...e,
+            style: { ...(e.style ?? {}), opacity: 0.15 },
+          };
+        }
+        return {
+          ...e,
+          zIndex: Math.max((e.zIndex as number) ?? 0, 1001),
+          style: {
+            ...(e.style ?? {}),
+            opacity: 1,
+            strokeWidth: 2.5,
+            stroke: "var(--primary)",
+          },
+        };
+      });
+    };
+
+    if (!entryStepId) return highlight(withVars);
+    if (!nodes.some((n) => n.id === entryStepId)) return highlight(withVars);
     const startEdge: Edge = {
       id: START_EDGE_ID,
       source: START_NODE_ID,
@@ -1328,7 +1382,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       focusable: false,
       style: { strokeDasharray: "4 3", opacity: 0.7 },
     };
-    return [startEdge, ...withVars];
+    return highlight([startEdge, ...withVars]);
   }, [edges, entryStepId, nodes, variableArtifacts, runOverlay]);
 
   const persistLayout = useCallback(
@@ -1946,8 +2000,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       if (!conn.source || !conn.target) return false;
       if (conn.source === conn.target) return true;
       if (!byKind) return false;
-      const src = nodes.find((n) => n.id === conn.source);
-      const tgt = nodes.find((n) => n.id === conn.target);
+      const currentNodes = nodesRef.current;
+      const src = currentNodes.find((n) => n.id === conn.source);
+      const tgt = currentNodes.find((n) => n.id === conn.target);
       if (!src || !tgt) return false;
       const srcStep = src.data as unknown as TemplateStepDraft;
       const tgtStep = tgt.data as unknown as TemplateStepDraft;
@@ -1970,7 +2025,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           ? tgtSpec.inputs[0]
           : undefined;
       if (targetPort && !targetPort.isList) {
-        const existing = edges.some(
+        const existing = edgesRef.current.some(
           (e) =>
             e.target === conn.target &&
             (e.targetHandle ?? null) === (conn.targetHandle ?? null) &&
@@ -1980,7 +2035,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       }
       return true;
     },
-    [nodes, byKind, edges, variables, subTemplates],
+    [byKind, variables, subTemplates],
   );
 
   const onConnect = useCallback((conn: Connection) => {
@@ -2186,6 +2241,104 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       setSelectedEdgeId(null);
     },
     [nodes, screenToFlowPosition],
+  );
+
+  // Handlers passed to <ReactFlow> are memoized so a re-render of the editor
+  // doesn't hand React Flow new prop references on every frame (guide §1/§2).
+  // The `isViewRun` guard lives *inside* each callback (early-return) rather
+  // than as an outer ternary, so the prop reference stays stable across modes.
+  // `useState` setters are guaranteed stable → omitted from deps.
+  const onNodeClick = useCallback<NodeMouseHandler>(
+    (_, n) => {
+      if (isSyntheticId(n.id)) return;
+      // Les groupes et les notes ne pilotent pas l'inspecteur.
+      if (n.type === "group" || n.type === "stickyNote") {
+        setSelectedNodeId(null);
+        setSelectedEdgeId(null);
+        return;
+      }
+      if (runOverlay) {
+        runOverlay.onSelectStep(n.id);
+        return;
+      }
+      // Pas de fit-view ici : l'animation déplaçait la node sous le
+      // curseur pendant 300 ms, et un second clic réflexe atterrissait
+      // dans le vide (→ onPaneClick → désélection), donnant l'illusion
+      // qu'il fallait cliquer plusieurs fois pour ouvrir l'inspecteur.
+      setSelectedNodeId(n.id);
+      setSelectedEdgeId(null);
+    },
+    [runOverlay],
+  );
+
+  const onNodeDoubleClick = useCallback<NodeMouseHandler>(
+    (_, n) => {
+      // A `workflow.call` (sub-template-expand.md §11b) or a
+      // `template.invoke` (sub-template-invoke.md §9c) node opens its
+      // referenced sub-template in a new editor tab. The sub-graph is
+      // never inlined in the parent editor — it is edited on its own.
+      const kind = n.data?.["kind"];
+      if (kind !== "workflow.call" && kind !== "template.invoke") return;
+      const cfg = (n.data?.["config"] ?? {}) as Record<string, unknown>;
+      const id = typeof cfg["templateId"] === "string" ? cfg["templateId"] : "";
+      const version =
+        typeof cfg["templateVersion"] === "string" ? cfg["templateVersion"] : "";
+      if (!id || !version) return;
+      api.openEditor(templateUriFor(`${id}@${version}`), { focus: true });
+    },
+    [api],
+  );
+
+  const onEdgeClick = useCallback<EdgeMouseHandler>(
+    (_, e) => {
+      if (isViewRun) return;
+      if (isSyntheticId(e.id)) return;
+      setSelectedEdgeId(e.id);
+      setSelectedNodeId(null);
+    },
+    [isViewRun],
+  );
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+  }, []);
+
+  const snapGrid = useMemo<[number, number]>(
+    () => [gridSnap.size, gridSnap.size],
+    [gridSnap.size],
+  );
+
+  const onDragOver = useCallback(
+    (event: DragEvent) => {
+      if (isViewRun) return;
+      if (!event.dataTransfer.types.includes(STEP_KIND_DND_MIME)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    },
+    [isViewRun],
+  );
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      if (isViewRun) return;
+      const kindId = event.dataTransfer.getData(STEP_KIND_DND_MIME);
+      if (!kindId) return;
+      const kind = getKindMeta(kindId);
+      if (!kind) return;
+      event.preventDefault();
+      const flowPos = screenToFlowPosition(
+        { x: event.clientX, y: event.clientY },
+        gridSnap.enabled
+          ? { snapToGrid: true, snapGrid }
+          : undefined,
+      );
+      addStep(kind, {
+        x: flowPos.x - AUTO_LAYOUT_DEFAULT_WIDTH / 2,
+        y: flowPos.y - AUTO_LAYOUT_DEFAULT_HEIGHT / 2,
+      });
+    },
+    [isViewRun, gridSnap.enabled, snapGrid, screenToFlowPosition, addStep],
   );
 
   const updateSelectedStep = useCallback(
@@ -3158,89 +3311,16 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
               nodesDraggable={!isViewRun}
               nodesConnectable={!isViewRun}
               deleteKeyCode={isViewRun ? null : "Delete"}
-              onNodeClick={(_, n) => {
-                if (isSyntheticId(n.id)) return;
-                // Les groupes et les notes ne pilotent pas l'inspecteur.
-                if (n.type === "group" || n.type === "stickyNote") {
-                  setSelectedNodeId(null);
-                  setSelectedEdgeId(null);
-                  return;
-                }
-                if (runOverlay) {
-                  runOverlay.onSelectStep(n.id);
-                  return;
-                }
-                // Pas de fit-view ici : l'animation déplaçait la node sous le
-                // curseur pendant 300 ms, et un second clic réflexe atterrissait
-                // dans le vide (→ onPaneClick → désélection), donnant l'illusion
-                // qu'il fallait cliquer plusieurs fois pour ouvrir l'inspecteur.
-                setSelectedNodeId(n.id);
-                setSelectedEdgeId(null);
-              }}
-              onNodeDoubleClick={(_, n) => {
-                // A `workflow.call` (sub-template-expand.md §11b) or a
-                // `template.invoke` (sub-template-invoke.md §9c) node opens its
-                // referenced sub-template in a new editor tab. The sub-graph is
-                // never inlined in the parent editor — it is edited on its own.
-                const kind = n.data?.["kind"];
-                if (kind !== "workflow.call" && kind !== "template.invoke") return;
-                const cfg = (n.data?.["config"] ?? {}) as Record<string, unknown>;
-                const id = typeof cfg["templateId"] === "string" ? cfg["templateId"] : "";
-                const version =
-                  typeof cfg["templateVersion"] === "string" ? cfg["templateVersion"] : "";
-                if (!id || !version) return;
-                api.openEditor(templateUriFor(`${id}@${version}`), { focus: true });
-              }}
-              onEdgeClick={(_, e) => {
-                if (isViewRun) return;
-                if (isSyntheticId(e.id)) return;
-                setSelectedEdgeId(e.id);
-                setSelectedNodeId(null);
-              }}
-              onPaneClick={() => {
-                setSelectedNodeId(null);
-                setSelectedEdgeId(null);
-              }}
+              onNodeClick={onNodeClick}
+              onNodeDoubleClick={onNodeDoubleClick}
+              onEdgeClick={onEdgeClick}
+              onPaneClick={onPaneClick}
               onNodeDragStop={isViewRun ? undefined : handleNodeDragStop}
               onMoveEnd={isViewRun ? undefined : layoutAutosave.onMoveEnd}
               snapToGrid={gridSnap.enabled}
-              snapGrid={[gridSnap.size, gridSnap.size]}
-              onDragOver={
-                isViewRun
-                  ? undefined
-                  : (event) => {
-                      if (!event.dataTransfer.types.includes(STEP_KIND_DND_MIME))
-                        return;
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "copy";
-                    }
-              }
-              onDrop={
-                isViewRun
-                  ? undefined
-                  : (event) => {
-                      const kindId = event.dataTransfer.getData(
-                        STEP_KIND_DND_MIME,
-                      );
-                      if (!kindId) return;
-                      const kind = getKindMeta(kindId);
-                      if (!kind) return;
-                      event.preventDefault();
-                      const flowPos = screenToFlowPosition(
-                        { x: event.clientX, y: event.clientY },
-                        gridSnap.enabled
-                          ? {
-                              snapToGrid: true,
-                              snapGrid: [gridSnap.size, gridSnap.size],
-                            }
-                          : undefined,
-                      );
-                      addStep(kind, {
-                        x: flowPos.x - AUTO_LAYOUT_DEFAULT_WIDTH / 2,
-                        y: flowPos.y - AUTO_LAYOUT_DEFAULT_HEIGHT / 2,
-                      });
-                    }
-              }
+              snapGrid={snapGrid}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
               fitView={!initialLayout?.viewport}
               defaultViewport={initialLayout?.viewport}
               minZoom={0.2}

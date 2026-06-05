@@ -219,6 +219,56 @@ describe("validateTemplateVariables — writesTo", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests – Rule 5b: loop.foreach writesTo.item requires sequential execution
+// ---------------------------------------------------------------------------
+
+describe("validateTemplateVariables — foreach writesTo.item (Rule 5b)", () => {
+  const registry = makeRegistry({
+    "loop.foreach": {
+      inputs: [{ name: "items", kinds: ["List<Json>"], optional: true }],
+      outputs: [{ kind: "Json", name: "item" }],
+    },
+    "loop.collect": {
+      inputs: [{ name: "item", kinds: ["Json"] }],
+      outputs: [{ kind: "List<Json>", name: "out" }],
+    },
+  });
+
+  // Valid foreach scope: foreach a → collect c. Reachable collect is required
+  // by the port validator; without it the (later) loop-unmatched check fires
+  // before we can observe the Rule 5b accept paths.
+  const foreachTpl = (config: Record<string, unknown>): WorkflowTemplate =>
+    template({
+      entryStep: asStepId("a"),
+      variables: [variable("cur", "Json")],
+      steps: [
+        step("a", { kind: "loop.foreach", config, writesTo: { item: "cur" } }),
+        step("c", { kind: "loop.collect", config: { itemKind: "Json" } }),
+      ],
+      transitions: [edge("a", "c", false, { fromPort: "item", toPort: "item" })],
+      exitSteps: [asStepId("c")],
+    });
+
+  it("rejects writesTo.item when config.sequential is false", () => {
+    const tpl = foreachTpl({ sequential: false });
+    expect(() => validateTemplatePorts(tpl, registry)).toThrow(TemplatePortError);
+    expect(() => validateTemplatePorts(tpl, registry)).toThrow(
+      /writesTo\.item requires sequential execution/,
+    );
+  });
+
+  it("accepts writesTo.item with no sequential flag", () => {
+    const tpl = foreachTpl({});
+    expect(() => validateTemplatePorts(tpl, registry)).not.toThrow();
+  });
+
+  it("accepts writesTo.item when config.sequential is true", () => {
+    const tpl = foreachTpl({ sequential: true });
+    expect(() => validateTemplatePorts(tpl, registry)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests – readsFrom rules (6-10)
 // ---------------------------------------------------------------------------
 

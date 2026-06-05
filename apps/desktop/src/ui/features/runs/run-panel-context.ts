@@ -27,6 +27,14 @@ export type RunPanelContextValue = {
   readonly onSelectExec: (execId: string) => void;
   readonly onValidate: () => void;
   readonly onRequestAdjustments: () => void;
+  /**
+   * Re-run the run from the given exec (rewind & replay). The target and its
+   * transitive downstream are recomputed; the upstream is reused as-is. Only
+   * valid for a `validated`/`failed` exec. See `specs/run-rerun-from-node.md`.
+   */
+  readonly onRerunFromNode: (stepExecId: string) => void;
+  /** Number of downstream steps that a re-run from `stepId` would recompute. */
+  readonly rerunImpactCount: (stepId: string) => number;
   readonly loadSession: (execId: string) => Promise<void>;
 };
 

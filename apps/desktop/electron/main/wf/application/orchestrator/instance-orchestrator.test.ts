@@ -882,6 +882,129 @@ describe("InstanceOrchestrator — iteration scopes", () => {
 });
 
 // ---------------------------------------------------------------------------
+// loop.foreach writesTo.item — publish the current item as a per-iteration var
+// ---------------------------------------------------------------------------
+
+describe("InstanceOrchestrator — foreach writesTo.item", () => {
+  // In-scope step reading the loop variable (not a data edge) and recording the
+  // value it saw, so we can assert each iteration sees ITS item — not the last
+  // one, not the whole list.
+  const makeCapture = (seen: string[]): StepRunner => ({
+    kind: "test.capture-json",
+    resolveSpec: () => ({
+      title: "capture-json",
+      inputs: [{ name: "in", kinds: ["Json"], primary: true }],
+      outputs: [{ name: "out", kind: "Json", primary: true }],
+    }),
+    async run(ctx) {
+      const input = ctx.inputs[0];
+      seen.push(JSON.parse(input.content).body as string);
+      const artifact = await ctx.deps.artifactStore.put("Json", input.content, {
+        source: "test.capture-json",
+      });
+      return { kind: "produced", artifact };
+    },
+  });
+
+  const itemVarTemplate = (items: string[]) =>
+    buildTemplate(
+      "foreach-item-var",
+      [
+        {
+          id: "fe",
+          kind: "loop.foreach",
+          humanGateRequired: false,
+          config: { items, itemKind: "Json" },
+          writesTo: { item: "cur" },
+        },
+        {
+          id: "cap",
+          kind: "test.capture-json",
+          humanGateRequired: false,
+          // Reads the loop variable, NOT a data edge from the item port.
+          readsFrom: { in: "cur" },
+        },
+        {
+          id: "col",
+          kind: "loop.collect",
+          humanGateRequired: false,
+          config: { itemKind: "Json" },
+        },
+      ],
+      [
+        { from: "fe", to: "cap" },
+        { from: "cap", to: "col", fromPort: "out", toPort: "item" },
+      ],
+      {
+        exitSteps: ["col"],
+        variables: [{ name: "cur", kind: "Json" }],
+      },
+    );
+
+  it("each iteration sees its own item through the variable (not the last, not the list)", async () => {
+    const seen: string[] = [];
+    const template = itemVarTemplate(["1", "2", "3"]);
+    harness = createOrchestratorHarness({
+      templates: [template],
+      extraRunners: [makeCapture(seen)],
+    });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    expect(seen).toEqual(["1", "2", "3"]);
+  });
+
+  it("never writes the whole list artifact into the variable (§2)", async () => {
+    const seen: string[] = [];
+    const template = itemVarTemplate(["1", "2"]);
+    harness = createOrchestratorHarness({
+      templates: [template],
+      extraRunners: [makeCapture(seen)],
+    });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    const assignments = harness.fakes.bus.ofType("VariableAssigned");
+    // One per iteration, all under "cur" — and none of them is a List<Json>.
+    expect(assignments).toHaveLength(2);
+    for (const a of assignments) {
+      expect(a.variableName).toBe("cur");
+      const stored = harness.fakes.artifactStore.getById(a.artifactId);
+      expect(stored?.meta.kind).toBe("Json");
+    }
+  });
+
+  it("empty array emits no VariableAssigned and never defines the variable", async () => {
+    const seen: string[] = [];
+    const template = itemVarTemplate([]);
+    harness = createOrchestratorHarness({
+      templates: [template],
+      extraRunners: [makeCapture(seen)],
+    });
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    // Empty list → foreach validates then short-circuits past its body; no
+    // iteration ever starts, so no item is published. (Same drive pattern as
+    // the sequential empty-array test — collect of an empty scope is orthogonal.)
+    await harness.waitForEvent("StepValidated");
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(seen).toEqual([]);
+    expect(harness.fakes.bus.ofType("VariableAssigned")).toHaveLength(0);
+    const inst = harness.state.getInstance(instanceId)!;
+    expect(inst.variables.get("cur")).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Sequential foreach (iterations always run strictly one at a time)
 // ---------------------------------------------------------------------------
 

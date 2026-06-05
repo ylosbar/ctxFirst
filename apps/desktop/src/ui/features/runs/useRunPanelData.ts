@@ -8,7 +8,35 @@ import {
   findStepKind,
 } from "../../components/wf-layout";
 import type { RunPanelContextValue } from "./run-panel-context";
+import type { TemplateView } from "../../../domain/workflow/types";
 import { reviewUriFor } from "./review-uri";
+
+/**
+ * Counts the steps reachable from `from` through non-loop transitions (`from`
+ * excluded) — the downstream a rewind & replay would recompute. Mirrors the
+ * engine's `transitiveSuccessors` (BFS, dedup, ignore `isLoop`).
+ */
+const countDownstream = (
+  template: TemplateView | null,
+  from: string,
+): number => {
+  if (!template) return 0;
+  const seen = new Set<string>([from]);
+  const queue: string[] = [from];
+  let count = 0;
+  while (queue.length > 0) {
+    const cur = queue.shift() as string;
+    for (const tr of template.transitions) {
+      if (tr.isLoop) continue;
+      if (tr.from !== cur) continue;
+      if (seen.has(tr.to)) continue;
+      seen.add(tr.to);
+      count += 1;
+      queue.push(tr.to);
+    }
+  }
+  return count;
+};
 
 type Result = {
   readonly contextValue: RunPanelContextValue | null;
@@ -30,6 +58,7 @@ const useRunPanelData = (
     template,
     sessions,
     validateStep,
+    rerunFromNode,
     loadSession,
     error,
     loading,
@@ -156,6 +185,18 @@ const useRunPanelData = (
       wb.openEditor(reviewUriFor(instanceId, selected.id), { focus: true });
   }, [wb, instanceId, selected]);
 
+  const handleRerunFromNode = useCallback(
+    (stepExecId: string) => {
+      void rerunFromNode(stepExecId);
+    },
+    [rerunFromNode],
+  );
+
+  const rerunImpactCount = useCallback(
+    (stepId: string) => countDownstream(template, stepId),
+    [template],
+  );
+
   const contextValue = useMemo<RunPanelContextValue | null>(
     () =>
       instance
@@ -177,6 +218,8 @@ const useRunPanelData = (
             onSelectExec: handleSelectExec,
             onValidate: handleValidate,
             onRequestAdjustments: handleRequestAdjustments,
+            onRerunFromNode: handleRerunFromNode,
+            rerunImpactCount,
             loadSession,
           }
         : null,
@@ -197,6 +240,8 @@ const useRunPanelData = (
       handleSelectExec,
       handleValidate,
       handleRequestAdjustments,
+      handleRerunFromNode,
+      rerunImpactCount,
       loadSession,
     ],
   );

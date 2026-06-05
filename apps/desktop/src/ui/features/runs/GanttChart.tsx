@@ -23,6 +23,7 @@ const STATUS_FILL: Record<StepExecStatus, string> = {
   looped: "var(--color-purple-500, #a855f7)",
   failed: "var(--destructive)",
   skipped: "var(--muted-foreground)",
+  superseded: "var(--muted-foreground)",
 };
 
 const stepStatusFill = (status: StepExecStatus): string => STATUS_FILL[status];

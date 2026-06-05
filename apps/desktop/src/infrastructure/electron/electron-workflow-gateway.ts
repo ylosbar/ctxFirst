@@ -32,6 +32,9 @@ export const createElectronWorkflowGateway = (): WorkflowGateway => ({
   async openLoop(input) {
     await window.api.wf.openLoop(input);
   },
+  async rerunFromNode(input) {
+    await window.api.wf.rerunFromNode(input);
+  },
   async getTimeline(instanceId) {
     const raw = (await window.api.wf.getTimeline({ instanceId })) as
       | InstanceView

@@ -32,6 +32,10 @@ type UseWorkflow = {
     reason: string,
     comments?: ReadonlyArray<ReviewCommentView>,
   ) => Promise<void>;
+  rerunFromNode: (
+    stepExecId: string,
+    configOverride?: Record<string, unknown>,
+  ) => Promise<void>;
   loadArtifact: (artifactId: string) => Promise<string>;
   loadSession: (stepExecId: string) => Promise<void>;
   error: string | null;
@@ -344,6 +348,24 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
     [services, instanceId],
   );
 
+  const rerunFromNode = useCallback(
+    async (
+      stepExecId: string,
+      configOverride?: Record<string, unknown>,
+    ) => {
+      if (!instanceId) return;
+      setError(null);
+      try {
+        await services.requestRerun({ instanceId, stepExecId, configOverride });
+      } catch (e) {
+
+        console.error("[wf:ui] rerunFromNode failed", e);
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [services, instanceId],
+  );
+
   const loadArtifact = useCallback(
     async (artifactId: string): Promise<string> => {
       const { content } = await services.getArtifact(artifactId);
@@ -360,6 +382,7 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
       startWorkflow,
       validateStep,
       requestLoop,
+      rerunFromNode,
       loadArtifact,
       loadSession,
       error,
@@ -373,6 +396,7 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
       startWorkflow,
       validateStep,
       requestLoop,
+      rerunFromNode,
       loadArtifact,
       loadSession,
       error,

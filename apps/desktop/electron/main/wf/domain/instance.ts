@@ -35,6 +35,12 @@ import type { WorkflowTemplate } from "./template";
  * - `skipped`       → never ran because a mutually-exclusive upstream branch
  *                     chose a different port. Terminal (cf. `StepSkipped` in
  *                     `events.ts`).
+ * - `superseded`    → replaced by a "rewind & replay" (re-run from an upstream
+ *                     node, cf. `StepSuperseded` in `events.ts`). Terminal,
+ *                     non-validated: kept in the timeline for audit but no
+ *                     input-resolution site selects it (`loadFromTransition`
+ *                     filters `status === "validated"`, `classify` ranges it as
+ *                     `unresolved`). See `specs/run-rerun-from-node.md`.
  */
 export type StepExecStatus =
   | "pending"
@@ -44,7 +50,8 @@ export type StepExecStatus =
   | "validated"
   | "looped"
   | "failed"
-  | "skipped";
+  | "skipped"
+  | "superseded";
 
 /**
  * One execution of one step within an instance. A single {@link StepId} can
@@ -112,6 +119,14 @@ export type StepExecution = {
    * Never populated in Phase A — no runner emits `ChildInstanceSpawned` yet.
    */
   childInstanceId?: WorkflowId;
+  /**
+   * Set when this execution ran with a one-off config patch applied for a
+   * "rewind & replay" (re-run from this node) or a retry-from-failed. Shallow
+   * merge over `step.config`, scoped to this exec only — the template is never
+   * mutated and no new version is created. Surfaced in the UI as a "config
+   * modifiée pour ce run" badge. See `specs/run-rerun-from-node.md`.
+   */
+  appliedConfigOverride?: Readonly<Record<string, unknown>>;
 };
 
 /** Instance-level lifecycle status (aggregated from its executions). */

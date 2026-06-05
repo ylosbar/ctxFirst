@@ -2,6 +2,7 @@ import type { ListTasks } from "../../application/use-cases/list-tasks";
 import type { StartWorkflow } from "../../application/use-cases/start-workflow";
 import type { ValidateStep } from "../../application/use-cases/validate-step";
 import type { RequestLoop } from "../../application/use-cases/request-loop";
+import type { RequestRerun } from "../../application/use-cases/request-rerun";
 import type { SubscribeWorkflow } from "../../application/use-cases/subscribe-workflow";
 import type { GetWorkflowTimeline } from "../../application/use-cases/get-workflow-timeline";
 import type { GetRunTokenUsage } from "../../application/use-cases/get-run-token-usage";
@@ -71,6 +72,7 @@ export type Services = {
   startWorkflow: StartWorkflow;
   validateStep: ValidateStep;
   requestLoop: RequestLoop;
+  requestRerun: RequestRerun;
   subscribeWorkflow: SubscribeWorkflow;
   getWorkflowTimeline: GetWorkflowTimeline;
   getRunTokenUsage: GetRunTokenUsage;

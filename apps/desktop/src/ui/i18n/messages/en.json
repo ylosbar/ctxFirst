@@ -892,6 +892,10 @@
       "panelShadows": {
         "title": "Panel shadows",
         "description": "Show the elevation shadow cast by the left and right side panels onto the editor."
+      },
+      "fpsCounter": {
+        "title": "FPS counter",
+        "description": "Show a small frames-per-second readout in the top-left corner. Handy for diagnosing editor slowdowns."
       }
     },
     "integrations": {
@@ -1218,7 +1222,10 @@
       "subworkflowStepCount_other": "sub-workflow · {{count}} steps",
       "collapseAll": "Collapse all",
       "expandAll": "Expand all",
-      "openChild": "Open child run"
+      "openChild": "Open child run",
+      "rerunFromHere": "Re-run from here",
+      "confirmRerun_one": "Re-run from « {{label}} »? {{count}} downstream step will be recomputed and its previous executions replaced.",
+      "confirmRerun_other": "Re-run from « {{label}} »? {{count}} downstream steps will be recomputed and their previous executions replaced."
     },
     "stats": {
       "title": "Step timeline"
@@ -1553,6 +1560,7 @@
       "statusLooped": "Looped",
       "statusFailed": "Failed",
       "statusSkipped": "Skipped",
+      "statusSuperseded": "Replaced",
       "thinking": "thinking",
       "session": "session · {{model}}",
       "orphanResult": "(orphan result)",

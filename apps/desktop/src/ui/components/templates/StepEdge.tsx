@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -79,4 +80,4 @@ const StepEdge = ({
   );
 };
 
-export default StepEdge;
+export default memo(StepEdge);

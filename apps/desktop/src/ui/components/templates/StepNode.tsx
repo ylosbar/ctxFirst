@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from "react";
+import { createContext, memo, useContext, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Cog } from "lucide-react";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
@@ -428,4 +428,4 @@ const StepNode = ({ data, selected }: NodeProps) => {
   );
 };
 
-export default StepNode;
+export default memo(StepNode);

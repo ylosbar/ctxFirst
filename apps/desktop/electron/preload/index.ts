@@ -201,6 +201,17 @@ type WfLoopArgs = {
   }>;
 };
 
+/**
+ * Relance un run terminé/en échec à partir d'une node (rewind & replay).
+ * `configOverride` est un patch de config ponctuel appliqué à la node cible
+ * pour ce replay uniquement (sans toucher au template).
+ */
+type WfRerunArgs = {
+  instanceId: string;
+  stepExecId: string;
+  configOverride?: Record<string, unknown>;
+};
+
 const api = {
   /**
    * Demande au main d'ouvrir une URL externe dans le navigateur par défaut
@@ -463,6 +474,15 @@ const api = {
      */
     openLoop: (args: WfLoopArgs): Promise<void> =>
       ipcRenderer.invoke("wf:openLoop", args),
+
+    /**
+     * Relance le run à partir d'une node (terminée ou en échec). Toute l'aval
+     * transitif est recalculé ; les execs précédentes passent `superseded`. Un
+     * `configOverride` optionnel corrige la config de la node cible pour ce
+     * replay uniquement.
+     */
+    rerunFromNode: (args: WfRerunArgs): Promise<void> =>
+      ipcRenderer.invoke("wf:rerunFromNode", args),
 
     /**
      * Récupère la timeline d'exécution d'une instance (séquence d'étapes,

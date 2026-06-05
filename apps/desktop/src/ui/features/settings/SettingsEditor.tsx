@@ -49,9 +49,11 @@ import {
   clearPersistedAppearance,
   DENSITIES,
   useDensity,
+  useFpsCounter,
   useLocale,
   usePanelShadows,
   useSetDensity,
+  useSetFpsCounter,
   useSetLocale,
   useSetPanelShadows,
   type DensityDescriptor,
@@ -305,6 +307,8 @@ const AppearancePanel = () => {
   const setLocale = useSetLocale();
   const panelShadows = usePanelShadows();
   const setPanelShadows = useSetPanelShadows();
+  const fpsCounter = useFpsCounter();
+  const setFpsCounter = useSetFpsCounter();
 
   return (
     <section className="flex flex-col gap-4">
@@ -339,6 +343,19 @@ const AppearancePanel = () => {
         <OnOffToggle
           value={panelShadows}
           onChange={setPanelShadows}
+          onLabel={t("common.enabled")}
+          offLabel={t("common.disabled")}
+        />
+      </SettingRow>
+      <SettingRow
+        title={t("settings.appearance.fpsCounter.title")}
+        description={
+          <span>{t("settings.appearance.fpsCounter.description")}</span>
+        }
+      >
+        <OnOffToggle
+          value={fpsCounter}
+          onChange={setFpsCounter}
           onLabel={t("common.enabled")}
           offLabel={t("common.disabled")}
         />

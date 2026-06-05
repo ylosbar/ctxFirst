@@ -1,5 +1,6 @@
 import {
   createContext,
+  memo,
   useContext,
   useEffect,
   useRef,
@@ -95,7 +96,17 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
         // `nodrag` sur l'input et la croix empêche de saisir le groupe
         // quand on tape/clique dessus ; le reste de la barre reste un
         // handle de drag pratique.
-        <div className="absolute -top-7 left-0 flex max-w-full items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 ring-1 ring-primary/20 backdrop-blur-sm">
+        // Fond opaque (color-mix) plutôt que bg-primary/10 + backdrop-blur :
+        // chaque blur sur le canvas = une couche de compositing GPU séparée,
+        // re-rasterisée à chaque frame de pan → "tile memory limits exceeded"
+        // en dézoom (et le bureau transparaît, fenêtre transparente).
+        <div
+          className="absolute -top-7 left-0 flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 ring-1 ring-primary/20"
+          style={{
+            background:
+              "color-mix(in srgb, var(--primary) 10%, var(--background))",
+          }}
+        >
           <span
             aria-hidden
             className="size-1.5 rounded-full bg-primary"
@@ -133,4 +144,4 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
   );
 };
 
-export default GroupNode;
+export default memo(GroupNode);
