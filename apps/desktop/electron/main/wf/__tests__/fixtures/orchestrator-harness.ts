@@ -32,6 +32,7 @@ import { createUserInputRunner } from "../../plugins/user-input";
 import { createWorkspaceSetRunner } from "../../plugins/workspace-set";
 
 import { makeOpenFeedbackLoop } from "../../application/use-cases/open-feedback-loop";
+import { makeRerunFromNode } from "../../application/use-cases/rerun-from-node";
 import { makeStartInstance } from "../../application/use-cases/start-instance";
 import { makeSubmitHumanDecision } from "../../application/use-cases/submit-human-decision";
 
@@ -135,6 +136,7 @@ export type OrchestratorHarness = {
   startInstance: ReturnType<typeof makeStartInstance>;
   submitHumanDecision: ReturnType<typeof makeSubmitHumanDecision>;
   openFeedbackLoop: ReturnType<typeof makeOpenFeedbackLoop>;
+  rerunFromNode: ReturnType<typeof makeRerunFromNode>;
 
   /**
    * Promise-based wait for `state.getInstance(id)?.status === status`. Resolves
@@ -258,6 +260,14 @@ export const createOrchestratorHarness = (
     templates: fakes.templates,
     state,
   });
+  const rerunFromNode = makeRerunFromNode({
+    bus: fakes.bus,
+    log: fakes.log,
+    clock: fakes.clock,
+    ids: fakes.ids,
+    state,
+    templates: fakes.templates,
+  });
 
   const waitForStatus = (
     id: WorkflowId,
@@ -327,6 +337,7 @@ export const createOrchestratorHarness = (
     startInstance,
     submitHumanDecision,
     openFeedbackLoop,
+    rerunFromNode,
     waitForStatus,
     waitForEvent,
     stop() {

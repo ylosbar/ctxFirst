@@ -250,7 +250,8 @@ export type StepExecStatus =
   | "validated"
   | "looped"
   | "failed"
-  | "skipped";
+  | "skipped"
+  | "superseded";
 
 export type InstanceStatus = "running" | "awaitingHuman" | "completed" | "failed";
 
@@ -296,6 +297,11 @@ export type StepExecutionView = {
    * (§3). The runs UI renders an "open child instance" link from it.
    */
   childInstanceId?: string;
+  /**
+   * Set when this exec ran with a one-off config patch (rewind & replay /
+   * retry-from-failed). Surfaced as a "config modifiée pour ce run" badge.
+   */
+  appliedConfigOverride?: Readonly<Record<string, unknown>>;
 };
 
 export type OpenLoopView = {

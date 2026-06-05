@@ -127,6 +127,7 @@ type MutableStepExec = {
   error?: string;
   iterationKey?: string;
   childInstanceId?: WorkflowId;
+  appliedConfigOverride?: Readonly<Record<string, unknown>>;
 };
 
 /** Per-iteration mapping recorded by `IterationStarted` events. */
@@ -226,6 +227,7 @@ export const applyEvent = (scratch: ProjectionScratch, evt: DomainEvent): void =
       if (existing) {
         existing.status = "running";
         existing.startedAt = evt.at;
+        if (evt.configOverride) existing.appliedConfigOverride = evt.configOverride;
       } else {
         scratch.execs.set(evt.stepExecId, {
           id: evt.stepExecId,
@@ -239,6 +241,7 @@ export const applyEvent = (scratch: ProjectionScratch, evt: DomainEvent): void =
           startedAt: evt.at,
           loopFrom: evt.loopFrom,
           iterationKey: evt.iterationKey,
+          appliedConfigOverride: evt.configOverride,
         });
       }
       // A step blocked on a child instance leaves the *instance* status at
@@ -306,6 +309,14 @@ export const applyEvent = (scratch: ProjectionScratch, evt: DomainEvent): void =
         // For steps without a human gate, execution ends at validation too.
         if (!e.executionEndedAt) e.executionEndedAt = evt.at;
       }
+      break;
+    }
+    case "StepSuperseded": {
+      // Mark the exec replaced by a rewind & replay. Terminal, non-validated:
+      // no input-resolution site selects it. Does NOT touch instance status —
+      // only the target's `StepStarted` flips the instance back to `running`.
+      const e = scratch.execs.get(evt.stepExecId);
+      if (e) e.status = "superseded";
       break;
     }
     case "StepFailed": {
@@ -446,6 +457,7 @@ export const finalize = (scratch: ProjectionScratch): InstanceState | null => {
     error: e.error,
     iterationKey: e.iterationKey,
     childInstanceId: e.childInstanceId,
+    appliedConfigOverride: e.appliedConfigOverride,
   }));
 
   return {

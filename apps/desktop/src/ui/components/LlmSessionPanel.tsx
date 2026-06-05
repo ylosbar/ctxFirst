@@ -50,6 +50,7 @@ const statusLabelKey = (s: StepExecutionView["status"]): string => {
     case "looped": return "llm.sessionPanel.statusLooped";
     case "failed": return "llm.sessionPanel.statusFailed";
     case "skipped": return "llm.sessionPanel.statusSkipped";
+    case "superseded": return "llm.sessionPanel.statusSuperseded";
   }
 };
 

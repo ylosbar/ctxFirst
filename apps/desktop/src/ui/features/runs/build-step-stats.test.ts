@@ -345,6 +345,7 @@ describe("buildStepStats", () => {
       looped: 1,
       failed: 0,
       skipped: 1,
+      superseded: 0,
     });
   });
 

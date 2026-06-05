@@ -17,6 +17,7 @@ const STATUS_LABEL: Record<WorkflowStatus, string> = {
   looped: "Rebouclée",
   failed: "Échouée",
   skipped: "Ignorée",
+  superseded: "Remplacée",
 };
 
 const STATUS_TONE: Record<WorkflowStatus, NonNullable<BadgeProps["tone"]>> = {
@@ -29,6 +30,7 @@ const STATUS_TONE: Record<WorkflowStatus, NonNullable<BadgeProps["tone"]>> = {
   looped: "accent",
   failed: "danger",
   skipped: "neutral",
+  superseded: "neutral",
 };
 
 type Props = {

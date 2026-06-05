@@ -106,6 +106,15 @@ export type DomainEvent = DomainEventCommon &
          * any scope".
          */
         iterationKey?: string;
+        /**
+         * One-off config patch applied to this execution only (rewind & replay
+         * / retry-from-failed). Shallow-merged over `step.config` at run time;
+         * persisted here so a replay re-applies the same patch without re-reading
+         * the triggering `StepRerunRequested`. Projected into
+         * `StepExecution.appliedConfigOverride`. Absent = ran with the template
+         * config verbatim. See `specs/run-rerun-from-node.md`.
+         */
+        configOverride?: Readonly<Record<string, unknown>>;
       }
     | {
         /**
@@ -219,6 +228,42 @@ export type DomainEvent = DomainEventCommon &
         type: "LoopClosed";
         instanceId: WorkflowId;
         loopId: LoopId;
+      }
+    | {
+        /**
+         * Intentional trigger for a "rewind & replay": the user asked to re-run
+         * the run from a given node. Purely intentional (like `LoopOpened`) — it
+         * does not mutate the projection by itself (falls through `applyEvent`'s
+         * `default`); the orchestrator reacts by superseding the target's
+         * transitive downstream and re-starting the target. See
+         * `specs/run-rerun-from-node.md`.
+         */
+        type: "StepRerunRequested";
+        instanceId: WorkflowId;
+        /** The exec (`validated` or `failed`) to replay from. */
+        stepExecId: StepExecId;
+        /** Author of the replay ("user" by default), for audit. */
+        author: string;
+        /**
+         * Config patch applied TO THE TARGET NODE for this replay only. Shallow
+         * merge over `step.config`. Absent = replay with identical config.
+         * Forwarded onto the target's `StepStarted.configOverride`.
+         */
+        configOverride?: Readonly<Record<string, unknown>>;
+      }
+    | {
+        /**
+         * Emitted by the orchestrator for each live exec of the replayed
+         * subgraph (target + transitive downstream) right before the target is
+         * re-started. Marks the exec `superseded` so a convergent step waits for
+         * the fresh exec instead of consuming the stale output. Append-only — the
+         * superseded exec stays in the timeline for audit. See
+         * `specs/run-rerun-from-node.md`.
+         */
+        type: "StepSuperseded";
+        instanceId: WorkflowId;
+        /** The exec to mark `superseded`. */
+        stepExecId: StepExecId;
       }
     | {
         type: "InstanceCompleted";
