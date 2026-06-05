@@ -43,6 +43,11 @@ type LoopArgs = {
     body: string;
   }>;
 };
+type RerunArgs = {
+  instanceId: string;
+  stepExecId: string;
+  configOverride?: Record<string, unknown>;
+};
 type TimelineArgs = { instanceId: string };
 type ArtifactArgs = { artifactId: string };
 type TemplateArgs = { templateRef: string };
@@ -83,6 +88,17 @@ export const registerWfHandlers = (win: BrowserWindow, engine: WfEngine) => {
       toStepId: args.toStepId as StepId,
       reason: args.reason,
       comments: args.comments,
+    });
+  });
+
+  ipcMain.handle("wf:rerunFromNode", async (_e, args: RerunArgs) => {
+    console.log(
+      `[wf:ipc] rerunFromNode instance=${short(args.instanceId)} exec=${short(args.stepExecId)} override=${args.configOverride ? Object.keys(args.configOverride).length : 0}`,
+    );
+    await engine.rerunFromNode({
+      instanceId: args.instanceId as WorkflowId,
+      stepExecId: args.stepExecId as StepExecId,
+      configOverride: args.configOverride,
     });
   });
 

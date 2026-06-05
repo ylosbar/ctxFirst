@@ -41,6 +41,33 @@ export const successors = (
   tpl.transitions.filter((t) => t.from === from && !t.isLoop);
 
 /**
+ * All steps reachable from `from` through non-loop transitions, `from`
+ * **excluded**. BFS order, deduplicated. `isLoop` edges are ignored so the
+ * walk never cycles. Same traversal as the one inlined in the orchestrator's
+ * `propagateSkip`, factored here for the "rewind & replay" invalidation
+ * (`specs/run-rerun-from-node.md`).
+ */
+export const transitiveSuccessors = (
+  tpl: WorkflowTemplate,
+  from: StepId,
+): ReadonlyArray<StepId> => {
+  const out: StepId[] = [];
+  const seen = new Set<StepId>([from]);
+  const queue: StepId[] = [from];
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    for (const edge of successors(tpl, cur)) {
+      if (!seen.has(edge.to)) {
+        seen.add(edge.to);
+        out.push(edge.to);
+        queue.push(edge.to);
+      }
+    }
+  }
+  return out;
+};
+
+/**
  * Returns whether the template authorizes a loop from `from` to `to`. A user's
  * {@link OpenFeedbackLoop} call is rejected if this returns false.
  */

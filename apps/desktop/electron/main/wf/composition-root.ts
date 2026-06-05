@@ -94,6 +94,7 @@ import { makeSaveSkill } from "./application/use-cases/save-skill";
 import { makeListNodeSpecs } from "./application/use-cases/list-node-specs";
 import { makeListTemplates } from "./application/use-cases/list-templates";
 import { makeOpenFeedbackLoop } from "./application/use-cases/open-feedback-loop";
+import { makeRerunFromNode } from "./application/use-cases/rerun-from-node";
 import { makeRenameTemplate } from "./application/use-cases/rename-template";
 import { makeDeleteTemplate } from "./application/use-cases/delete-template";
 import { makeSaveTemplate } from "./application/use-cases/save-template";
@@ -162,6 +163,12 @@ export type WfEngine = {
   startInstance: ReturnType<typeof makeStartInstance>;
   submitHumanDecision: ReturnType<typeof makeSubmitHumanDecision>;
   openFeedbackLoop: ReturnType<typeof makeOpenFeedbackLoop>;
+  /**
+   * Re-run a finished/failed instance from any node (rewind & replay,
+   * `specs/run-rerun-from-node.md`). Supersedes the target's transitive
+   * downstream and re-starts the target, optionally with a one-off config patch.
+   */
+  rerunFromNode: ReturnType<typeof makeRerunFromNode>;
   getInstanceTimeline: ReturnType<typeof makeGetInstanceTimeline>;
   getInstanceTree: ReturnType<typeof makeGetInstanceTree>;
   getRunTokenUsage: ReturnType<typeof makeGetRunTokenUsage>;
@@ -619,6 +626,7 @@ export const buildWfEngine = async ({
     startInstance,
     submitHumanDecision: makeSubmitHumanDecision({ bus, log, clock, ids }),
     openFeedbackLoop: makeOpenFeedbackLoop({ bus, log, clock, ids, templates, state }),
+    rerunFromNode: makeRerunFromNode({ bus, log, clock, ids, state, templates }),
     getInstanceTimeline: makeGetInstanceTimeline({ state }),
     getInstanceTree: makeGetInstanceTree({ state }),
     getRunTokenUsage: makeGetRunTokenUsage({ state, runLog }),

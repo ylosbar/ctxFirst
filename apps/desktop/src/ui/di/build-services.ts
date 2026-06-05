@@ -2,6 +2,7 @@ import { makeListTasks } from "../../application/use-cases/list-tasks";
 import { makeStartWorkflow } from "../../application/use-cases/start-workflow";
 import { makeValidateStep } from "../../application/use-cases/validate-step";
 import { makeRequestLoop } from "../../application/use-cases/request-loop";
+import { makeRequestRerun } from "../../application/use-cases/request-rerun";
 import { makeSubscribeWorkflow } from "../../application/use-cases/subscribe-workflow";
 import { makeGetWorkflowTimeline } from "../../application/use-cases/get-workflow-timeline";
 import { makeGetRunTokenUsage } from "../../application/use-cases/get-run-token-usage";
@@ -82,6 +83,7 @@ export const buildServices = (): Services => {
     startWorkflow: makeStartWorkflow(workflowGateway),
     validateStep: makeValidateStep(workflowGateway),
     requestLoop: makeRequestLoop(workflowGateway),
+    requestRerun: makeRequestRerun(workflowGateway),
     subscribeWorkflow: makeSubscribeWorkflow(workflowGateway),
     getWorkflowTimeline: makeGetWorkflowTimeline(workflowGateway),
     getRunTokenUsage: makeGetRunTokenUsage(workflowGateway),

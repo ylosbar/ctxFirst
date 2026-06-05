@@ -6,6 +6,7 @@ import {
   CornerDownRight,
   Hourglass,
   Repeat,
+  RotateCcw,
   RotateCw,
   UserCheck,
   XCircle,
@@ -72,6 +73,7 @@ const RunTimelineView = () => {
   const ctx = useRunPanelContext();
   const wb = useWorkbench();
   const services = useServices();
+  const t = useT();
 
   const tickInterval =
     ctx && (ctx.instance.status === "running" || ctx.instance.status === "awaitingHuman")
@@ -89,6 +91,19 @@ const RunTimelineView = () => {
   }, [ctx, nowMs]);
 
   const instance = ctx?.instance ?? null;
+
+  const handleRerun = useCallback(
+    (row: TimelineRow) => {
+      if (!ctx) return;
+      const count = ctx.rerunImpactCount(row.stepId);
+      const ok = window.confirm(
+        t("runs.timeline.confirmRerun", { label: row.label, count }),
+      );
+      if (!ok) return;
+      ctx.onRerunFromNode(row.stepExecId);
+    },
+    [ctx, t],
+  );
 
   const handleOpenInEditor = useCallback(() => {
     if (!instance) return;
@@ -153,6 +168,7 @@ const RunTimelineView = () => {
       selectedExecId={selectedExecId}
       onSelectExec={ctx.onSelectExec}
       onSelectStep={ctx.onSelectStep}
+      onRerun={handleRerun}
       onOpenInEditor={handleOpenInEditor}
       onExport={() => void handleExport()}
     />
@@ -167,6 +183,7 @@ type TimelineTreeProps = {
   readonly selectedExecId: string | null;
   readonly onSelectExec: (stepExecId: string) => void;
   readonly onSelectStep: (stepId: string) => void;
+  readonly onRerun: (row: TimelineRow) => void;
   readonly onOpenInEditor: () => void;
   readonly onExport: () => void;
 };
@@ -280,6 +297,7 @@ const TimelineTree = ({
   selectedExecId,
   onSelectExec,
   onSelectStep,
+  onRerun,
   onOpenInEditor,
   onExport,
 }: TimelineTreeProps) => {
@@ -410,6 +428,7 @@ const TimelineTree = ({
                   depth={item.depth}
                   isSelected={item.row.stepExecId === selectedExecId}
                   onClick={() => onSelectExec(item.row.stepExecId)}
+                  onRerun={() => onRerun(item.row)}
                   onOpenChild={(childId) =>
                     wb.openEditor(runUriFor(childId), { focus: true })
                   }
@@ -438,6 +457,7 @@ type RowProps = {
   readonly depth: number;
   readonly isSelected: boolean;
   readonly onClick: () => void;
+  readonly onRerun: () => void;
   readonly onOpenChild: (childInstanceId: string) => void;
 };
 
@@ -446,12 +466,16 @@ const TimelineRowItem = ({
   depth,
   isSelected,
   onClick,
+  onRerun,
   onOpenChild,
 }: RowProps) => {
   const t = useT();
   const isRetry = row.retryOfStepExecId !== null;
+  // "Relancer depuis ici" is offered on any settled exec (validated or failed):
+  // the rewind & replay rebuilds the target and its downstream.
+  const canRerun = row.status === "validated" || row.status === "failed";
   return (
-    <li>
+    <li className="group/row relative">
       <button
         type="button"
         onClick={onClick}
@@ -572,6 +596,21 @@ const TimelineRowItem = ({
           </span>
         </div>
       </button>
+      {canRerun ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRerun();
+          }}
+          aria-label={t("runs.timeline.rerunFromHere")}
+          title={t("runs.timeline.rerunFromHere")}
+          className="absolute right-2 top-1.5 inline-flex items-center gap-1 rounded bg-background/90 px-1.5 py-0.5 text-2xs text-muted-foreground opacity-0 shadow-sm ring-1 ring-border outline-none transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:ring-ring group-hover/row:opacity-100"
+        >
+          <RotateCcw className="size-3" aria-hidden />
+          {t("runs.timeline.rerunFromHere")}
+        </button>
+      ) : null}
     </li>
   );
 };

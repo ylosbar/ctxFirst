@@ -53,6 +53,16 @@ export interface WorkflowGateway {
     reason: string;
     comments?: ReadonlyArray<ReviewCommentView>;
   }): Promise<void>;
+  /**
+   * Re-run a finished/failed run from a node (rewind & replay). The target and
+   * its transitive downstream are recomputed; the upstream is reused as-is.
+   * `configOverride` corrects the target node's config for this replay only.
+   */
+  rerunFromNode(input: {
+    instanceId: string;
+    stepExecId: string;
+    configOverride?: Record<string, unknown>;
+  }): Promise<void>;
   getTimeline(instanceId: string): Promise<InstanceView | null>;
   /** Hierarchy of instances rooted at `instanceId` (root + descendants, §11). */
   getInstanceTree(instanceId: string): Promise<InstanceTreeNodeView | null>;

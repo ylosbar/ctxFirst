@@ -119,6 +119,17 @@ export const STATUS_STYLE: Record<StepStatus, StatusStyle> = {
     iconBg: "bg-muted/40",
     iconText: "text-muted-foreground",
   },
+  // Replaced by a rewind & replay — kept in the timeline for audit, rendered
+  // muted/dashed (like skipped) so the fresh exec stands out.
+  superseded: {
+    border: "border-dashed border-muted-foreground/30",
+    bar: "bg-muted-foreground/20",
+    dot: "bg-muted-foreground/30",
+    text: "text-muted-foreground",
+    badgeBg: "bg-muted/40",
+    iconBg: "bg-muted/40",
+    iconText: "text-muted-foreground",
+  },
 }
 
 export const STATUS_LABEL: Record<StepStatus, string> = {
@@ -131,6 +142,7 @@ export const STATUS_LABEL: Record<StepStatus, string> = {
   looped: "Rebouclée",
   failed: "Échouée",
   skipped: "Ignorée",
+  superseded: "Remplacée",
 }
 
 export const STATUS_ICON: Record<StepStatus, LucideIcon> = {
@@ -143,6 +155,7 @@ export const STATUS_ICON: Record<StepStatus, LucideIcon> = {
   looped: RotateCw,
   failed: AlertCircle,
   skipped: MinusCircle,
+  superseded: RotateCw,
 }
 
 export type RunStatusStyle = {
