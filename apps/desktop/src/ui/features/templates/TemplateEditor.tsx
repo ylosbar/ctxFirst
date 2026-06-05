@@ -4,7 +4,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type DragEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,20 +14,12 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  applyEdgeChanges,
-  applyNodeChanges,
   useReactFlow,
-  type Connection,
   type Edge,
-  type EdgeChange,
-  type EdgeMouseHandler,
   type Node,
-  type NodeChange,
-  type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { transitionTypable } from "@shared/wf/port-accepts";
 import type { TemplateLayout } from "@shared/wf/layout";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
@@ -46,18 +37,13 @@ import StickyNoteNode, {
 } from "../../components/templates/StickyNoteNode";
 import SelfLoopEdge from "../../components/templates/SelfLoopEdge";
 import StepEdge from "../../components/templates/StepEdge";
-import {
-  getKindMeta,
-  type StepKindMeta,
-} from "../../components/templates/step-kinds";
-import { STEP_KIND_DND_MIME } from "./picker-dnd";
+import { getKindMeta } from "../../components/templates/step-kinds";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
 import { useTemplateEditorGridSnap } from "../../workbench/store";
 import {
   fromRefFromTemplateUri,
   refFromTemplateUri,
-  templateUriFor,
 } from "./template-uri";
 import {
   useRegisterTemplateCanvas,
@@ -81,30 +67,24 @@ import { useLaunchRun } from "./template-editor/hooks/useLaunchRun";
 import { useTemplateSave } from "./template-editor/hooks/useTemplateSave";
 import { useWorkflowExport } from "./template-editor/hooks/useWorkflowExport";
 import { useDisplayGraph } from "./template-editor/hooks/useDisplayGraph";
+import { useCanvasHandlers } from "./template-editor/hooks/useCanvasHandlers";
 import TemplateEditorToolbar from "./template-editor/components/TemplateEditorToolbar";
 import TemplateEditorModals from "./template-editor/components/TemplateEditorModals";
 import TemplateCanvasOverlays from "./template-editor/components/TemplateCanvasOverlays";
 import type { VariableModalState } from "./template-editor/components/variable-modal";
 import type { RunOverlay } from "./run-overlay";
 import {
-  highestCounterForKind,
   isSyntheticId,
   makeStepId,
 } from "./template-editor/graph/ids";
-import {
-  AUTO_LAYOUT_DEFAULT_HEIGHT,
-  AUTO_LAYOUT_DEFAULT_WIDTH,
-} from "./template-editor/graph/auto-layout";
 import { templateToGraph } from "./template-editor/graph/template-to-graph";
 import {
   buildDefaultStep,
-  resolveStepSpec,
   type ByKind,
 } from "./template-editor/graph/step-spec";
 import {
   minimapNodeColor,
   minimapNodeStrokeColor,
-  type EdgeData,
 } from "./template-editor/graph/edge-style";
 
 const nodeTypes = {
@@ -493,62 +473,43 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     api,
   });
 
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
-    const filtered = changes.filter(
-      (c) => !("id" in c) || !isSyntheticId(c.id),
-    );
-    setNodes((nds) => applyNodeChanges(filtered, nds));
-  }, []);
-
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    const filtered = changes.filter(
-      (c) => !("id" in c) || !isSyntheticId(c.id),
-    );
-    setEdges((eds) => applyEdgeChanges(filtered, eds));
-  }, []);
-
-  const isValidConnection = useCallback(
-    (conn: Connection | Edge) => {
-      if (!conn.source || !conn.target) return false;
-      if (conn.source === conn.target) return true;
-      if (!byKind) return false;
-      const currentNodes = nodesRef.current;
-      const src = currentNodes.find((n) => n.id === conn.source);
-      const tgt = currentNodes.find((n) => n.id === conn.target);
-      if (!src || !tgt) return false;
-      const srcStep = src.data as unknown as TemplateStepDraft;
-      const tgtStep = tgt.data as unknown as TemplateStepDraft;
-      const srcSpec = resolveStepSpec(srcStep, byKind, variables, subTemplates);
-      const tgtSpec = resolveStepSpec(tgtStep, byKind, variables, subTemplates);
-      if (!srcSpec || !tgtSpec) return false;
-      if (
-        !transitionTypable(srcSpec, tgtSpec, {
-          fromPort: conn.sourceHandle ?? undefined,
-          toPort: conn.targetHandle ?? undefined,
-          resolver: refinementResolver,
-        })
-      ) {
-        return false;
-      }
-      // Cardinality check: refuse a second incoming edge on a non-isList port.
-      const targetPort = conn.targetHandle
-        ? tgtSpec.inputs.find((p) => p.name === conn.targetHandle)
-        : tgtSpec.inputs.length === 1
-          ? tgtSpec.inputs[0]
-          : undefined;
-      if (targetPort && !targetPort.isList) {
-        const existing = edgesRef.current.some(
-          (e) =>
-            e.target === conn.target &&
-            (e.targetHandle ?? null) === (conn.targetHandle ?? null) &&
-            !(e.data as EdgeData | undefined)?.isLoop,
-        );
-        if (existing) return false;
-      }
-      return true;
-    },
-    [byKind, variables, subTemplates],
-  );
+  // Handlers branchés sur <ReactFlow> (changements de nodes/edges, validation
+  // de connexion, clics, drag-and-drop du picker) + `addStep` (partagé avec la
+  // TemplateCanvasHandle) + `snapGrid`. Deps reportées à l'identique et gardes
+  // `isViewRun` internes — cf. le hook.
+  const {
+    onNodesChange,
+    onEdgesChange,
+    isValidConnection,
+    addStep,
+    onNodeClick,
+    onNodeDoubleClick,
+    onEdgeClick,
+    onPaneClick,
+    snapGrid,
+    onDragOver,
+    onDrop,
+  } = useCanvasHandlers({
+    nodes,
+    byKind,
+    variables,
+    subTemplates,
+    refinementResolver,
+    nodesRef,
+    edgesRef,
+    screenToFlowPosition,
+    counterRef,
+    flowWrapperRef,
+    gridSnap,
+    isViewRun,
+    runOverlay,
+    api,
+    setNodes,
+    setEdges,
+    setEntryStepId,
+    setSelectedNodeId,
+    setSelectedEdgeId,
+  });
 
   // Connexion d'edges + menu de suggestions au drop sur le vide. `counterRef`
   // est partagé avec `addStep` (séquence d'IDs de step) → fourni en option.
@@ -575,164 +536,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setSelectedNodeId,
     setSelectedEdgeId,
   });
-
-  const addStep = useCallback(
-    (kind: StepKindMeta, dropPosition?: { x: number; y: number }) => {
-      const stepIds = nodes.filter((n) => n.type === "step").map((n) => n.id);
-      const kindMax = highestCounterForKind(kind.id, stepIds);
-      counterRef.current = Math.max(counterRef.current, kindMax) + 1;
-      const id = makeStepId(kind.id, counterRef.current);
-      const step = buildDefaultStep(kind, id);
-      // Si une position en coordonnées flow est fournie (drop), on l'utilise
-      // telle quelle. Sinon on place la node au centre du viewport visible.
-      // La taille réelle n'est pas encore mesurée par xyflow (la node n'est
-      // pas mountée), donc on recule de la moitié des dimensions par défaut
-      // — assez proche pour que le recentrage visuel soit correct dans la
-      // majorité des cas.
-      const wrapper = flowWrapperRef.current;
-      const position = dropPosition ?? (() => {
-        if (!wrapper) return { x: 80, y: 80 };
-        const rect = wrapper.getBoundingClientRect();
-        const center = screenToFlowPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        });
-        return {
-          x: center.x - AUTO_LAYOUT_DEFAULT_WIDTH / 2,
-          y: center.y - AUTO_LAYOUT_DEFAULT_HEIGHT / 2,
-        };
-      })();
-      const isDrop = dropPosition !== undefined;
-      setNodes((nds) => {
-        const stepCount = nds.filter((n) => n.type === "step").length;
-        const isFirst = stepCount === 0;
-        const newNode: Node = {
-          id,
-          type: "step",
-          position,
-          data: { ...step, isEntry: isFirst, justDropped: isDrop },
-        };
-        if (isFirst) setEntryStepId(id);
-        return [...nds, newNode];
-      });
-      // Clear the transient `justDropped` flag once the landing animation has
-      // played, so a re-render (selection change, layout, etc.) does not replay
-      // the burst.
-      if (isDrop) {
-        setTimeout(() => {
-          setNodes((nds) =>
-            nds.map((n) =>
-              n.id === id &&
-              (n.data as { justDropped?: boolean } | undefined)?.justDropped
-                ? { ...n, data: { ...n.data, justDropped: false } }
-                : n,
-            ),
-          );
-        }, 550);
-      }
-      setSelectedNodeId(id);
-      setSelectedEdgeId(null);
-    },
-    [nodes, screenToFlowPosition],
-  );
-
-  // Handlers passed to <ReactFlow> are memoized so a re-render of the editor
-  // doesn't hand React Flow new prop references on every frame (guide §1/§2).
-  // The `isViewRun` guard lives *inside* each callback (early-return) rather
-  // than as an outer ternary, so the prop reference stays stable across modes.
-  // `useState` setters are guaranteed stable → omitted from deps.
-  const onNodeClick = useCallback<NodeMouseHandler>(
-    (_, n) => {
-      if (isSyntheticId(n.id)) return;
-      // Les groupes et les notes ne pilotent pas l'inspecteur.
-      if (n.type === "group" || n.type === "stickyNote") {
-        setSelectedNodeId(null);
-        setSelectedEdgeId(null);
-        return;
-      }
-      if (runOverlay) {
-        runOverlay.onSelectStep(n.id);
-        return;
-      }
-      // Pas de fit-view ici : l'animation déplaçait la node sous le
-      // curseur pendant 300 ms, et un second clic réflexe atterrissait
-      // dans le vide (→ onPaneClick → désélection), donnant l'illusion
-      // qu'il fallait cliquer plusieurs fois pour ouvrir l'inspecteur.
-      setSelectedNodeId(n.id);
-      setSelectedEdgeId(null);
-    },
-    [runOverlay],
-  );
-
-  const onNodeDoubleClick = useCallback<NodeMouseHandler>(
-    (_, n) => {
-      // A `workflow.call` (sub-template-expand.md §11b) or a
-      // `template.invoke` (sub-template-invoke.md §9c) node opens its
-      // referenced sub-template in a new editor tab. The sub-graph is
-      // never inlined in the parent editor — it is edited on its own.
-      const kind = n.data?.["kind"];
-      if (kind !== "workflow.call" && kind !== "template.invoke") return;
-      const cfg = (n.data?.["config"] ?? {}) as Record<string, unknown>;
-      const id = typeof cfg["templateId"] === "string" ? cfg["templateId"] : "";
-      const version =
-        typeof cfg["templateVersion"] === "string" ? cfg["templateVersion"] : "";
-      if (!id || !version) return;
-      api.openEditor(templateUriFor(`${id}@${version}`), { focus: true });
-    },
-    [api],
-  );
-
-  const onEdgeClick = useCallback<EdgeMouseHandler>(
-    (_, e) => {
-      if (isViewRun) return;
-      if (isSyntheticId(e.id)) return;
-      setSelectedEdgeId(e.id);
-      setSelectedNodeId(null);
-    },
-    [isViewRun],
-  );
-
-  const onPaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-    setSelectedEdgeId(null);
-  }, []);
-
-  const snapGrid = useMemo<[number, number]>(
-    () => [gridSnap.size, gridSnap.size],
-    [gridSnap.size],
-  );
-
-  const onDragOver = useCallback(
-    (event: DragEvent) => {
-      if (isViewRun) return;
-      if (!event.dataTransfer.types.includes(STEP_KIND_DND_MIME)) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "copy";
-    },
-    [isViewRun],
-  );
-
-  const onDrop = useCallback(
-    (event: DragEvent) => {
-      if (isViewRun) return;
-      const kindId = event.dataTransfer.getData(STEP_KIND_DND_MIME);
-      if (!kindId) return;
-      const kind = getKindMeta(kindId);
-      if (!kind) return;
-      event.preventDefault();
-      const flowPos = screenToFlowPosition(
-        { x: event.clientX, y: event.clientY },
-        gridSnap.enabled
-          ? { snapToGrid: true, snapGrid }
-          : undefined,
-      );
-      addStep(kind, {
-        x: flowPos.x - AUTO_LAYOUT_DEFAULT_WIDTH / 2,
-        y: flowPos.y - AUTO_LAYOUT_DEFAULT_HEIGHT / 2,
-      });
-    },
-    [isViewRun, gridSnap.enabled, snapGrid, screenToFlowPosition, addStep],
-  );
 
   const isSelectedEntry =
     entryStepId === selectedNodeId && selectedNodeId !== null;

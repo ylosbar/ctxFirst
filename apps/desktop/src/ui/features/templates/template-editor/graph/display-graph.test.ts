@@ -28,11 +28,11 @@ const noSubTemplates = new Map();
 describe("buildVariableByName", () => {
   it("indexes variables by name", () => {
     const vars: TemplateVariableDraft[] = [
-      { name: "foo", kind: "text", description: "d1" },
-      { name: "bar", kind: "json", description: "d2" },
+      { name: "foo", kind: "String", description: "d1" },
+      { name: "bar", kind: "Json", description: "d2" },
     ];
     const map = buildVariableByName(vars);
-    expect(map.get("foo")?.kind).toBe("text");
+    expect(map.get("foo")?.kind).toBe("String");
     expect(map.get("bar")?.description).toBe("d2");
   });
 });
@@ -49,8 +49,8 @@ describe("buildVariableArtifacts", () => {
       }),
     ];
     const variableByName = buildVariableByName([
-      { name: "result", kind: "text", description: "" },
-      { name: "seed", kind: "text", description: "" },
+      { name: "result", kind: "String", description: "" },
+      { name: "seed", kind: "String", description: "" },
     ]);
     const { nodes: vNodes, edges: vEdges } = buildVariableArtifacts(
       nodes,
@@ -96,8 +96,8 @@ describe("buildDisplayNodes", () => {
     const nodes: Node[] = [stepNode({ id: "s1", position: { x: 100, y: 200 } })];
     const result = buildDisplayNodes(nodes, "s1", emptyArtifacts, undefined);
     // Parents-before-children invariant: the start node leads the array.
-    expect(result[0]!.id).toBe(START_NODE_ID);
-    expect(result[0]!.position).toEqual({ x: 100 - 110, y: 200 + 16 });
+    expect(result[0].id).toBe(START_NODE_ID);
+    expect(result[0].position).toEqual({ x: 100 - 110, y: 200 + 16 });
   });
 
   it("resolves the entry's absolute position when it is nested in a group", () => {
@@ -143,8 +143,8 @@ describe("buildDisplayEdges", () => {
   it("prepends a synthetic start edge to the entry", () => {
     const nodes: Node[] = [stepNode({ id: "s1" })];
     const result = buildDisplayEdges([edge()], "s1", nodes, emptyArtifacts, undefined);
-    expect(result[0]!.id).toBe(START_EDGE_ID);
-    expect(result[0]!.target).toBe("s1");
+    expect(result[0].id).toBe(START_EDGE_ID);
+    expect(result[0].target).toBe("s1");
   });
 
   it("omits the start edge when the entry node is absent from the graph", () => {
@@ -173,6 +173,6 @@ describe("buildDisplayEdges", () => {
   it("leaves edge styling untouched when nothing is selected", () => {
     const nodes: Node[] = [stepNode({ id: "s1" }), stepNode({ id: "s2" })];
     const result = buildDisplayEdges([edge()], null, nodes, emptyArtifacts, undefined);
-    expect(result[0]!.style).toBeUndefined();
+    expect(result[0].style).toBeUndefined();
   });
 });
