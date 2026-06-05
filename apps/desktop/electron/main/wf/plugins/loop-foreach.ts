@@ -74,23 +74,6 @@ const readItemKind = (config: Readonly<Record<string, unknown>>): ArtifactKind =
   return raw as ArtifactKind;
 };
 
-/**
- * Validates the optional `sequential` flag. Permissive: any `loop.foreach` may
- * set it, but if present it must be a boolean (config error otherwise). The
- * flag itself is consumed by the orchestrator (cf. `isSequentialForeach`), not
- * the runner — this is only the save-time shape check (§6 of the spec).
- */
-const readSequential = (config: Readonly<Record<string, unknown>>): boolean => {
-  const raw = config["sequential"];
-  if (raw === undefined) return false;
-  if (typeof raw !== "boolean") {
-    throw new Error(
-      `loop.foreach: \`sequential\` must be a boolean when set (got ${typeof raw})`,
-    );
-  }
-  return raw;
-};
-
 /** `true` for the two legacy item kinds whose list carries an ad-hoc
  * `{ bodies }` / `{ paths }` payload instead of the canonical `{ items }`. */
 const isLegacyItemKind = (kind: ArtifactKind): kind is "Markdown" | "Path" =>
@@ -180,7 +163,6 @@ export const createLoopForeachRunner = (): StepRunner => ({
 
   resolveSpec({ config }): NodeSpec {
     const itemKind = readItemKind(config);
-    readSequential(config); // save-time shape check (throws if non-boolean)
     const listKind = listKindFor(itemKind);
     return {
       title: "For each",

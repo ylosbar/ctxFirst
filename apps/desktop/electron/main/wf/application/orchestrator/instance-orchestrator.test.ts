@@ -882,13 +882,14 @@ describe("InstanceOrchestrator — iteration scopes", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Sequential foreach (config.sequential === true)
+// Sequential foreach (iterations always run strictly one at a time)
 // ---------------------------------------------------------------------------
 
 describe("InstanceOrchestrator — sequential foreach", () => {
   // Body chain fe → A → B → col, so iteration i+1's first body step (A) can be
   // observed to start only after iteration i's last body step (B) validates.
-  const chainTemplate = (opts: { sequential: boolean; items: string[] }) =>
+  // `loop.foreach` always runs its iterations strictly one at a time.
+  const chainTemplate = (opts: { items: string[] }) =>
     buildTemplate(
       "seq-foreach",
       [
@@ -899,7 +900,6 @@ describe("InstanceOrchestrator — sequential foreach", () => {
           config: {
             items: opts.items,
             itemKind: "Markdown",
-            sequential: opts.sequential,
           },
         },
         { id: "A", kind: "concat.markdown", humanGateRequired: false },
@@ -948,7 +948,6 @@ describe("InstanceOrchestrator — sequential foreach", () => {
 
   it("runs iterations strictly one at a time, in index order", async () => {
     const template = chainTemplate({
-      sequential: true,
       items: ["a", "b", "c"],
     });
     harness = createOrchestratorHarness({ templates: [template] });
@@ -971,27 +970,8 @@ describe("InstanceOrchestrator — sequential foreach", () => {
     expect(harness.fakes.bus.ofType("IterationStarted")).toHaveLength(3);
   });
 
-  it("fan-out (flag absent) keeps the current interleaved behavior", async () => {
-    const template = chainTemplate({
-      sequential: false,
-      items: ["a", "b", "c"],
-    });
-    harness = createOrchestratorHarness({ templates: [template] });
-    const { instanceId } = await harness.startInstance({
-      templateRef: refOf(template),
-      seeds: [{ kind: "Markdown", content: "seed" }],
-    });
-    await harness.waitForStatus(instanceId, "completed");
-
-    const t = trace(harness.fakes.bus);
-    const at = (label: string) => t.indexOf(label);
-    // In fan-out every iteration's first body step starts before any second
-    // body step runs — the discriminating non-regression assertion.
-    expect(at("start A@fe:2")).toBeLessThan(at("start B@fe:0"));
-  });
-
   it("empty array starts no iteration body (sequential short-circuit)", async () => {
-    const template = chainTemplate({ sequential: true, items: [] });
+    const template = chainTemplate({ items: [] });
     harness = createOrchestratorHarness({ templates: [template] });
     await harness.startInstance({
       templateRef: refOf(template),
@@ -1011,7 +991,7 @@ describe("InstanceOrchestrator — sequential foreach", () => {
   });
 
   it("a single item behaves identically in sequential mode", async () => {
-    const template = chainTemplate({ sequential: true, items: ["only"] });
+    const template = chainTemplate({ items: ["only"] });
     harness = createOrchestratorHarness({ templates: [template] });
     const { instanceId } = await harness.startInstance({
       templateRef: refOf(template),
@@ -1034,7 +1014,7 @@ describe("InstanceOrchestrator — sequential foreach", () => {
           id: "fe",
           kind: "loop.foreach",
           humanGateRequired: false,
-          config: { items: ["x", "y"], itemKind: "Markdown", sequential: true },
+          config: { items: ["x", "y"], itemKind: "Markdown" },
         },
         { id: "A", kind: "concat.markdown", humanGateRequired: false },
         {
@@ -1126,7 +1106,6 @@ describe("InstanceOrchestrator — sequential foreach", () => {
           config: {
             items: ["ok-0", "boom-1", "ok-2"],
             itemKind: "Markdown",
-            sequential: true,
           },
         },
         { id: "A", kind: "test.fail-on-boom", humanGateRequired: false },
