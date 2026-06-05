@@ -112,7 +112,7 @@ const sourceInput = (json: unknown): RunContextInput => {
     port: "source",
     kind: "Json",
     content: JSON.stringify({ format: "json", body }),
-    payload: { format: "json", body } as never,
+    payload: { format: "json", body },
     artifactId: asArtifactId("source-art"),
   };
 };
@@ -121,7 +121,7 @@ const pathInput = (path: string): RunContextInput => ({
   port: "path",
   kind: "Path",
   content: JSON.stringify({ path }),
-  payload: { path } as never,
+  payload: { path },
   artifactId: asArtifactId("path-art"),
 });
 
