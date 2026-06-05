@@ -115,14 +115,8 @@ import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
 import {
   setTemplateEditorGridSnap,
-  setTemplateEditorInspectorWidth,
   useTemplateEditorGridSnap,
-  useTemplateEditorInspectorWidth,
 } from "../../workbench/store";
-import {
-  INSPECTOR_WIDTH_MAX_PX,
-  INSPECTOR_WIDTH_MIN_PX,
-} from "../../workbench/prefs";
 import { runUriFor } from "../runs/run-uri";
 import {
   fromRefFromTemplateUri,
@@ -149,6 +143,7 @@ import {
   totalMissing as totalMissingDeps,
 } from "../../../application/use-cases/collect-missing-template-deps";
 import { useLayoutAutosave } from "./useLayoutAutosave";
+import { useInspectorResize } from "./template-editor/hooks/useInspectorResize";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -356,65 +351,14 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   // persisté dans WorkbenchPrefs, pas attaché au template.
   const gridSnap = useTemplateEditorGridSnap();
 
-  // Largeur de l'overlay Inspector (px). Persistée globalement dans
-  // WorkbenchPrefs ; pendant un drag on bypass la persistance via un state
-  // local (`inspectorDragWidth`) pour éviter une écriture localStorage par
-  // pixel. Commit au pointerup.
-  const persistedInspectorWidth = useTemplateEditorInspectorWidth();
-  const [inspectorDragWidth, setInspectorDragWidth] = useState<number | null>(
-    null,
-  );
-  const inspectorWidth = inspectorDragWidth ?? persistedInspectorWidth;
-  const inspectorResizeRef = useRef<{
-    startX: number;
-    startWidth: number;
-  } | null>(null);
-
-  const onInspectorResizeStart = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.currentTarget.setPointerCapture(e.pointerId);
-      inspectorResizeRef.current = {
-        startX: e.clientX,
-        startWidth: persistedInspectorWidth,
-      };
-      setInspectorDragWidth(persistedInspectorWidth);
-    },
-    [persistedInspectorWidth],
-  );
-
-  const onInspectorResizeMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const ref = inspectorResizeRef.current;
-      if (!ref) return;
-      // Overlay ancré à droite : déplacer le curseur vers la gauche
-      // (delta négatif sur clientX) doit AGRANDIR la largeur.
-      const delta = ref.startX - e.clientX;
-      const raw = ref.startWidth + delta;
-      const next = Math.min(
-        INSPECTOR_WIDTH_MAX_PX,
-        Math.max(INSPECTOR_WIDTH_MIN_PX, raw),
-      );
-      setInspectorDragWidth(next);
-    },
-    [],
-  );
-
-  const onInspectorResizeEnd = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!inspectorResizeRef.current) return;
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-      inspectorResizeRef.current = null;
-      setInspectorDragWidth((cur) => {
-        if (cur !== null) setTemplateEditorInspectorWidth(cur);
-        return null;
-      });
-    },
-    [],
-  );
+  // Largeur de l'overlay Inspector (px) + handlers de la poignée de resize.
+  const {
+    inspectorWidth,
+    inspectorDragWidth,
+    onInspectorResizeStart,
+    onInspectorResizeMove,
+    onInspectorResizeEnd,
+  } = useInspectorResize();
 
   // Handoff state: when the user requests inline skill creation from the
   // StepInspector, we remember which step is waiting so that when the new
