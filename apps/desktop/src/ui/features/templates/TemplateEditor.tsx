@@ -139,6 +139,7 @@ import { useSkillHandoff } from "./template-editor/hooks/useSkillHandoff";
 import { useTemplateDeps } from "./template-editor/hooks/useTemplateDeps";
 import { useNodeReparenting } from "./template-editor/hooks/useNodeReparenting";
 import { useAutoLayout } from "./template-editor/hooks/useAutoLayout";
+import { useStickyNotes } from "./template-editor/hooks/useStickyNotes";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -151,7 +152,6 @@ import {
   GROUP_NODE_PREFIX,
   START_EDGE_ID,
   START_NODE_ID,
-  STICKY_NODE_PREFIX,
   VARIABLE_EDGE_PREFIX,
   VARIABLE_NODE_PREFIX,
   highestCounterForKind,
@@ -836,77 +836,14 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   // ── Notes post-it (données purement présentationnelles, persistées dans le
   // layout via l'autosave debounced — cf. spec template-sticky-notes). ──
-  const addStickyNote = useCallback(() => {
-    // Id stable et unique parmi les notes existantes (pas de `Date.now()` —
-    // garde l'idempotence et évite la collision avec une note rechargée).
-    const maxNote = highestCounterForKind(
-      "note",
-      nodes.filter((n) => n.type === "stickyNote").map((n) => n.id),
-    );
-    const id = `${STICKY_NODE_PREFIX}${maxNote + 1}`;
-    const W = 200;
-    const H = 140;
-    const wrapper = flowWrapperRef.current;
-    const center = wrapper
-      ? (() => {
-          const rect = wrapper.getBoundingClientRect();
-          return screenToFlowPosition({
-            x: rect.left + rect.width / 2,
-            y: rect.top + rect.height / 2,
-          });
-        })()
-      : { x: 80 + W / 2, y: 80 + H / 2 };
-    const newNote: Node = {
-      id,
-      type: "stickyNote",
-      position: { x: center.x - W / 2, y: center.y - H / 2 },
-      width: W,
-      height: H,
-      data: { text: "", color: "yellow" },
-      zIndex: -1,
-    };
-    setNodes((nds) => [...nds, newNote]);
-    layoutAutosave.scheduleSave();
-  }, [nodes, screenToFlowPosition, layoutAutosave]);
-
-  const onStickyTextChange = useCallback(
-    (id: string, text: string) => {
-      setNodes((nds) =>
-        nds.map((n) =>
-          n.id === id ? { ...n, data: { ...(n.data ?? {}), text } } : n,
-        ),
-      );
-      layoutAutosave.scheduleSave();
-    },
-    [layoutAutosave],
-  );
-
-  const onStickyDelete = useCallback(
-    (id: string) => {
-      setNodes((nds) => nds.filter((n) => n.id !== id));
-      layoutAutosave.scheduleSave();
-    },
-    [layoutAutosave],
-  );
-
-  const onStickyResizeEnd = useCallback(() => {
-    // NodeResizer ne déclenche pas `onNodeDragStop` : on programme le save
-    // explicitement pour persister les nouvelles dimensions.
-    layoutAutosave.scheduleSave();
-  }, [layoutAutosave]);
-
-  const stickyActions = useMemo(
-    () => ({
-      onTextChange: onStickyTextChange,
-      onDelete: onStickyDelete,
-      onResizeEnd: onStickyResizeEnd,
-      // Flush au blur du textarea : si l'éditeur est fermé < 500 ms après la
-      // dernière frappe, le timer debounce serait annulé au unmount sans ça.
-      onCommit: () => void layoutAutosave.flushNow(),
-      readOnly: isViewRun,
-    }),
-    [onStickyTextChange, onStickyDelete, onStickyResizeEnd, layoutAutosave, isViewRun],
-  );
+  const { addStickyNote, stickyActions } = useStickyNotes({
+    nodes,
+    setNodes,
+    screenToFlowPosition,
+    flowWrapperRef,
+    layoutAutosave,
+    isViewRun,
+  });
 
   const onOverlayPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
