@@ -72,7 +72,6 @@ import ToolbarButton from "../../components/ToolbarButton";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
 import {
-  type TemplateDraft,
   type TemplateStepDraft,
   type TemplateVariableDraft,
 } from "../../../domain/workflow/types";
@@ -116,9 +115,7 @@ import {
 import TemplateMissingDepsModal from "./TemplateMissingDepsModal";
 import TemplateTitleBar from "./TemplateTitleBar";
 import TemplateInspectorView from "./TemplateInspectorView";
-import TemplateSaveMissingModal, {
-  type RequiredField as MissingRequiredField,
-} from "./TemplateSaveMissingModal";
+import TemplateSaveMissingModal from "./TemplateSaveMissingModal";
 import TemplatePublishModal from "./TemplatePublishModal";
 import LaunchRunDialog from "./LaunchRunDialog";
 import { totalMissing as totalMissingDeps } from "../../../application/use-cases/collect-missing-template-deps";
@@ -135,6 +132,7 @@ import { useStepMutations } from "./template-editor/hooks/useStepMutations";
 import { useTemplateVariables } from "./template-editor/hooks/useTemplateVariables";
 import { useEdgeDropSuggestions } from "./template-editor/hooks/useEdgeDropSuggestions";
 import { useLaunchRun } from "./template-editor/hooks/useLaunchRun";
+import { useTemplateSave } from "./template-editor/hooks/useTemplateSave";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -143,7 +141,6 @@ import {
 } from "./exportWorkflowSvg";
 import type { RunOverlay } from "./run-overlay";
 import {
-  AUTO_LOOP_SOURCE_KINDS,
   START_EDGE_ID,
   START_NODE_ID,
   VARIABLE_EDGE_PREFIX,
@@ -157,7 +154,6 @@ import {
   AUTO_LAYOUT_DEFAULT_HEIGHT,
   AUTO_LAYOUT_DEFAULT_WIDTH,
 } from "./template-editor/graph/auto-layout";
-import { buildTemplateLayout } from "./template-editor/graph/build-layout";
 import { templateToGraph } from "./template-editor/graph/template-to-graph";
 import {
   buildDefaultStep,
@@ -234,7 +230,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   // ref publiée est immuable, on itère en bumpant la version (ce qui repasse le
   // statut à `draft`, cf. `handleTemplateIdChange` / `handleVersionChange`).
   const [status, setStatus] = useState<"draft" | "published">("draft");
-  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   // Inline rename (TemplateTitleBar) — met à jour l'état local ET persiste le
   // nouveau nom en base via `renameWorkflowTemplate` (rename-in-place : ne
@@ -335,10 +330,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     editingRef,
     loading,
   });
-
-  const [missingFieldsModal, setMissingFieldsModal] = useState<{
-    fields: ReadonlyArray<MissingRequiredField>;
-  } | null>(null);
 
   type VariableModalState =
     | { open: false }
@@ -1156,267 +1147,45 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   ]);
   useRegisterTemplateCanvas(uri, handle);
 
-  const buildDraft = (overrides?: {
-    name?: string;
-    id?: string;
-    version?: string;
-    status?: "draft" | "published";
-  }): TemplateDraft => {
-    const steps: TemplateStepDraft[] = nodes
-      .filter((n) => n.type === "step")
-      .map((n) => {
-        const { isEntry: _isEntry, ...rest } =
-          n.data as unknown as TemplateStepDraft & {
-            isEntry: boolean;
-          };
-        return rest;
-      });
-    const kindById = new Map(steps.map((s) => [s.id, s.kind]));
-    const transitions = edges.map((e) => {
-      const data = e.data as (EdgeData & { order?: number }) | undefined;
-      const isLoop = data?.isLoop ?? false;
-      // A pinned `fromPort` on a loop edge marks an *auto-loop* (orchestrator
-      // re-invokes automatically), which the save-time whitelist restricts to
-      // `llm.judge` / `format.validate`. Any other source looping back is a
-      // *human-feedback* loop — it must NOT carry a `fromPort`, else it both
-      // trips the whitelist and makes the orchestrator auto-loop forever after
-      // "Valider". See `validateAutoLoopWhitelist`.
-      const isAutoLoopSource =
-        isLoop && AUTO_LOOP_SOURCE_KINDS.has(kindById.get(e.source) ?? "");
-      const fromPort =
-        isLoop && !isAutoLoopSource ? undefined : e.sourceHandle ?? undefined;
-      return {
-        from: e.source,
-        fromPort,
-        to: e.target,
-        toPort: e.targetHandle ?? undefined,
-        isLoop,
-        ...(typeof data?.order === "number" ? { order: data.order } : {}),
-      };
-    });
-    const outgoing = new Set(
-      transitions.filter((t) => !t.isLoop).map((t) => t.from),
-    );
-    const exitSteps = steps.map((s) => s.id).filter((id) => !outgoing.has(id));
-    return {
-      id: (overrides?.id ?? templateId).trim(),
-      version: (overrides?.version ?? version).trim(),
-      name: (overrides?.name ?? name).trim(),
-      description: description.trim(),
-      entryStep: entryStepId ?? "",
-      exitSteps,
-      steps,
-      transitions,
-      variables,
-      // Par défaut on préserve le statut courant (un simple Save ne dé-publie
-      // pas) ; la publication passe explicitement `status: "published"`.
-      status: overrides?.status ?? status,
-    };
-  };
-
-  const validateDraft = (draft: TemplateDraft): string | null => {
-    if (!draft.id) return "L'ID du template est requis.";
-    if (!draft.version) return "La version est requise.";
-    if (!draft.name) return "Le nom est requis.";
-    if (draft.steps.length === 0) return "Ajoute au moins une étape.";
-    if (!draft.entryStep) return "Choisis une étape d'entrée.";
-    const ids = new Set<string>();
-    for (const s of draft.steps) {
-      if (!s.id) return `Une étape n'a pas d'ID.`;
-      if (ids.has(s.id)) return `ID d'étape dupliqué : ${s.id}`;
-      ids.add(s.id);
-    }
-    if (!ids.has(draft.entryStep)) {
-      return `L'étape d'entrée "${draft.entryStep}" est inconnue.`;
-    }
-    if (byKind) {
-      const stepById = new Map(draft.steps.map((s) => [s.id, s]));
-      // Track edges-per-(target, port) for cardinality on non-isList ports.
-      const cardinality = new Map<string, number>();
-      for (const t of draft.transitions) {
-        if (t.isLoop) continue;
-        const src = stepById.get(t.from);
-        const dst = stepById.get(t.to);
-        if (!src || !dst) return `Transition orpheline : ${t.from} → ${t.to}`;
-        const srcSpec = resolveStepSpec(src, byKind, variables, subTemplates);
-        const dstSpec = resolveStepSpec(dst, byKind, variables, subTemplates);
-        if (!srcSpec || !dstSpec) continue;
-        if (
-          !transitionTypable(srcSpec, dstSpec, {
-            fromPort: t.fromPort,
-            toPort: t.toPort,
-            resolver: refinementResolver,
-          })
-        ) {
-          const srcOut =
-            (t.fromPort
-              ? srcSpec.outputs.find((o) => o.name === t.fromPort)?.kind
-              : srcSpec.outputs[0]?.kind) ?? "—";
-          const dstAccepted = dstSpec.inputs
-            .map((p) => p.kinds.join("|"))
-            .join(" / ");
-          return `Incompatibilité d'artefact : ${src.id} produit ${srcOut}, mais ${dst.id} n'accepte que [${dstAccepted || "∅"}].`;
-        }
-        const portName = t.toPort ?? dstSpec.inputs[0]?.name;
-        if (!portName) continue;
-        const port = dstSpec.inputs.find((p) => p.name === portName);
-        if (!port) continue;
-        if (dstSpec.inputs.length > 1 && !t.toPort) {
-          return `Transition ${t.from} → ${t.to} : préciser un port cible (le node a ${dstSpec.inputs.length} entrées).`;
-        }
-        if (port.isList && !t.toPort) {
-          return `Transition ${t.from} → ${t.to} : le port "${port.name}" est isList — préciser un toPort explicite.`;
-        }
-        const key = `${t.to}|${portName}`;
-        const next = (cardinality.get(key) ?? 0) + 1;
-        cardinality.set(key, next);
-        if (!port.isList && next > 1) {
-          return `Le port "${portName}" de ${t.to} n'est pas isList : il ne peut pas recevoir ${next} transitions entrantes.`;
-        }
-      }
-    }
-    return null;
-  };
-
-  // Snapshot du 1er save d'un template neuf (avant que l'auto-save debounced
-  // ne soit actif). Délègue au builder pur partagé avec [useLayoutAutosave] —
-  // ce qui inclut désormais les sticky notes, qu'une version antérieure
-  // omettait (post-its perdus au 1er save d'un nouveau template).
-  const buildLayoutSnapshot = useCallback(
-    (): TemplateLayout =>
-      buildTemplateLayout(nodes, {
-        viewport: rf.getViewport(),
-        updatedAt: new Date().toISOString(),
-        isSynthetic: isSyntheticId,
-      }),
-    [nodes, rf],
-  );
-
-  const missingRequiredFields = (
-    draft: TemplateDraft,
-  ): ReadonlyArray<MissingRequiredField> => {
-    const out: MissingRequiredField[] = [];
-    if (!draft.name) out.push("name");
-    if (!draft.id) out.push("id");
-    if (!draft.version) out.push("version");
-    return out;
-  };
-
-  const performSave = async (draft: TemplateDraft) => {
-    setBusy(true);
-    try {
-      await services.saveWorkflowTemplate(draft);
-      // Refléter le statut effectivement persisté (publication incluse) pour
-      // que la toolbar passe en mode « publié » sans recharger.
-      setStatus(draft.status);
-      // Pour un template fraîchement créé (ou dupliqué depuis un `fromRef`),
-      // l'auto-save layout est inactif tant qu'il n'y a pas de ligne cible.
-      // On capture donc l'état courant ici, juste après que la ligne vient
-      // d'être créée. Échec non-bloquant pour la navigation.
-      if (isNew) {
-        try {
-          await services.saveTemplateLayout(
-            `${draft.id}@${draft.version}`,
-            buildLayoutSnapshot(),
-          );
-        } catch (e) {
-          console.warn("[wf:templates] first layout save failed", e);
-        }
-      }
-      toast.success(
-        t(
-          draft.status === "published"
-            ? "template.editor.toast.published"
-            : "template.editor.toast.saved",
-        ),
-        {
-          description: `${draft.name} · ${draft.id}@${draft.version}`,
-        },
-      );
-      await queryClient.invalidateQueries({ queryKey: ["templates"] });
-      // Pour un template fraîchement créé, on bascule l'onglet sur l'URI
-      // canonique du template (`template://<id>@<version>`) — sans ça,
-      // `editingRef` resterait null et l'auto-save layout + le lancement
-      // de run resteraient désactivés.
-      if (isNew) {
-        const savedUri = templateUriFor(`${draft.id}@${draft.version}`);
-        if (savedUri !== uri) {
-          api.openEditor(savedUri, { focus: true });
-          api.closeEditor(uri);
-        }
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setError(null);
-    const draft = buildDraft();
-    const missing = missingRequiredFields(draft);
-    if (missing.length > 0) {
-      setMissingFieldsModal({ fields: missing });
-      return;
-    }
-    const local = validateDraft(draft);
-    if (local) {
-      setError(local);
-      return;
-    }
-    await performSave(draft);
-  };
-
-  // Publier = sauvegarder avec `status: "published"`. On valide exactement comme
-  // un Save (champs requis + structure) avant d'ouvrir la confirmation, car une
-  // ref publiée est immuable côté MCP (`ctxfirst_save_template` refuse de
-  // ré-écrire une ref déjà publiée — on itère en bumpant la version).
-  const handlePublish = () => {
-    setError(null);
-    const draft = buildDraft({ status: "published" });
-    const missing = missingRequiredFields(draft);
-    if (missing.length > 0) {
-      setMissingFieldsModal({ fields: missing });
-      return;
-    }
-    const local = validateDraft(draft);
-    if (local) {
-      setError(local);
-      return;
-    }
-    setPublishConfirmOpen(true);
-  };
-
-  const confirmPublish = async () => {
-    setPublishConfirmOpen(false);
-    await performSave(buildDraft({ status: "published" }));
-  };
-
-  const handleMissingFieldsConfirm = async (values: {
-    name: string;
-    id: string;
-    version: string;
-  }) => {
-    // Les setters écrasent ce qui pouvait être saisi dans le panel *Template* :
-    // c'est voulu — la modal est l'autorité sur ces 3 champs au moment du Save.
-    setName(values.name);
-    setTemplateId(values.id);
-    setVersion(values.version);
-    setMissingFieldsModal(null);
-    setError(null);
-
-    // On rebuilt un draft avec les valeurs fraîches plutôt que d'attendre le
-    // re-render : sinon il faudrait un useEffect pour relancer la sauvegarde,
-    // ce qui complique le séquencement et masque l'origine du save.
-    const draft = buildDraft(values);
-    const local = validateDraft(draft);
-    if (local) {
-      setError(local);
-      return;
-    }
-    await performSave(draft);
-  };
+  // Sauvegarde / publication + modales de fin (champs requis, confirmation de
+  // publication). Compose les fonctions pures `buildTemplateDraft` /
+  // `validateTemplateDraft` (graph/build-draft) avec le state de l'éditeur.
+  const {
+    handleSave,
+    handlePublish,
+    confirmPublish,
+    handleMissingFieldsConfirm,
+    missingFieldsModal,
+    setMissingFieldsModal,
+    publishConfirmOpen,
+    setPublishConfirmOpen,
+  } = useTemplateSave({
+    nodes,
+    edges,
+    variables,
+    templateId,
+    version,
+    name,
+    description,
+    entryStepId,
+    status,
+    byKind,
+    subTemplates,
+    refinementResolver,
+    isNew,
+    uri,
+    rf,
+    services,
+    api,
+    queryClient,
+    t,
+    setStatus,
+    setError,
+    setName,
+    setTemplateId,
+    setVersion,
+    setBusy,
+  });
 
   const handleExportSvg = useCallback(async () => {
     try {
