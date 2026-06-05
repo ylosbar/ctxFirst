@@ -80,6 +80,7 @@ export const DENSITIES: readonly DensityDescriptor[] = [
 const DEFAULT_THEME: ThemeId = "nocturne";
 const DEFAULT_DENSITY: DensityId = "standard";
 const DEFAULT_PANEL_SHADOWS = true;
+const DEFAULT_FPS_COUNTER = false;
 
 const isThemeId = (value: unknown): value is ThemeId =>
   THEMES.some((t) => t.id === value);
@@ -132,11 +133,14 @@ export type AppearanceState = {
   readonly preview: ThemeId | null;
   /** Elevation shadows cast by the side panels onto the editor area. */
   readonly panelShadows: boolean;
+  /** Optional on-screen frames-per-second overlay (renderer-wide). */
+  readonly fpsCounter: boolean;
   readonly setTheme: (theme: ThemeId) => void;
   readonly previewTheme: (theme: ThemeId | null) => void;
   readonly setDensity: (density: DensityId) => void;
   readonly setLocale: (locale: Locale) => void;
   readonly setPanelShadows: (enabled: boolean) => void;
+  readonly setFpsCounter: (enabled: boolean) => void;
 };
 
 export const useAppearanceStore = create<AppearanceState>()(
@@ -147,11 +151,13 @@ export const useAppearanceStore = create<AppearanceState>()(
       locale: DEFAULT_LOCALE,
       preview: null,
       panelShadows: DEFAULT_PANEL_SHADOWS,
+      fpsCounter: DEFAULT_FPS_COUNTER,
       setTheme: (theme) => set({ theme, preview: null }),
       previewTheme: (preview) => set({ preview }),
       setDensity: (density) => set({ density }),
       setLocale: (locale) => set({ locale: isLocale(locale) ? locale : DEFAULT_LOCALE }),
       setPanelShadows: (panelShadows) => set({ panelShadows }),
+      setFpsCounter: (fpsCounter) => set({ fpsCounter }),
     }),
     {
       name: STORAGE_KEY,
@@ -161,6 +167,7 @@ export const useAppearanceStore = create<AppearanceState>()(
         density: s.density,
         locale: s.locale,
         panelShadows: s.panelShadows,
+        fpsCounter: s.fpsCounter,
       }),
     },
   ),
@@ -229,3 +236,9 @@ export const usePanelShadows = (): boolean =>
 
 export const useSetPanelShadows = (): ((enabled: boolean) => void) =>
   useAppearanceStore((s) => s.setPanelShadows);
+
+export const useFpsCounter = (): boolean =>
+  useAppearanceStore((s) => s.fpsCounter);
+
+export const useSetFpsCounter = (): ((enabled: boolean) => void) =>
+  useAppearanceStore((s) => s.setFpsCounter);

@@ -892,6 +892,10 @@
       "panelShadows": {
         "title": "Ombres des panneaux",
         "description": "Affiche l'ombre projetée par les panneaux latéraux gauche et droit sur l'éditeur."
+      },
+      "fpsCounter": {
+        "title": "Compteur de FPS",
+        "description": "Affiche un petit indicateur d'images par seconde en haut à gauche. Utile pour diagnostiquer les ralentissements de l'éditeur."
       }
     },
     "integrations": {

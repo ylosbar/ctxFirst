@@ -11,6 +11,7 @@ import ChannelProvider from "./ui/channels/ChannelProvider";
 import I18nProvider from "./ui/i18n/provider";
 import { createQueryClient } from "./ui/query/query-client";
 import WorkflowEventsBridge from "./ui/query/WorkflowEventsBridge";
+import FpsOverlay from "./ui/components/FpsOverlay";
 import "./App.css";
 
 const services = buildServices();
@@ -58,6 +59,7 @@ const App = () => {
                 <Workbench />
               </HashRouter>
               <ThemedToaster />
+              <FpsOverlay />
             </TooltipProvider>
           </ChannelProvider>
         </I18nProvider>
