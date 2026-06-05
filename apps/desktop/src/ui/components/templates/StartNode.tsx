@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { useT } from "../../i18n";
 
@@ -20,4 +21,4 @@ const StartNode = () => {
   );
 };
 
-export default StartNode;
+export default memo(StartNode);

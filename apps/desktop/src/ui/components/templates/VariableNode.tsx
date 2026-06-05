@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { ArtifactKind } from "../../../domain/workflow/types";
 import { portColor } from "./port-color";
@@ -23,9 +24,14 @@ const VariableNode = ({ data }: NodeProps) => {
   // leaves toward the step's left input → exit the pill on its RIGHT side.
   const handlePosition =
     d.mode === "produced" ? Position.Left : Position.Right;
+  // bg opaque (pas de backdrop-blur) : un nœud flouté = une couche de
+  // compositing GPU séparée, re-rasterisée à chaque frame de pan. Multiplié par
+  // tous les nœuds visibles en dézoom → "tile memory limits exceeded" (le
+  // bureau transparaît car la fenêtre est transparente). Voir TemplateEditor
+  // `onlyRenderVisibleElements`.
   return (
     <div
-      className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-2 py-[3px] font-mono text-2xs leading-none text-foreground/85 shadow-[0_1px_2px_rgb(0_0_0/0.04)] ring-1 ring-black/[0.03] backdrop-blur-sm dark:ring-white/[0.04]"
+      className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-2 py-[3px] font-mono text-2xs leading-none text-foreground/85 shadow-[0_1px_2px_rgb(0_0_0/0.04)] ring-1 ring-black/[0.03] dark:ring-white/[0.04]"
       title={tooltip}
     >
       <Handle
@@ -50,4 +56,4 @@ const VariableNode = ({ data }: NodeProps) => {
   );
 };
 
-export default VariableNode;
+export default memo(VariableNode);

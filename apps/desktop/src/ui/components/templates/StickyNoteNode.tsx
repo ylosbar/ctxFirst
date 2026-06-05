@@ -1,5 +1,6 @@
 import {
   createContext,
+  memo,
   useContext,
   useEffect,
   useRef,
@@ -146,4 +147,4 @@ const StickyNoteNode = ({ id, data, selected }: NodeProps) => {
   );
 };
 
-export default StickyNoteNode;
+export default memo(StickyNoteNode);

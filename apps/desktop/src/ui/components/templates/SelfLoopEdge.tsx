@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -76,4 +77,4 @@ const SelfLoopEdge = ({
   );
 };
 
-export default SelfLoopEdge;
+export default memo(SelfLoopEdge);

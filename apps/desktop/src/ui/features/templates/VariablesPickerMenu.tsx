@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   Tooltip,
@@ -141,7 +142,7 @@ const VariablesPickerMenu = ({
                 </span>
               </Menu.Item>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto px-1 pb-1">
+            <ScrollArea className="max-h-[60vh] px-1 pb-1">
               {filtered.map((variable) => (
                 <Menu.Item
                   key={variable.name}
@@ -176,7 +177,7 @@ const VariablesPickerMenu = ({
                   })}
                 />
               ) : null}
-            </div>
+            </ScrollArea>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -202,7 +203,7 @@ const KindBadgePopover = ({ kind }: { kind: ArtifactKind }) => {
             aria-label={t("templates.variablesPicker.viewShapeAriaLabel", {
               kind,
             })}
-            className="shrink-0 cursor-help rounded bg-muted px-1 py-0.5 font-mono text-2xs hover:bg-muted/80"
+            className="shrink-0 cursor-help rounded bg-primary/10 px-1 py-0.5 font-mono text-2xs text-primary hover:bg-primary/20"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") e.stopPropagation();
