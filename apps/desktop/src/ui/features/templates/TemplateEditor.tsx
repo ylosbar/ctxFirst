@@ -72,7 +72,6 @@ import ToolbarButton from "../../components/ToolbarButton";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
 import {
-  type ArtifactKind,
   type TemplateDraft,
   type TemplateStepDraft,
   type TemplateVariableDraft,
@@ -105,7 +104,6 @@ import {
   setTemplateEditorGridSnap,
   useTemplateEditorGridSnap,
 } from "../../workbench/store";
-import { runUriFor } from "../runs/run-uri";
 import {
   fromRefFromTemplateUri,
   refFromTemplateUri,
@@ -136,6 +134,7 @@ import { useGroupTools } from "./template-editor/hooks/useGroupTools";
 import { useStepMutations } from "./template-editor/hooks/useStepMutations";
 import { useTemplateVariables } from "./template-editor/hooks/useTemplateVariables";
 import { useEdgeDropSuggestions } from "./template-editor/hooks/useEdgeDropSuggestions";
+import { useLaunchRun } from "./template-editor/hooks/useLaunchRun";
 import {
   buildPngFileName,
   buildSvgFileName,
@@ -287,12 +286,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   );
   const [layoutSaveError, setLayoutSaveError] = useState<string | null>(null);
 
-  type LaunchState = {
-    text: string;
-    busy: boolean;
-    error: string | null;
-  };
-  const [launch, setLaunch] = useState<LaunchState | null>(null);
   const [notesVisible, setNotesVisible] = useState<boolean>(false);
   // Full-app maximize: when true, the editor portals itself just under the
   // window title bar to cover the activity bar + dock. Escape exits.
@@ -791,66 +784,29 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   // — il suffit de programmer la sauvegarde.
   const { handleNodeDragStop } = useNodeReparenting({ setNodes, layoutAutosave });
 
-  const launchEntryStep = useMemo<TemplateStepDraft | null>(() => {
-    if (!entryStepId) return null;
-    const n = nodes.find((x) => x.id === entryStepId);
-    if (!n) return null;
-    const { isEntry: _isEntry, ...rest } =
-      n.data as unknown as TemplateStepDraft & {
-        isEntry: boolean;
-      };
-    return rest;
-  }, [nodes, entryStepId]);
-
-  const launchNeedsSeed = launchEntryStep?.kind === "user.input";
-
-  const launchSeedKind = useMemo<ArtifactKind | null>(() => {
-    if (!launchEntryStep || !byKind) return null;
-    const spec = resolveStepSpec(launchEntryStep, byKind, variables, subTemplates);
-    return (spec?.outputs[0]?.kind as ArtifactKind) ?? null;
-  }, [launchEntryStep, byKind, variables, subTemplates]);
-
-  const canLaunch =
-    editingRef !== null && entryStepId !== null && !hasMissingDeps;
-
-  const handleLaunchOpen = useCallback(() => {
-    if (!canLaunch) return;
-    setLaunch({ text: "", busy: false, error: null });
-  }, [canLaunch]);
-
-  const handleLaunchClose = useCallback(() => setLaunch(null), []);
-
-  const handleLaunchSubmit = useCallback(async () => {
-    if (!launch || !editingRef) return;
-    if (launchNeedsSeed && launch.text.trim().length === 0) return;
-    let seeds: ReadonlyArray<{ kind: ArtifactKind; content: string }> = [];
-    if (launchNeedsSeed) {
-      if (!launchSeedKind) {
-        setLaunch({
-          ...launch,
-          error: "Impossible de déterminer le kind de seed pour ce template.",
-        });
-        return;
-      }
-      seeds = [{ kind: launchSeedKind, content: launch.text }];
-    }
-    setLaunch({ ...launch, busy: true, error: null });
-    try {
-      const result = await services.startWorkflow({
-        templateRef: editingRef,
-        seeds,
-      });
-      api.activateActivity("explorer");
-      api.openEditor(runUriFor(result.instanceId), { focus: true });
-      setLaunch(null);
-    } catch (e) {
-      setLaunch({
-        ...launch,
-        busy: false,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }, [launch, editingRef, launchNeedsSeed, launchSeedKind, services, api]);
+  // Lancement d'un run depuis le template : dérivés d'entry step + dialogue
+  // (open/close/submit). `canLaunch` exige un template persisté, une entrée et
+  // aucune dépendance manquante.
+  const {
+    launch,
+    launchNeedsSeed,
+    launchSeedKind,
+    canLaunch,
+    setLaunch,
+    handleLaunchOpen,
+    handleLaunchClose,
+    handleLaunchSubmit,
+  } = useLaunchRun({
+    nodes,
+    entryStepId,
+    byKind,
+    variables,
+    subTemplates,
+    editingRef,
+    hasMissingDeps,
+    services,
+    api,
+  });
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const filtered = changes.filter(
