@@ -28,46 +28,8 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import {
-  AlertTriangle,
-  AlignHorizontalSpaceAround,
-  AlignVerticalSpaceAround,
-  BadgeCheck,
-  Check,
-  ChevronDown,
-  Columns2,
-  Download,
-  FileImage,
-  FileJson,
-  Frame,
-  Grid3x3,
-  Maximize2,
-  Minimize2,
-  NotebookPen,
-  Play,
-  Rocket,
-  Save,
-  StickyNote,
-  Trash2,
-  X,
-} from "lucide-react";
-import { Menu } from "@base-ui/react/menu";
-import { motion } from "motion/react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import {
-  menuItemClass,
-  menuPopupClass,
-} from "../explorer/menus/menu-styles";
 import { transitionTypable } from "@shared/wf/port-accepts";
 import type { TemplateLayout } from "@shared/wf/layout";
-import ToolbarButton from "../../components/ToolbarButton";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
 import {
@@ -92,16 +54,9 @@ import {
   type StepKindMeta,
 } from "../../components/templates/step-kinds";
 import { STEP_KIND_DND_MIME } from "./picker-dnd";
-import EdgeDropSuggestions from "../../components/templates/EdgeDropSuggestions";
-import NodesPickerMenu from "./NodesPickerMenu";
-import VariablesPickerMenu from "./VariablesPickerMenu";
-import VariableEditorModal from "./VariableEditorModal";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
-import {
-  setTemplateEditorGridSnap,
-  useTemplateEditorGridSnap,
-} from "../../workbench/store";
+import { useTemplateEditorGridSnap } from "../../workbench/store";
 import {
   fromRefFromTemplateUri,
   refFromTemplateUri,
@@ -111,13 +66,8 @@ import {
   useRegisterTemplateCanvas,
   type TemplateCanvasHandle,
 } from "../../stores/template-canvas-store";
-import TemplateMissingDepsModal from "./TemplateMissingDepsModal";
 import TemplateTitleBar from "./TemplateTitleBar";
-import TemplateInspectorView from "./TemplateInspectorView";
-import TemplateSaveMissingModal from "./TemplateSaveMissingModal";
-import TemplatePublishModal from "./TemplatePublishModal";
 import LaunchRunDialog from "./LaunchRunDialog";
-import { totalMissing as totalMissingDeps } from "../../../application/use-cases/collect-missing-template-deps";
 import { useLayoutAutosave } from "./useLayoutAutosave";
 import { useInspectorResize } from "./template-editor/hooks/useInspectorResize";
 import { useMaximize } from "./template-editor/hooks/useMaximize";
@@ -133,6 +83,10 @@ import { useEdgeDropSuggestions } from "./template-editor/hooks/useEdgeDropSugge
 import { useLaunchRun } from "./template-editor/hooks/useLaunchRun";
 import { useTemplateSave } from "./template-editor/hooks/useTemplateSave";
 import { useWorkflowExport } from "./template-editor/hooks/useWorkflowExport";
+import TemplateEditorToolbar from "./template-editor/components/TemplateEditorToolbar";
+import TemplateEditorModals from "./template-editor/components/TemplateEditorModals";
+import TemplateCanvasOverlays from "./template-editor/components/TemplateCanvasOverlays";
+import type { VariableModalState } from "./template-editor/components/variable-modal";
 import type { RunOverlay } from "./run-overlay";
 import {
   START_EDGE_ID,
@@ -325,10 +279,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     loading,
   });
 
-  type VariableModalState =
-    | { open: false }
-    | { open: true; mode: "create" }
-    | { open: true; mode: "edit"; variable: TemplateVariableDraft };
   const [variableModal, setVariableModal] = useState<VariableModalState>({
     open: false,
   });
@@ -1207,289 +1157,38 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     <div className="flex h-full min-w-0 flex-col" data-template-editor>
       <TemplateTitleBar />
       {isViewRun ? null : (
-        <div className="flex flex-wrap items-center gap-2 border-b bg-gradient-to-b from-muted/60 to-transparent px-3 py-1.5">
-          <div className="flex items-center gap-0.5">
-            <ToolbarButton
-              icon={launch ? X : Play}
-              variant={launch ? "outline" : "default"}
-              label={
-                !canLaunch
-                  ? editingRef === null
-                    ? "Sauvegarder le template avant de pouvoir le lancer"
-                    : hasMissingDeps
-                      ? "Dépendances manquantes — résous-les avant de lancer un run"
-                      : "Définir une étape d'entrée avant de pouvoir lancer"
-                  : launch
-                    ? "Annuler le lancement"
-                    : "Lancer un run depuis ce template"
-              }
-              onClick={launch ? handleLaunchClose : handleLaunchOpen}
-              disabled={!canLaunch}
-            />
-          </div>
-          <div className="flex items-center gap-0.5 border-l pl-2">
-            <ToolbarButton
-              icon={AlignVerticalSpaceAround}
-              label={t("template.editor.toolbar.autoLayout.vertical")}
-              onClick={() => handleAutoLayout("vertical")}
-            />
-            <ToolbarButton
-              icon={AlignHorizontalSpaceAround}
-              label={t("template.editor.toolbar.autoLayout.horizontal")}
-              onClick={() => handleAutoLayout("horizontal")}
-            />
-            <ToolbarButton
-              icon={Columns2}
-              label={t("template.editor.toolbar.autoLayout.twoColumns")}
-              onClick={() => handleAutoLayout("two-columns")}
-            />
-          </div>
-          <div className="ml-2 flex items-center gap-0.5 border-l pl-2">
-            <ToolbarButton
-              icon={StickyNote}
-              label={
-                notesVisible
-                  ? "Masquer les notes des étapes"
-                  : "Afficher les notes des étapes"
-              }
-              onClick={() => setNotesVisible((v) => !v)}
-              className={
-                notesVisible ? "bg-accent text-accent-foreground" : undefined
-              }
-            />
-            <ToolbarButton
-              icon={Frame}
-              label={
-                groupDrawingMode
-                  ? "Annuler — Échap pour quitter"
-                  : "Créer un groupe (drag un rectangle sur le canvas)"
-              }
-              onClick={() => setGroupDrawingMode((v) => !v)}
-              className={
-                groupDrawingMode
-                  ? "bg-accent text-accent-foreground"
-                  : undefined
-              }
-            />
-            <ToolbarButton
-              icon={NotebookPen}
-              label={t("template.editor.stickyNote.add")}
-              onClick={addStickyNote}
-            />
-            <ToolbarButton
-              icon={Grid3x3}
-              label={
-                gridSnap.enabled
-                  ? `Snap activé (pas : ${gridSnap.size} px) — cliquer pour désactiver`
-                  : "Activer le snap à la grille"
-              }
-              onClick={() =>
-                setTemplateEditorGridSnap({ enabled: !gridSnap.enabled })
-              }
-              className={
-                gridSnap.enabled ? "bg-accent text-accent-foreground" : undefined
-              }
-            />
-            <ToolbarButton
-              icon={isMaximized ? Minimize2 : Maximize2}
-              label={
-                isMaximized
-                  ? "Quitter le plein écran (Échap)"
-                  : "Afficher le graph en plein écran"
-              }
-              onClick={() => setIsMaximized((v) => !v)}
-              className={
-                isMaximized ? "bg-accent text-accent-foreground" : undefined
-              }
-            />
-            <Menu.Root>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Menu.Trigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          aria-label={t(
-                            "template.editor.toolbar.grid.chooseStepAriaLabel",
-                          )}
-                        >
-                          <ChevronDown />
-                        </Button>
-                      }
-                    />
-                  }
-                />
-                <TooltipContent>
-                  {t("template.editor.toolbar.grid.stepTooltip")}
-                </TooltipContent>
-              </Tooltip>
-              <Menu.Portal>
-                <Menu.Positioner align="end" sideOffset={4} className="z-50">
-                  <Menu.Popup
-                    render={
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.96, y: -4 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ duration: 0.15, ease: "easeOut" }}
-                        style={{ transformOrigin: "top right" }}
-                      />
-                    }
-                    className={menuPopupClass}
-                  >
-                    {[10, 20, 40, 80].map((size) => (
-                      <Menu.Item
-                        key={size}
-                        className={cn(menuItemClass)}
-                        onClick={() => setTemplateEditorGridSnap({ size })}
-                      >
-                        <Check
-                          className={cn(
-                            "size-4 text-muted-foreground",
-                            gridSnap.size === size ? "visible" : "invisible",
-                          )}
-                        />
-                        {size === 20 ? `${size} px (défaut)` : `${size} px`}
-                      </Menu.Item>
-                    ))}
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.Root>
-          </div>
-          <div className="ml-2 flex items-center gap-0.5 border-l pl-2">
-            <NodesPickerMenu disabled={false} onPick={addStep} />
-            <VariablesPickerMenu
-              disabled={false}
-              variables={variables}
-              onPick={(v) =>
-                setVariableModal({ open: true, mode: "edit", variable: v })
-              }
-              onRequestCreate={() =>
-                setVariableModal({ open: true, mode: "create" })
-              }
-            />
-            <Menu.Root>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Menu.Trigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={t(
-                            "template.editor.toolbar.export.trigger",
-                          )}
-                          disabled={nodes.length === 0 && !editingRef}
-                        >
-                          <Download />
-                        </Button>
-                      }
-                    />
-                  }
-                />
-                <TooltipContent>
-                  {t("template.editor.toolbar.export.trigger")}
-                </TooltipContent>
-              </Tooltip>
-              <Menu.Portal>
-                <Menu.Positioner align="end" sideOffset={4} className="z-50">
-                  <Menu.Popup
-                    render={
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.96, y: -4 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ duration: 0.15, ease: "easeOut" }}
-                        style={{ transformOrigin: "top right" }}
-                      />
-                    }
-                    className={menuPopupClass}
-                  >
-                    <Menu.Item
-                      className={cn(
-                        menuItemClass,
-                        "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
-                      )}
-                      onClick={handleExportJson}
-                      disabled={!editingRef}
-                    >
-                      <FileJson className="size-4 text-muted-foreground" />
-                      {t("template.editor.toolbar.export.json")}
-                    </Menu.Item>
-                    <Menu.Item
-                      className={cn(
-                        menuItemClass,
-                        "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
-                      )}
-                      onClick={handleExportSvg}
-                      disabled={nodes.length === 0}
-                    >
-                      <Download className="size-4 text-muted-foreground" />
-                      {t("template.editor.toolbar.export.svg")}
-                    </Menu.Item>
-                    <Menu.Item
-                      className={cn(
-                        menuItemClass,
-                        "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
-                      )}
-                      onClick={handleExportPng}
-                      disabled={nodes.length === 0}
-                    >
-                      <FileImage className="size-4 text-muted-foreground" />
-                      {t("template.editor.toolbar.export.png")}
-                    </Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.Root>
-            {hasMissingDeps ? (
-              <ToolbarButton
-                icon={AlertTriangle}
-                label={`${totalMissingDeps(missingDeps)} dépendance(s) manquante(s) — cliquer pour voir`}
-                onClick={() => setMissingDepsModalOpen(true)}
-                className="text-destructive hover:text-destructive"
-              />
-            ) : null}
-            <ToolbarButton
-              icon={Save}
-              label={t(
-                busy
-                  ? "template.editor.toolbar.saving"
-                  : status === "published"
-                    ? "template.editor.toolbar.saveLocked"
-                    : "template.editor.toolbar.saveDraft",
-              )}
-              onClick={handleSave}
-              disabled={busy || status === "published"}
-            />
-            <ToolbarButton
-              icon={status === "published" ? BadgeCheck : Rocket}
-              variant={status === "published" ? "ghost" : "secondary"}
-              label={t(
-                status === "published"
-                  ? "template.editor.toolbar.published"
-                  : "template.editor.toolbar.publish",
-              )}
-              onClick={handlePublish}
-              disabled={busy || status === "published"}
-              className={
-                status === "published"
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : undefined
-              }
-            />
-          </div>
-          <div className="ml-auto flex items-center gap-0.5">
-            <ToolbarButton
-              icon={Trash2}
-              label={t("template.editor.toolbar.clearAll")}
-              onClick={handleClearAll}
-              disabled={nodes.length === 0 && edges.length === 0}
-            />
-          </div>
-        </div>
+        <TemplateEditorToolbar
+          nodes={nodes}
+          edges={edges}
+          editingRef={editingRef}
+          status={status}
+          busy={busy}
+          launch={launch}
+          canLaunch={canLaunch}
+          hasMissingDeps={hasMissingDeps}
+          missingDeps={missingDeps}
+          notesVisible={notesVisible}
+          setNotesVisible={setNotesVisible}
+          groupDrawingMode={groupDrawingMode}
+          setGroupDrawingMode={setGroupDrawingMode}
+          gridSnap={gridSnap}
+          isMaximized={isMaximized}
+          setIsMaximized={setIsMaximized}
+          variables={variables}
+          setVariableModal={setVariableModal}
+          setMissingDepsModalOpen={setMissingDepsModalOpen}
+          handleLaunchOpen={handleLaunchOpen}
+          handleLaunchClose={handleLaunchClose}
+          handleAutoLayout={handleAutoLayout}
+          addStickyNote={addStickyNote}
+          addStep={addStep}
+          handleExportJson={handleExportJson}
+          handleExportSvg={handleExportSvg}
+          handleExportPng={handleExportPng}
+          handleSave={handleSave}
+          handlePublish={handlePublish}
+          handleClearAll={handleClearAll}
+        />
       )}
 
       <LaunchRunDialog
@@ -1592,104 +1291,47 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
             </StickyNoteActionsProvider>
           </GroupActionsProvider>
         </NotesVisibilityProvider>
-        {groupDrawingMode ? (
-          <div
-            className="absolute inset-0 z-10 cursor-crosshair"
-            onPointerDown={onOverlayPointerDown}
-            onPointerMove={onOverlayPointerMove}
-            onPointerUp={onOverlayPointerUp}
-            onPointerCancel={onOverlayPointerUp}
-          />
-        ) : null}
-        {layoutSaveError ? (
-          <div
-            className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded bg-background/90 px-3 py-1 text-xs text-muted-foreground shadow-sm"
-            title={layoutSaveError}
-          >
-            {t("template.editor.layoutSaveError")}
-          </div>
-        ) : null}
-        {pendingConnect ? (
-          <EdgeDropSuggestions
-            position={pendingConnect.popupPos}
-            suggestions={suggestions}
-            onSelect={handleSuggestionPick}
-            onClose={() => setPendingConnect(null)}
-          />
-        ) : null}
-        {!isViewRun && (selectedNodeId !== null || selectedEdgeId !== null) ? (
-          <div
-            className={cn(
-              "absolute right-2 top-2 bottom-2 z-20",
-              "flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg",
-              "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-2 motion-safe:duration-150",
-            )}
-            style={{ width: inspectorWidth }}
-            data-template-editor
-          >
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={t("template.editor.inspector.resizeAriaLabel")}
-              className={cn(
-                "absolute left-0 top-0 bottom-0 z-10 w-1.5 cursor-ew-resize",
-                "transition-colors hover:bg-primary/30",
-                inspectorDragWidth !== null && "bg-primary/40",
-              )}
-              onPointerDown={onInspectorResizeStart}
-              onPointerMove={onInspectorResizeMove}
-              onPointerUp={onInspectorResizeEnd}
-              onPointerCancel={onInspectorResizeEnd}
-            />
-            <TemplateInspectorView />
-          </div>
-        ) : null}
+        <TemplateCanvasOverlays
+          isViewRun={isViewRun}
+          groupDrawingMode={groupDrawingMode}
+          onOverlayPointerDown={onOverlayPointerDown}
+          onOverlayPointerMove={onOverlayPointerMove}
+          onOverlayPointerUp={onOverlayPointerUp}
+          layoutSaveError={layoutSaveError}
+          pendingConnect={pendingConnect}
+          suggestions={suggestions}
+          handleSuggestionPick={handleSuggestionPick}
+          setPendingConnect={setPendingConnect}
+          selectedNodeId={selectedNodeId}
+          selectedEdgeId={selectedEdgeId}
+          inspectorWidth={inspectorWidth}
+          inspectorDragWidth={inspectorDragWidth}
+          onInspectorResizeStart={onInspectorResizeStart}
+          onInspectorResizeMove={onInspectorResizeMove}
+          onInspectorResizeEnd={onInspectorResizeEnd}
+        />
       </div>
-      <TemplateMissingDepsModal
-        open={missingDepsModalOpen}
-        onOpenChange={setMissingDepsModalOpen}
-        missing={missingDeps}
-      />
-      <TemplateSaveMissingModal
-        open={missingFieldsModal !== null}
-        missing={missingFieldsModal?.fields ?? []}
-        initial={{ name, id: templateId, version }}
+      <TemplateEditorModals
+        missingDepsModalOpen={missingDepsModalOpen}
+        setMissingDepsModalOpen={setMissingDepsModalOpen}
+        missingDeps={missingDeps}
+        missingFieldsModal={missingFieldsModal}
+        setMissingFieldsModal={setMissingFieldsModal}
+        handleMissingFieldsConfirm={handleMissingFieldsConfirm}
+        publishConfirmOpen={publishConfirmOpen}
+        setPublishConfirmOpen={setPublishConfirmOpen}
+        confirmPublish={confirmPublish}
+        name={name}
+        templateId={templateId}
+        version={version}
         busy={busy}
-        onConfirm={(values) => void handleMissingFieldsConfirm(values)}
-        onCancel={() => setMissingFieldsModal(null)}
-      />
-      <TemplatePublishModal
-        open={publishConfirmOpen}
-        templateRef={`${templateId}@${version}`}
-        busy={busy}
-        onConfirm={() => void confirmPublish()}
-        onCancel={() => setPublishConfirmOpen(false)}
-      />
-      <VariableEditorModal
-        open={variableModal.open}
-        mode={
-          variableModal.open && variableModal.mode === "edit"
-            ? { kind: "edit", variable: variableModal.variable }
-            : { kind: "create" }
-        }
+        variableModal={variableModal}
+        setVariableModal={setVariableModal}
         variables={variables}
         steps={steps}
-        onSubmit={(next, previousName) => {
-          if (previousName === null) addVariable(next);
-          else updateVariable(previousName, next);
-          setVariableModal({ open: false });
-        }}
-        onDelete={
-          variableModal.open && variableModal.mode === "edit"
-            ? () => {
-                deleteVariable(variableModal.variable.name);
-                setVariableModal({ open: false });
-              }
-            : undefined
-        }
-        onOpenChange={(o) => {
-          if (!o) setVariableModal({ open: false });
-        }}
+        addVariable={addVariable}
+        updateVariable={updateVariable}
+        deleteVariable={deleteVariable}
       />
     </div>
   );
