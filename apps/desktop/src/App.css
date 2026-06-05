@@ -714,10 +714,16 @@ body {
   color: var(--muted-foreground);
 }
 
+/* Code inline (`…`) : texte neutre (--foreground, contraste max) sur une puce
+   légèrement teintée d'accent (--chart-1 mélangé au fond muted). Le code ressort
+   par sa puce colorée tout en restant parfaitement lisible — fait ressortir
+   paths, variables & identifiants. Le reset `.markdown-body pre code` ci-dessous
+   rend le fond transparent dans les blocs de code, où la coloration syntaxique
+   (hljs) prend le relais. */
 .markdown-body code {
   font-family: var(--font-mono);
   font-size: 0.8125rem;
-  background: var(--muted);
+  background: color-mix(in srgb, var(--chart-1) 16%, var(--muted));
   padding: 0.05rem 0.3rem;
   border-radius: var(--radius);
   color: var(--foreground);

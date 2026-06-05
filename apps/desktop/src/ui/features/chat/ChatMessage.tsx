@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown, { type Components, defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
+import rehypeHighlight from "rehype-highlight";
 import { useWorkbench } from "../../workbench/WorkbenchProvider";
 import { workbenchRegistry } from "../../workbench/registry";
 import { classifyChatLink } from "./chat-link";
@@ -31,6 +32,15 @@ const formatTime = (iso?: string): string => {
 // la protection XSS sur `javascript:` & co.).
 const chatUrlTransform = (url: string): string =>
   workbenchRegistry.editorTypeFor(url) != null ? url : defaultUrlTransform(url);
+
+// Références de plugins stables (hors render) — react-markdown re-parse quand
+// le tableau de plugins change d'identité. La coloration syntaxique
+// (`rehype-highlight`, mêmes classes `.hljs-*` que l'ArtifactView) n'est
+// appliquée qu'une fois le message terminé : pendant le streaming le contenu
+// re-render à chaque delta (~60Hz) et re-coloriser à chaque tick serait coûteux
+// pour un highlight partiel inutile.
+const REMARK_PLUGINS = [remarkGfm, remarkBreaks];
+const REHYPE_PLUGINS = [rehypeHighlight];
 
 const ChatMessage = ({ role, text, timestamp, streaming }: ChatMessageProps) => {
   const isUser = role === "user";
@@ -102,7 +112,8 @@ const ChatMessage = ({ role, text, timestamp, streaming }: ChatMessageProps) => 
         ) : (
           <div className="markdown-body markdown-body--compact wrap-anywhere">
             <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkBreaks]}
+              remarkPlugins={REMARK_PLUGINS}
+              rehypePlugins={streaming ? undefined : REHYPE_PLUGINS}
               components={markdownComponents}
               urlTransform={chatUrlTransform}
             >
