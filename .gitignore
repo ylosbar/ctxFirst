@@ -27,11 +27,8 @@ coverage/
 apps/desktop/out/
 apps/desktop/release/
 
-# Claude Code — keep shared config, ignore local/transient state
-**/.claude/settings.local.json
-**/.claude/*.lock
-**/.claude/cache/
-.claude/worktrees/
+# Claude Code — local config, not tracked
+.claude/
 
 # Editor directories and files
 .vscode/*
