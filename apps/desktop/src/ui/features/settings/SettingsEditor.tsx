@@ -4,29 +4,20 @@ import {
   useEffect,
   useMemo,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Dialog } from "@base-ui/react/dialog";
 import { Slider } from "@base-ui/react/slider";
 import {
-  Brain,
   Check,
   ChevronRight,
   Copy,
-  Layers,
-  Link2,
   Package,
-  Palette,
   Play,
-  Plug,
   Plus,
-  Puzzle,
-  Settings2,
   Star,
   Trash2,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useActiveChannel } from "../../channels/ChannelProvider";
@@ -60,7 +51,7 @@ import {
   type DensityId,
 } from "../../stores/appearance-store";
 import { Trans } from "react-i18next";
-import { i18n, useT } from "../../i18n";
+import { useT } from "../../i18n";
 import { LOCALES, LOCALE_LABEL, type Locale } from "../../i18n/locales";
 import { useServices } from "../../di/services-provider";
 import type {
@@ -75,64 +66,28 @@ import type {
   OpenRouterStatus,
   OpenRouterTestResult,
 } from "../../../application/ports/settings-gateway";
-import type {
-  PluginListEntry,
-  PluginPermissionMeta,
-} from "../../../domain/plugin/types";
-import { rendererPluginRegistry } from "../../../plugins/plugin-registry";
-
-type CoreCategoryId =
-  | "appearance"
-  | "channels"
-  | "integrations"
-  | "llm"
-  | "mcp"
-  | "plugins"
-  | "general";
-type CategoryId = CoreCategoryId | string;
-
-type Category = {
-  readonly id: CategoryId;
-  readonly label: string;
-  readonly icon: LucideIcon;
-};
-
-type CoreCategoryDef = {
-  readonly id: CoreCategoryId;
-  readonly labelKey: string;
-  readonly icon: LucideIcon;
-};
-
-const CORE_CATEGORY_DEFS: readonly CoreCategoryDef[] = [
-  { id: "appearance", labelKey: "settings.categories.appearance", icon: Palette },
-  { id: "channels", labelKey: "settings.categories.channels", icon: Layers },
-  { id: "integrations", labelKey: "settings.categories.integrations", icon: Link2 },
-  { id: "llm", labelKey: "settings.categories.llm", icon: Brain },
-  { id: "mcp", labelKey: "settings.categories.mcp", icon: Plug },
-  { id: "plugins", labelKey: "settings.categories.plugins", icon: Puzzle },
-  { id: "general", labelKey: "settings.categories.general", icon: Settings2 },
-];
-
-const DEFAULT_CATEGORY: CoreCategoryId = "appearance";
-const SETTINGS_PREFIX = "/settings";
-
-const usePluginSettingsTabs = () =>
-  useSyncExternalStore(
-    rendererPluginRegistry.subscribeSettingsTabs,
-    rendererPluginRegistry.listSettingsTabs,
-    rendererPluginRegistry.listSettingsTabs,
-  );
-
-const categoryFromPath = (pathname: string): string | null => {
-  if (pathname === SETTINGS_PREFIX || pathname === `${SETTINGS_PREFIX}/`) {
-    return null;
-  }
-  if (!pathname.startsWith(`${SETTINGS_PREFIX}/`)) return null;
-  const rest = pathname.slice(`${SETTINGS_PREFIX}/`.length);
-  const slash = rest.indexOf("/");
-  const segment = slash === -1 ? rest : rest.slice(0, slash);
-  return segment ? decodeURIComponent(segment) : null;
-};
+import {
+  CORE_CATEGORY_DEFS,
+  DEFAULT_CATEGORY,
+  SETTINGS_PREFIX,
+  categoryFromPath,
+  type Category,
+  type CategoryId,
+} from "./settings-editor/parts/categories";
+import {
+  CLAUDE_INSTALL_CMD,
+  CODEX_INSTALL_CMD,
+  MCP_SERVER_NAME,
+  MCP_SERVER_URL,
+} from "./settings-editor/parts/mcp-constants";
+import {
+  STATE_TONE,
+  type PermissionMeta,
+  type PluginRow,
+} from "./settings-editor/parts/plugin-constants";
+import { formatError } from "./settings-editor/parts/format-error";
+import { parseArgs } from "./settings-editor/parts/parse-args";
+import { usePluginSettingsTabs } from "./settings-editor/hooks/use-plugin-settings-tabs";
 
 const SettingsEditor = () => {
   const t = useT();
@@ -1277,12 +1232,6 @@ const LlmProviderPanel = () => {
   );
 };
 
-const MCP_SERVER_NAME = "ctxfirst-templates";
-const MCP_SERVER_URL = "http://127.0.0.1:41234/mcp";
-
-const CLAUDE_INSTALL_CMD = `claude mcp add --transport http ${MCP_SERVER_NAME} ${MCP_SERVER_URL}`;
-const CODEX_INSTALL_CMD = `codex mcp add ${MCP_SERVER_NAME} --transport http --url ${MCP_SERVER_URL}`;
-
 const McpPanel = () => {
   const t = useT();
   const { settingsGateway } = useServices();
@@ -1457,51 +1406,6 @@ const McpToolsList = ({ tools }: McpToolsListProps) => {
 };
 
 type McpToolPlaygroundProps = { tool: McpToolInfo };
-
-/**
- * Renvoie l'objet `args` à envoyer au handler à partir des valeurs string
- * saisies dans le formulaire. Lève une erreur lisible si un champ JSON est
- * mal formé ou si un `number` n'est pas parsable.
- */
-const parseArgs = (
-  params: ReadonlyArray<McpToolParamInfo>,
-  values: Record<string, string>,
-): Record<string, unknown> => {
-  const out: Record<string, unknown> = {};
-  for (const p of params) {
-    const raw = values[p.name] ?? "";
-    if (raw === "" && p.optional) continue;
-    if (p.kind === "string") {
-      out[p.name] = raw;
-    } else if (p.kind === "number") {
-      const n = Number(raw);
-      if (Number.isNaN(n))
-        throw new Error(
-          i18n.t("settings.mcp.playground.invalidNumber", { name: p.name }),
-        );
-      out[p.name] = n;
-    } else if (p.kind === "boolean") {
-      out[p.name] = raw === "true";
-    } else {
-      // json
-      if (raw === "") {
-        out[p.name] = {};
-        continue;
-      }
-      try {
-        out[p.name] = JSON.parse(raw);
-      } catch (e) {
-        throw new Error(
-          i18n.t("settings.mcp.playground.invalidJson", {
-            name: p.name,
-            message: e instanceof Error ? e.message : String(e),
-          }),
-        );
-      }
-    }
-  }
-  return out;
-};
 
 const McpToolPlayground = ({ tool }: McpToolPlaygroundProps) => {
   const t = useT();
@@ -1735,19 +1639,6 @@ const InstallSnippet = ({ label, command }: InstallSnippetProps) => {
       </div>
     </div>
   );
-};
-
-type PluginRow = PluginListEntry;
-
-type PermissionMeta = PluginPermissionMeta;
-
-type BadgeTone = "success" | "warning" | "neutral" | "danger";
-
-const STATE_TONE: Record<PluginRow["state"], BadgeTone> = {
-  active: "success",
-  pending: "warning",
-  disabled: "neutral",
-  failed: "danger",
 };
 
 const PluginsPanel = () => {
@@ -2358,12 +2249,6 @@ const ChannelsPanel = () => {
       />
     </section>
   );
-};
-
-const formatError = (err: unknown): string => {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  return i18n.t("common.unknownError");
 };
 
 export default SettingsEditor;
