@@ -15,7 +15,7 @@ import {
   FAMILY_LABEL,
   accentForKind,
   familyForKind,
-  getKindMeta,
+  type getKindMeta,
   iconForKind,
 } from "../../step-kinds";
 
