@@ -10,6 +10,10 @@ import FilesLoadManifestConfigEditor from "./step-inspector/config/FilesLoadMani
 import BranchMatchTargetEditor from "./step-inspector/config/BranchMatchTargetEditor";
 import WorkflowCallConfig from "./step-inspector/config/WorkflowCallConfig";
 import TemplateInvokeConfig from "./step-inspector/config/TemplateInvokeConfig";
+import ClaudeCodeInvokeConfig from "./step-inspector/config/ClaudeCodeInvokeConfig";
+import CodexInvokeConfig from "./step-inspector/config/CodexInvokeConfig";
+import OpenrouterInvokeConfig from "./step-inspector/config/OpenrouterInvokeConfig";
+import HumanGateConfig from "./step-inspector/config/HumanGateConfig";
 import SuggestedNodes from "./step-inspector/components/SuggestedNodes";
 import PortsWiring from "./step-inspector/components/PortsWiring";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
@@ -260,76 +264,15 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "claude_code.invoke" ? (
-          <>
-            <FormField label={t("template.stepInspector.claudeCode.model")}>
-              <Input
-                value={(config["model"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ model: e.target.value })}
-              />
-            </FormField>
-            <FormField label={t("template.stepInspector.fields.maxTokens")}>
-              <Input
-                type="number"
-                min={1}
-                value={(config["maxTokens"] as number | undefined) ?? 8000}
-                onChange={(e) =>
-                  setConfig({ maxTokens: Number(e.target.value) })
-                }
-              />
-            </FormField>
-          </>
+          <ClaudeCodeInvokeConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "codex.invoke" ? (
-          <>
-            <FormField label={t("template.stepInspector.codex.model")}>
-              <Input
-                value={(config["model"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ model: e.target.value })}
-              />
-            </FormField>
-            <FormField label={t("template.stepInspector.fields.maxTokens")}>
-              <Input
-                type="number"
-                min={1}
-                value={(config["maxTokens"] as number | undefined) ?? 8000}
-                onChange={(e) =>
-                  setConfig({ maxTokens: Number(e.target.value) })
-                }
-              />
-            </FormField>
-          </>
+          <CodexInvokeConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "openrouter.invoke" ? (
-          <>
-            <FormField
-              label={t("template.stepInspector.openrouter.model.label")}
-              description={
-                <Trans
-                  t={t}
-                  i18nKey="template.stepInspector.openrouter.model.description"
-                  components={{ code: <code /> }}
-                />
-              }
-            >
-              <Input
-                placeholder={t("template.stepInspector.openrouter.model.placeholder")}
-                value={(config["model"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ model: e.target.value })}
-              />
-            </FormField>
-            <FormField label={t("template.stepInspector.fields.maxTokens")}>
-              <Input
-                type="number"
-                min={1}
-                value={(config["maxTokens"] as number | undefined) ?? 4000}
-                onChange={(e) =>
-                  setConfig({ maxTokens: Number(e.target.value) })
-                }
-              />
-            </FormField>
-          </>
+          <OpenrouterInvokeConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "linear.fetch" ? (
@@ -1109,22 +1052,7 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "human.gate" ? (
-          <>
-            <FormField label={t("template.stepInspector.humanGate.role")}>
-              <Input
-                value={(config["role"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ role: e.target.value })}
-              />
-            </FormField>
-            <FormField label={t("template.stepInspector.humanGate.prompt")}>
-              <Textarea
-                size="sm"
-                className="min-h-[80px]"
-                value={(config["prompt"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ prompt: e.target.value })}
-              />
-            </FormField>
-          </>
+          <HumanGateConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "branch.bool" ? (
