@@ -8,6 +8,7 @@ import {
   FILE_LOAD_OUTPUT_KINDS,
 } from "./step-inspector/parts/inspector-constants";
 import { PortGroupLabel, PortRow } from "./step-inspector/components/PortRow";
+import TransformRunConfig from "./step-inspector/config/TransformRunConfig";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,6 @@ import type {
 import { useServices } from "../../di/services-provider";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import useSkills from "../../hooks/useSkills";
-import useParsers from "../../hooks/useParsers";
 import useArtifactSchemas from "../../hooks/useArtifactSchemas";
 import useStepKindSuggestions from "../../hooks/useStepKindSuggestions";
 import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
@@ -1987,64 +1987,6 @@ const SuggestedNodesForKind = ({ inputKind }: { inputKind: ArtifactKind }) => {
         ))}
       </ul>
     </Section>
-  );
-};
-
-type TransformRunConfigProps = {
-  config: Readonly<Record<string, unknown>>;
-  setConfig: (patch: Record<string, unknown>) => void;
-};
-
-const TransformRunConfig = ({ config, setConfig }: TransformRunConfigProps) => {
-  const t = useT();
-  const { parsers, loading } = useParsers(null);
-  const rawRef = config["transformRef"];
-  const ref =
-    rawRef && typeof rawRef === "object"
-      ? (rawRef as { id?: unknown; version?: unknown })
-      : {};
-  const refKey =
-    typeof ref.id === "string" && typeof ref.version === "string" && ref.id
-      ? `${ref.id}@${ref.version}`
-      : "";
-
-  return (
-    <FormField
-      label={t("template.stepInspector.transform.parser.label")}
-      description={t("template.stepInspector.transform.parser.description")}
-    >
-      <Select
-        value={refKey}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (!v) {
-            setConfig({ transformRef: { id: "", version: "" } });
-            return;
-          }
-          const [id, version] = v.split("@");
-          setConfig({ transformRef: { id, version } });
-        }}
-      >
-        <option value="">
-          {loading
-            ? t("template.stepInspector.transform.loading")
-            : t("template.stepInspector.transform.choose")}
-        </option>
-        {parsers.map((p) => {
-          const key = `${p.id}@${p.version}`;
-          const target = `${p.forType.id}@${p.forType.version}`;
-          const sourceTag =
-            p.source.kind === "plugin"
-              ? `plugin:${p.source.pluginId}`
-              : "user";
-          return (
-            <option key={key} value={key}>
-              {t("template.stepInspector.transform.parserOption", { key, target, sourceTag })}
-            </option>
-          );
-        })}
-      </Select>
-    </FormField>
   );
 };
 
