@@ -10,6 +10,7 @@ import {
 import { PortGroupLabel, PortRow } from "./step-inspector/components/PortRow";
 import TransformRunConfig from "./step-inspector/config/TransformRunConfig";
 import WebhookCallConfig from "./step-inspector/config/WebhookCallConfig";
+import SelectMarkdownConfigEditor from "./step-inspector/config/SelectMarkdownConfigEditor";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -2156,39 +2157,6 @@ const BranchJsonConfigEditor = ({
         showVerdictKind={false}
       />
     </>
-  );
-};
-
-type SelectMarkdownConfigEditorProps = {
-  config: Readonly<Record<string, unknown>>;
-  setConfig: (patch: Record<string, unknown>) => void;
-};
-
-/**
- * Inline editor for a `select.markdown` step: a single JSONPath (`path`) read
- * from the `cond` input. Unlike {@link BranchJsonConfigEditor} there are no
- * cases — the node always produces on its sole `out` port (the `value`
- * fragment when the path is truthy, empty Markdown otherwise).
- */
-const SelectMarkdownConfigEditor = ({
-  config,
-  setConfig,
-}: SelectMarkdownConfigEditorProps) => {
-  const t = useT();
-  const path = (config["path"] as string | undefined) ?? "";
-
-  return (
-    <FormField
-      label={t("template.stepInspector.selectMarkdown.path.label")}
-      description={t("template.stepInspector.selectMarkdown.path.description")}
-    >
-      <Input
-        className="font-mono text-xs"
-        placeholder="$.flag"
-        value={path}
-        onChange={(e) => setConfig({ path: e.target.value })}
-      />
-    </FormField>
   );
 };
 
