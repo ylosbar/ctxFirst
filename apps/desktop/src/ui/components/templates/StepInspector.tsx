@@ -10,6 +10,10 @@ import FilesLoadManifestConfigEditor from "./step-inspector/config/FilesLoadMani
 import BranchMatchTargetEditor from "./step-inspector/config/BranchMatchTargetEditor";
 import WorkflowCallConfig from "./step-inspector/config/WorkflowCallConfig";
 import TemplateInvokeConfig from "./step-inspector/config/TemplateInvokeConfig";
+import GitCloneConfig from "./step-inspector/config/GitCloneConfig";
+import GitlabMrCreateConfig from "./step-inspector/config/GitlabMrCreateConfig";
+import GitlabMrMergeConfig from "./step-inspector/config/GitlabMrMergeConfig";
+import GitlabFilesFetchConfig from "./step-inspector/config/GitlabFilesFetchConfig";
 import ClaudeCodeInvokeConfig from "./step-inspector/config/ClaudeCodeInvokeConfig";
 import CodexInvokeConfig from "./step-inspector/config/CodexInvokeConfig";
 import OpenrouterInvokeConfig from "./step-inspector/config/OpenrouterInvokeConfig";
@@ -338,262 +342,19 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "git.clone" ? (
-          <>
-            <FormField label={t("template.stepInspector.gitClone.repoUrl.label")}>
-              <Input
-                className="font-mono"
-                placeholder="https://gitlab.com/group/project.git"
-                value={(config["repoUrl"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ repoUrl: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.gitClone.baseDir.label")}
-              description={
-                <Trans
-                  t={t}
-                  i18nKey="template.stepInspector.gitClone.baseDir.description"
-                  components={{ code: <code /> }}
-                />
-              }
-            >
-              <Input
-                className="font-mono"
-                placeholder={t(
-                  "template.stepInspector.gitClone.baseDir.placeholder",
-                )}
-                value={(config["baseDir"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ baseDir: e.target.value })}
-              />
-            </FormField>
-
-            <FormField label={t("template.stepInspector.gitClone.folder.label")}>
-              <Input
-                className="font-mono"
-                placeholder="group/project"
-                value={(config["folder"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ folder: e.target.value })}
-              />
-            </FormField>
-
-            <FormField label={t("template.stepInspector.gitClone.branch.label")}>
-              <Input
-                className="font-mono"
-                placeholder={t(
-                  "template.stepInspector.gitClone.branch.placeholder",
-                )}
-                value={(config["branch"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ branch: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              orientation="inline"
-              label={t("template.stepInspector.gitClone.cleanBefore.label")}
-              description={t(
-                "template.stepInspector.gitClone.cleanBefore.description",
-              )}
-            >
-              <Checkbox
-                checked={config["cleanBefore"] !== false}
-                onCheckedChange={(v) => setConfig({ cleanBefore: v })}
-              />
-            </FormField>
-          </>
+          <GitCloneConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "gitlab.mr.create" ? (
-          <>
-            <FormField
-              label={t("template.stepInspector.gitlabMrCreate.project.label")}
-              description={t(
-                "template.stepInspector.gitlabMrCreate.project.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="group/project"
-                value={(config["project"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ project: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t(
-                "template.stepInspector.gitlabMrCreate.sourceBranch.label",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="feature/x"
-                value={(config["sourceBranch"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ sourceBranch: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t(
-                "template.stepInspector.gitlabMrCreate.targetBranch.label",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="main"
-                value={(config["targetBranch"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ targetBranch: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.gitlabMrCreate.title.label")}
-            >
-              <Input
-                value={(config["title"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ title: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t(
-                "template.stepInspector.gitlabMrCreate.description.label",
-              )}
-            >
-              <Textarea
-                size="sm"
-                value={(config["description"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ description: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.gitlabMrCreate.baseUrl.label")}
-              description={t(
-                "template.stepInspector.gitlabMrCreate.baseUrl.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="https://gitlab.com"
-                value={(config["baseUrl"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ baseUrl: e.target.value })}
-              />
-            </FormField>
-          </>
+          <GitlabMrCreateConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "gitlab.mr.merge" ? (
-          <>
-            <FormField
-              label={t("template.stepInspector.gitlabMrMerge.project.label")}
-              description={t(
-                "template.stepInspector.gitlabMrMerge.project.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="group/project"
-                value={(config["project"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ project: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.gitlabMrMerge.iid.label")}
-              description={t(
-                "template.stepInspector.gitlabMrMerge.iid.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="42"
-                value={(config["mergeRequestIid"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ mergeRequestIid: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.gitlabMrMerge.baseUrl.label")}
-              description={t(
-                "template.stepInspector.gitlabMrMerge.baseUrl.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="https://gitlab.com"
-                value={(config["baseUrl"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ baseUrl: e.target.value })}
-              />
-            </FormField>
-          </>
+          <GitlabMrMergeConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "gitlab.files.fetch" ? (
-          <>
-            <FormField
-              label={t("template.stepInspector.gitlabFilesFetch.project.label")}
-              description={t(
-                "template.stepInspector.gitlabFilesFetch.project.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="group/project"
-                value={(config["project"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ project: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.gitlabFilesFetch.ref.label")}
-              description={t(
-                "template.stepInspector.gitlabFilesFetch.ref.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="main"
-                value={(config["ref"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ ref: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.gitlabFilesFetch.baseUrl.label")}
-              description={t(
-                "template.stepInspector.gitlabFilesFetch.baseUrl.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="https://gitlab.com"
-                value={(config["baseUrl"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ baseUrl: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              label={t(
-                "template.stepInspector.gitlabFilesFetch.basePath.label",
-              )}
-              description={t(
-                "template.stepInspector.gitlabFilesFetch.basePath.description",
-              )}
-            >
-              <Input
-                className="font-mono"
-                placeholder="docs"
-                value={(config["basePath"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ basePath: e.target.value })}
-              />
-            </FormField>
-
-            <FilesLoadSlotsEditor
-              config={config}
-              setConfig={setConfig}
-              i18nNamespace="gitlabFilesFetch"
-            />
-          </>
+          <GitlabFilesFetchConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "shell.exec" ? (
