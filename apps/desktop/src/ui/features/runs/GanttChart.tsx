@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { AxisBottom } from "@visx/axis";
 import { Group } from "@visx/group";
 import { scaleBand, scaleLinear } from "@visx/scale";
@@ -8,6 +8,7 @@ import { STATUS_LABEL } from "@/components/ui/step-status";
 import { useT } from "@/ui/i18n";
 import { formatDurationMs } from "./build-step-stats";
 import type { GanttBar, GanttModel } from "./run-stats-types";
+import { useChartGestures, type TimeView } from "./useTimeZoom";
 
 export const ROW_HEIGHT = 48;
 export const AXIS_HEIGHT = 24;
@@ -34,6 +35,12 @@ type Props = {
   readonly model: GanttModel;
   readonly selectedStepId: string | null;
   readonly onSelectStep: (stepId: string) => void;
+  /** Fenêtre temps visible (zoom/pan partagés avec le graphe de tokens). */
+  readonly view: TimeView;
+  readonly isZoomed: boolean;
+  readonly onZoomAtFraction: (fraction: number, deltaY: number) => void;
+  readonly onPanByFraction: (fraction: number) => void;
+  readonly onResetZoom: () => void;
 };
 
 const GanttChart = ({
@@ -42,15 +49,24 @@ const GanttChart = ({
   model,
   selectedStepId,
   onSelectStep,
+  view,
+  isZoomed,
+  onZoomAtFraction,
+  onPanByFraction,
+  onResetZoom,
 }: Props) => {
   const t = useT();
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const innerW = Math.max(width - MARGIN.left - MARGIN.right, 0);
   const innerH = Math.max(height - MARGIN.top - MARGIN.bottom, 0);
 
-  const domainMax = Math.max(model.tEndMs - model.t0Ms, 1);
+  const { isPanning } = useChartGestures(svgRef, MARGIN.left, innerW, {
+    zoomAtFraction: onZoomAtFraction,
+    panByFraction: onPanByFraction,
+  });
 
   const xScale = scaleLinear<number>({
-    domain: [0, domainMax],
+    domain: [view.startMs, view.endMs],
     range: [0, innerW],
     clamp: true,
   });
@@ -82,7 +98,16 @@ const GanttChart = ({
 
   return (
     <div className="relative" style={{ width, height }}>
-      <svg width={width} height={height} className="block">
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        className="block"
+        style={{
+          cursor: isPanning ? "grabbing" : isZoomed ? "grab" : "default",
+        }}
+        onDoubleClick={onResetZoom}
+      >
         <Group left={MARGIN.left} top={MARGIN.top}>
           {model.rows.map((row) => {
             const y = yScale(row.stepId) ?? 0;
@@ -111,8 +136,14 @@ const GanttChart = ({
                   className="fill-muted-foreground/10"
                 />
                 {row.bars.map((bar) => {
+                  const barEndMs = bar.startMs + bar.durationMs;
+                  // Hors de la fenêtre zoomée : ne pas dessiner un résidu collé
+                  // au bord (clamp ramènerait la barre à une largeur minimale).
+                  if (barEndMs < view.startMs || bar.startMs > view.endMs) {
+                    return null;
+                  }
                   const x = xScale(bar.startMs);
-                  const w = Math.max(xScale(bar.startMs + bar.durationMs) - x, 2);
+                  const w = Math.max(xScale(barEndMs) - x, 2);
                   return (
                     <rect
                       key={bar.stepExecId}
