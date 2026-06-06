@@ -9,12 +9,9 @@
  */
 import { useCallback, useEffect, useRef } from "react";
 import { useReactFlow, type Node } from "@xyflow/react";
-import type {
-  GroupLayout,
-  NodePositionEntry,
-  StickyNoteLayout,
-  TemplateLayout,
-} from "@shared/wf/layout";
+import type { TemplateLayout } from "@shared/wf/layout";
+
+import { buildTemplateLayout } from "./template-editor/graph/build-layout";
 
 const DEBOUNCE_MS = 500;
 
@@ -69,54 +66,15 @@ export const useLayoutAutosave = ({
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const buildLayout = useCallback((): TemplateLayout => {
-    const positions: Record<string, NodePositionEntry> = {};
-    const groups: GroupLayout[] = [];
-    const stickyNotes: StickyNoteLayout[] = [];
-    for (const n of nodesRef.current) {
-      if (isSyntheticRef.current(n.id)) continue;
-      if (n.type === "stickyNote") {
-        const data = (n.data ?? {}) as { text?: string; color?: string };
-        const w = n.width ?? (n.style?.width as number | undefined) ?? 0;
-        const h = n.height ?? (n.style?.height as number | undefined) ?? 0;
-        stickyNotes.push({
-          id: n.id,
-          position: { x: n.position.x, y: n.position.y },
-          size: { width: w, height: h },
-          text: data.text ?? "",
-          ...(data.color ? { color: data.color } : {}),
-        });
-        continue;
-      }
-      if (n.type === "group") {
-        const data = (n.data ?? {}) as { label?: string };
-        const w = n.width ?? (n.style?.width as number | undefined) ?? 0;
-        const h = n.height ?? (n.style?.height as number | undefined) ?? 0;
-        groups.push({
-          id: n.id,
-          position: { x: n.position.x, y: n.position.y },
-          size: { width: w, height: h },
-          label: data.label ?? "",
-        });
-        continue;
-      }
-      // Position xyflow : relative au parent si `parentId`, absolue sinon —
-      // on persiste tel quel + le `parentId` pour que le loader reconstruise
-      // la même topologie sans ré-inférer par containment.
-      positions[n.id] = {
-        x: n.position.x,
-        y: n.position.y,
-        ...(n.parentId ? { parentId: n.parentId } : {}),
-      };
-    }
-    return {
-      positions,
-      ...(groups.length > 0 ? { groups } : {}),
-      ...(stickyNotes.length > 0 ? { stickyNotes } : {}),
-      viewport: rf.getViewport(),
-      updatedAt: new Date().toISOString(),
-    };
-  }, [rf]);
+  const buildLayout = useCallback(
+    (): TemplateLayout =>
+      buildTemplateLayout(nodesRef.current, {
+        viewport: rf.getViewport(),
+        updatedAt: new Date().toISOString(),
+        isSynthetic: isSyntheticRef.current,
+      }),
+    [rf],
+  );
 
   const flushNow = useCallback(async () => {
     if (timerRef.current) {

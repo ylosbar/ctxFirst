@@ -170,6 +170,9 @@ const TreeFolderUser = ({
           )}
           <Icon
             aria-hidden
+            // Dossier non vide → icône pleine (ouvert comme fermé), pour
+            // signaler d'un coup d'œil qu'il contient du contenu.
+            fill={count > 0 ? "currentColor" : "none"}
             className="size-3.5 shrink-0 text-muted-foreground"
           />
           {isEditing ? (
