@@ -3,6 +3,10 @@ import {
   encodeOneOf,
   readBranchMatchVariants,
 } from "./step-inspector/parts/branch-match-grammar";
+import {
+  CASE_NAME_RE,
+  FILE_LOAD_OUTPUT_KINDS,
+} from "./step-inspector/parts/inspector-constants";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,14 +88,6 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "workflow.call",
   "template.invoke",
 ]);
-
-/**
- * Output kinds proposés par le node `file.load`. Restreint aux kinds
- * text-envelope (un fichier est du texte) — cf. `FILE_LOAD_FORMATS` côté runner.
- */
-const FILE_LOAD_OUTPUT_KINDS = ["Markdown", "Json"] as const;
-
-const CASE_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_-]*$/;
 
 type Props = {
   step: TemplateStepDraft;
