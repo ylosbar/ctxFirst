@@ -7,6 +7,7 @@ import {
   CASE_NAME_RE,
   FILE_LOAD_OUTPUT_KINDS,
 } from "./step-inspector/parts/inspector-constants";
+import { PortGroupLabel, PortRow } from "./step-inspector/components/PortRow";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1918,36 +1919,6 @@ const PortsWiring = ({
     </div>
   );
 };
-
-const PortGroupLabel = ({ children }: { children: React.ReactNode }) => (
-  <div className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-    {children}
-  </div>
-);
-
-const PortRow = ({
-  name,
-  meta,
-  color,
-  children,
-}: {
-  name: string;
-  meta: string;
-  /** Handle color from {@link portColor} — ties this row to its canvas handle. */
-  color: string;
-  children: React.ReactNode;
-}) => (
-  <div
-    className="flex flex-col gap-1 border-l-2 pl-2"
-    style={{ borderColor: color }}
-  >
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="font-mono text-xs font-semibold">{name}</span>
-      <span className="text-2xs text-muted-foreground">{meta}</span>
-    </div>
-    {children}
-  </div>
-);
 
 type SuggestedNodesProps = {
   spec: NodeSpecView;
