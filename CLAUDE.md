@@ -48,6 +48,18 @@ Raccourcis `just` équivalents dans [justfile](justfile).
 
 Ne pas démarrer les serveurs de dev (`yarn dev`, `yarn start`, `yarn storybook`) à moins que ça soit explicitement demandé.
 
+## Convention de nommage des branches
+
+Format : `<type>/<description-en-kebab-case>`.
+
+- **`<type>`** en minuscules, dans la liste fermée : `feat` (fonctionnalité), `fix` (correctif), `refactor` (refonte sans changement de comportement), `docs` (documentation), `ci` (pipeline / outillage CI), `chore` (maintenance, déps, config).
+- **`<description>`** en minuscules, mots séparés par des tirets (`-`), concise et descriptive. Pas d'espaces, pas de majuscules, pas de underscores, pas de `/` supplémentaire.
+- Les phases d'un même chantier se suffixent par leur numéro : `refactor/template-editor-phase-0-3`.
+
+Exemples valides : `feat/select-markdown-node`, `fix/persist-inline-template-rename`, `docs/plugin-system`, `refactor/template-editor-phase-0-3`.
+
+Le titre de PR mergée suit la même casse que la branche ; le slash et la convention de type rendent l'historique des merges lisible.
+
 ## Architecture
 
 Le frontend suit une architecture hexagonale — voir [ARCHITECTURE.md](ARCHITECTURE.md) pour les règles de dépendance, la structure des couches et la checklist d'ajout de fonctionnalité. À lire avant toute modification côté `apps/desktop/src/`.

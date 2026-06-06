@@ -43,13 +43,12 @@ tauri-app/                         (← nom historique du repo ; ce n'est PAS du
 ├── apps/
 │   ├── desktop/   @ctxfirst/desktop  ← app Electron — WORKSPACE PRINCIPAL
 │   ├── api/       @ctxfirst/api      ← serveur Hapi, placeholder (webhooks dev :3001)
-│   └── web/       @ctxfirst/web      ← scaffolding Vite/React/Tailwind, pas de feature
+│   ├── web/       @ctxfirst/web      ← scaffolding Vite/React/Tailwind, pas de feature
+│   └── docs/      @ctxfirst/docs     ← site doc (Astro Starlight, FR/EN) : nodes, plugins, tutorials
 ├── packages/
 │   └── plugin-sdk/ @ctxfirst/plugin-sdk    ← types pour auteurs de plugins (main + renderer)
-├── doc/                                ← doc fonctionnelle (FR) : runs, templates, plugins…
 ├── specs/                             ← specs de features (souvent en avance sur le code)
-├── scripts/                          ← audits (markdown-links, raw-jsx, large-components…)
-├── skills/                           ← skills Claude Code locales au repo
+├── scripts/                          ← audits (markdown-links, raw-jsx, large-components…) + générateur ARCHITECTURE
 └── justfile, eslint.config.js, CLAUDE.md
 ```
 
@@ -147,6 +146,7 @@ Types et règles pures, immuables, sans IO. Racine : [apps/desktop/electron/main
 | [domain/channel.ts](apps/desktop/electron/main/wf/domain/channel.ts) | Channel — partition multi-tenant ; DEFAULT_CHANNEL_ID = "personal". |
 | [domain/schedule.ts](apps/desktop/electron/main/wf/domain/schedule.ts) | WorkflowSchedule — déclenchement cron d'un template. |
 | [domain/BuiltIns/](apps/desktop/electron/main/wf/domain/BuiltIns/) | Définitions des kinds built-in (un fichier par kind) : String, Number, Boolean, Url, Email, DateTime, LinearRef, Markdown, Json, Path, PathList, MarkdownList, RunExport. |
+| [domain/services/](apps/desktop/electron/main/wf/domain/services/) | Règles pures de composition/itération : flatten-template (aplatissement des sous-workflows), iteration-scopes (inférence des scopes foreach), transition-policy, template-invoke, validate-template-invokes, validate-workflow-calls. |
 
 ---
 
@@ -154,7 +154,7 @@ Types et règles pures, immuables, sans IO. Racine : [apps/desktop/electron/main
 <!-- ctx:ctx.wf-application | scopes: archi.backend.wf -->
 
 - Ports outbound — [application/ports/outbound/](apps/desktop/electron/main/wf/application/ports/outbound/). Interfaces implémentées par les adapters (un fichier = un port) : artifact-schema-registry, artifact-store, channel-context, channel-icon-store, channel-registry, clock, environment, event-bus, event-log, file-system, hash, id-generator, linear-gateway, llm-gateway, llm-session-store, logger, notifier, parser-registry, parser-runtime, path, run-log, schedule-registry, shell-gateway, skill-registry, step-kind-suggestions, template-registry.
-- Use-cases — [application/use-cases/](apps/desktop/electron/main/wf/application/use-cases/). ~30 use-cases (chacun colocalisé avec son .test.ts). Fabriques make…(deps) => async (input) => …. Les mutateurs émettent des DomainEvent (append log puis publish bus) ; les lecteurs lisent la projection en mémoire. Aussi des migrations de données idempotentes.
+- Use-cases — [application/use-cases/](apps/desktop/electron/main/wf/application/use-cases/). une quarantaine de use-cases (chacun colocalisé avec son .test.ts). Fabriques make…(deps) => async (input) => …. Les mutateurs émettent des DomainEvent (append log puis publish bus) ; les lecteurs lisent la projection en mémoire. Aussi des migrations de données idempotentes.
 - Orchestrateur — [application/orchestrator/](apps/desktop/electron/main/wf/application/orchestrator/). La machine à états : s'abonne au bus, applique chaque event à l'EngineState, puis sur StepValidated calcule les successeurs, résout & valide les inputs, appelle le runner, traduit le StepOutcome, gère boucles, inférence de scopes d'itération (foreach) et propagation de StepSkipped. Sérialisation par instance (chaîne de promesses).
 - Services — [application/services/](apps/desktop/electron/main/wf/application/services/). Dont le context-assembler (assemble systemPrompt/userPrompt + historique de boucle en markdown, calcule un hash de corrélation pour le RunLog).
 - Scheduler — [application/scheduler/](apps/desktop/electron/main/wf/application/scheduler/). start() (catch-up + arme les crons via croner), reload(), stop().
@@ -222,22 +222,23 @@ Note legacy : MarkdownList/PathList sont canonicalisés vers List<Markdown>/List
 ## 6.8. Catalogue des step kinds — [wf/plugins/](apps/desktop/electron/main/wf/plugins/)
 <!-- ctx:ctx.wf-step-kinds | scopes: archi.backend.wf -->
 
-Chaque runner = un fichier implémentant le contrat StepRunner. Catalogue actuel (source de vérité = le dossier) :
+Chaque runner = un fichier implémentant le contrat StepRunner, enregistré dans la composition-root ([wf/composition-root.ts](apps/desktop/electron/main/wf/composition-root.ts)). Catalogue actuel (source de vérité = les runners.register(...) de la composition-root) :
 
 | Famille | Runners |
 | --- | --- |
 | Entrée / variables | user-input, workspace-set |
-| LLM | claude-code-invoke, codex-invoke, openrouter-invoke, llm-judge |
-| Validation / branchement | format-validate, branch-bool, branch-match |
-| Données / transform | json-transform, transform-run, render-markdown, concat-markdown, file-load-markdown |
+| LLM | claude-code-invoke, claude-code-judge, codex-invoke, openrouter-invoke, llm-judge |
+| Validation / branchement | format-validate, branch-bool, branch-json, branch-match |
+| Données / transform | json-transform, transform-run, render-markdown, concat-markdown, select-markdown, file-load-markdown, file-load, files-load, files-load-manifest |
 | Boucles / itération | loop-foreach, loop-collect |
+| Sous-workflows / composition | workflow-call, template-invoke |
 | Humain | human-gate |
 | Skills | skill-loader |
-| Shell / env | shell-exec, shell-exec-formatter, shell-env |
-| Git / CI | git-exec, git-commit-push, git-worktree-create, git-worktree-remove, gitlab-pipeline-wait |
+| Shell | shell-exec |
+| Git / CI | git-commit-push, git-worktree-create, git-worktree-remove, git-clone, gitlab-files-fetch, gitlab-mr-create, gitlab-mr-merge |
 | Intégrations externes | webhook-call, export-run (+ Linear via plugin built-in) |
 
-Référence fonctionnelle détaillée des nœuds : [doc/node_reference.md](doc/node_reference.md).
+Note : certains fichiers de [wf/plugins/](apps/desktop/electron/main/wf/plugins/) existent mais ne sont pas câblés dans la composition-root (shell-env, shell-exec-formatter, git-exec, gitlab-pipeline-wait) — non actifs tant qu'aucun runners.register() ne les monte. Référence fonctionnelle détaillée des nœuds : [apps/docs/src/content/docs/](apps/docs/src/content/docs/){fr,en}/nodes/ (site Starlight @ctxfirst/docs).
 
 ---
 
@@ -247,7 +248,7 @@ Référence fonctionnelle détaillée des nœuds : [doc/node_reference.md](doc/n
 - llm.judge valide un artifact « subject » et route vers les ports approved / rejected / exhausted. Sa sortie suit JudgeOutput ([domain/judge-feedback.ts](apps/desktop/electron/main/wf/domain/judge-feedback.ts)).
 - Sur rejet avec retries restants : l'orchestrateur émet LoopOpened (auteur llm.judge:<stepId>) vers le nœud amont, qui réessaie. L'historique de boucle (verdict + commentaires) est réinjecté en markdown dans le prompt via le context-assembler.
 - Sur rejet épuisé : route vers exhausted (typiquement câblé à un human.gate).
-- Retries bornés : le nombre de tentatives est plafonné (spec [specs/llm-judge-bounded-retries.md](specs/llm-judge-bounded-retries.md)).
+- Retries bornés : le nombre de tentatives est plafonné (spec specs/llm-judge-bounded-retries.md).
 - Validation des artifacts : modes strict (throw → StepFailed) / log-only (warn, payload dégradé) / off.
 
 ---
@@ -294,7 +295,7 @@ Trois faces :
 - Renderer — [src/plugins/](apps/desktop/src/plugins/) : charge les bundles renderer.js, expose une UiPluginApi (pages, onglets de settings, invoke, subscribe).
 - SDK — [packages/plugin-sdk/](packages/plugin-sdk/) (@ctxfirst/plugin-sdk) : contrats type-only miroir des deux api, plus des helpers (defineMain), un namespace react et des primitives UI partagées.
 
-Un plugin = un dossier avec manifest.json (zod-validé : id, version, main, renderer, permissions, networkHosts, contributions → stepKinds / artifactSchemas / parsers / routes / nav). Built-ins : [plugins-builtin/](apps/desktop/plugins-builtin/) — hello-world, kanban, linear. Doc : [doc/04-plugins.md](doc/04-plugins.md).
+Un plugin = un dossier avec manifest.json (zod-validé : id, version, main, renderer, permissions, networkHosts, contributions → stepKinds / artifactSchemas / parsers / routes / nav). Built-ins : [plugins-builtin/](apps/desktop/plugins-builtin/) — hello-world, kanban, linear. Doc : [apps/docs/src/content/docs/](apps/docs/src/content/docs/){fr,en}/[plugins/](apps/desktop/electron/main/wf/plugins/) (site Starlight @ctxfirst/docs).
 
 ---
 
@@ -369,7 +370,7 @@ Mêmes couches qu'au backend :
 
 - domain — [src/domain/](apps/desktop/src/domain/) : types purs (workflow, chat, settings, explorer, plugin).
 - [application/ports](apps/desktop/electron/main/wf/application/ports) — [src/application/ports/](apps/desktop/src/application/ports/) : interfaces *-gateway (workflow, chat, settings, system, plugin, folder, dev-log) + task-repository.
-- [application/use-cases](apps/desktop/electron/main/wf/application/use-cases) — [src/application/use-cases/](apps/desktop/src/application/use-cases/) : ~57 fabriques fines make…(gateway) qui appellent les ports.
+- [application/use-cases](apps/desktop/electron/main/wf/application/use-cases) — [src/application/use-cases/](apps/desktop/src/application/use-cases/) : une soixantaine de fabriques fines make…(gateway) qui appellent les ports.
 - [infrastructure/electron](apps/desktop/src/infrastructure/electron) — [src/infrastructure/electron/](apps/desktop/src/infrastructure/electron/) : les adapters electron-*-gateway qui, eux seuls, appellent window.api.*. Pendant [infrastructure/mock](apps/desktop/src/infrastructure/mock) pour dev/tests.
 
 ---
