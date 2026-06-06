@@ -31,3 +31,18 @@ export const formatDuration = (
   const sec = totalSec % 60;
   return `${min}m${sec.toString().padStart(2, "0")}`;
 };
+
+/**
+ * Compute-time duration of a step execution: counts active work only, excluding
+ * wait time. Prefers `executionEndedAt` (set when real work finished — e.g. on
+ * `awaitingHuman`, before the human wait) and falls back to the terminal
+ * `endedAt`. Keeps the graph tooltip, Gantt and timeline consistent: all three
+ * show the same compute time, waits excluded. See `domain/workflow/types.ts`
+ * (`StepExecutionView`) and `features/runs/build-step-stats.ts`.
+ */
+export const formatExecDuration = (exec: {
+  startedAt?: string;
+  executionEndedAt?: string;
+  endedAt?: string;
+}): string | null =>
+  formatDuration(exec.startedAt, exec.executionEndedAt ?? exec.endedAt);

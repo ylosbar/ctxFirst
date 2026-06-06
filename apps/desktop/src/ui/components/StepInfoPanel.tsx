@@ -19,7 +19,7 @@ import { getKindMeta, iconForKind } from "./templates/step-kinds";
 import useNodeSpecs from "../hooks/useNodeSpecs";
 import { useT } from "../i18n";
 import ArtifactView from "./ArtifactView";
-import { formatDuration, formatTime } from "./format-exec-time";
+import { formatExecDuration, formatTime } from "./format-exec-time";
 
 type Props = {
   exec: StepExecutionView;
@@ -176,7 +176,7 @@ const StepInfoPanel = ({ exec, template }: Props) => {
 
   const startedAt = formatTime(exec.startedAt);
   const endedAt = formatTime(exec.endedAt);
-  const duration = formatDuration(exec.startedAt, exec.endedAt);
+  const duration = formatExecDuration(exec);
 
   const headerIcon = (
     <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/60 ring-1 ring-inset ring-border/50">

@@ -138,20 +138,26 @@ export const buildStepStats = (args: BuildStepStatsArgs): GanttModel => {
   let t0Ms = Number.POSITIVE_INFINITY;
   let rawTEndMs = Number.NEGATIVE_INFINITY;
   const startedMsByExec = new Map<string, number>();
-  // Bar end = end of *compute time*. Falls back to `endedAt` for legacy
-  // events without `executionEndedAt`, and to `nowMs` for steps that are
-  // still actively running (no terminal/gate event yet).
+  // Bar end = end of *compute time*. Prefers `executionEndedAt`, falls back to
+  // the terminal `endedAt` (legacy events without `executionEndedAt`), and to
+  // `nowMs` for steps that are still actively computing (no gate/terminal yet).
   const execEndedMsByExec = new Map<string, number>();
-  // Timeline end = end of *wall-clock time* (includes human wait). Drives
-  // the x-axis extent so the chart spans the real elapsed time of the run.
+  // Timeline end = end of *wall-clock time*. Drives the x-axis extent. Counts
+  // the human/child wait of *completed* gates (`endedAt` lands after the wait),
+  // but freezes while a gate is *still open*: a step that has paused
+  // (`executionEndedAt` set) but not yet terminated stops at `executionEndedAt`
+  // instead of growing with `nowMs`, so an open human gate doesn't keep the
+  // timeline counter ticking. Only a genuinely-running step extends to `nowMs`.
   const wallEndedMsByExec = new Map<string, number>();
 
   for (const exec of considered) {
     const startedMs = Date.parse(exec.startedAt as string);
-    const wallEndedMs = exec.endedAt ? Date.parse(exec.endedAt) : nowMs;
     const execEndedMs = exec.executionEndedAt
       ? Date.parse(exec.executionEndedAt)
-      : wallEndedMs;
+      : exec.endedAt
+        ? Date.parse(exec.endedAt)
+        : nowMs;
+    const wallEndedMs = exec.endedAt ? Date.parse(exec.endedAt) : execEndedMs;
     startedMsByExec.set(exec.id, startedMs);
     execEndedMsByExec.set(exec.id, execEndedMs);
     wallEndedMsByExec.set(exec.id, wallEndedMs);
