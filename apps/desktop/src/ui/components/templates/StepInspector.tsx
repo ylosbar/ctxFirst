@@ -1,11 +1,9 @@
-import { FILE_LOAD_OUTPUT_KINDS } from "./step-inspector/parts/inspector-constants";
 import TransformRunConfig from "./step-inspector/config/TransformRunConfig";
 import WebhookCallConfig from "./step-inspector/config/WebhookCallConfig";
 import SelectMarkdownConfigEditor from "./step-inspector/config/SelectMarkdownConfigEditor";
 import BranchCasesEditor from "./step-inspector/config/BranchCasesEditor";
 import BranchJsonConfigEditor from "./step-inspector/config/BranchJsonConfigEditor";
 import JsonTransformsEditor from "./step-inspector/config/JsonTransformsEditor";
-import FilesLoadSlotsEditor from "./step-inspector/config/FilesLoadSlotsEditor";
 import FilesLoadManifestConfigEditor from "./step-inspector/config/FilesLoadManifestConfigEditor";
 import BranchMatchTargetEditor from "./step-inspector/config/BranchMatchTargetEditor";
 import WorkflowCallConfig from "./step-inspector/config/WorkflowCallConfig";
@@ -14,6 +12,10 @@ import GitCloneConfig from "./step-inspector/config/GitCloneConfig";
 import GitlabMrCreateConfig from "./step-inspector/config/GitlabMrCreateConfig";
 import GitlabMrMergeConfig from "./step-inspector/config/GitlabMrMergeConfig";
 import GitlabFilesFetchConfig from "./step-inspector/config/GitlabFilesFetchConfig";
+import WorkspaceSetConfig from "./step-inspector/config/WorkspaceSetConfig";
+import FileLoadConfig from "./step-inspector/config/FileLoadConfig";
+import FilesLoadConfig from "./step-inspector/config/FilesLoadConfig";
+import FileLoadMarkdownConfig from "./step-inspector/config/FileLoadMarkdownConfig";
 import ClaudeCodeInvokeConfig from "./step-inspector/config/ClaudeCodeInvokeConfig";
 import CodexInvokeConfig from "./step-inspector/config/CodexInvokeConfig";
 import OpenrouterInvokeConfig from "./step-inspector/config/OpenrouterInvokeConfig";
@@ -34,7 +36,6 @@ import type {
   TemplateStepDraft,
   TemplateVariableDraft,
 } from "../../../domain/workflow/types";
-import { useServices } from "../../di/services-provider";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import useSkills from "../../hooks/useSkills";
 import useArtifactSchemas from "../../hooks/useArtifactSchemas";
@@ -108,7 +109,6 @@ const StepInspector = ({
   onEnterStudio,
 }: Props) => {
   const t = useT();
-  const services = useServices();
   const workbench = useWorkbench();
   const meta = getKindMeta(step.kind);
   const config = step.config;
@@ -124,55 +124,6 @@ const StepInspector = ({
 
   const setConfig = (patch: Record<string, unknown>) =>
     onChange({ ...step, config: { ...config, ...patch } });
-
-  const pickCwd = async () => {
-    const current = (config["cwd"] as string | undefined) ?? "";
-    const picked = await services.pickDirectory({
-      defaultPath: current || undefined,
-    });
-    if (picked) setConfig({ cwd: picked });
-  };
-
-  const pickBasePath = async () => {
-    const current = (config["path"] as string | undefined) ?? "";
-    const picked = await services.pickDirectory({
-      defaultPath: current || undefined,
-    });
-    if (picked) setConfig({ path: picked });
-  };
-
-  const pickMarkdownPath = async () => {
-    const current = (config["path"] as string | undefined) ?? "";
-    const picked = await services.pickFile({
-      defaultPath: current || undefined,
-      title: t("template.stepInspector.markdownPicker.title"),
-      filters: [
-        { name: "Markdown", extensions: ["md", "markdown", "mdx"] },
-        {
-          name: t("template.stepInspector.markdownPicker.allFiles"),
-          extensions: ["*"],
-        },
-      ],
-    });
-    if (picked) setConfig({ path: picked });
-  };
-
-  const pickFilePath = async () => {
-    const current = (config["path"] as string | undefined) ?? "";
-    const picked = await services.pickFile({
-      defaultPath: current || undefined,
-      title: t("template.stepInspector.filePicker.title"),
-      filters: [
-        { name: "Markdown", extensions: ["md", "markdown", "mdx"] },
-        { name: "JSON", extensions: ["json"] },
-        {
-          name: t("template.stepInspector.filePicker.allFiles"),
-          extensions: ["*"],
-        },
-      ],
-    });
-    if (picked) setConfig({ path: picked });
-  };
 
   const hasWiring =
     resolvedSpec !== null &&
@@ -312,33 +263,7 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "workspace.set" ? (
-          <FormField
-            label={t("template.stepInspector.workspaceSet.cwd.label")}
-            description={
-              <Trans
-                t={t}
-                i18nKey="template.stepInspector.workspaceSet.cwd.description"
-                components={{ code: <code /> }}
-              />
-            }
-          >
-            <div className="flex items-center gap-2">
-              <Input
-                className="font-mono"
-                placeholder="/chemin/absolu/vers/le/repo"
-                value={(config["cwd"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ cwd: e.target.value })}
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={pickCwd}
-              >
-                {t("template.stepInspector.browse")}
-              </Button>
-            </div>
-          </FormField>
+          <WorkspaceSetConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "git.clone" ? (
@@ -468,122 +393,15 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "file.load" ? (
-          <>
-            <FormField
-              label={t("template.stepInspector.fileLoad.path.label")}
-              description={
-                <Trans
-                  t={t}
-                  i18nKey="template.stepInspector.fileLoad.path.description"
-                  components={{ code: <code /> }}
-                />
-              }
-            >
-              <div className="flex items-center gap-2">
-                <Input
-                  className="font-mono"
-                  placeholder="/chemin/absolu/vers/data.json"
-                  value={(config["path"] as string | undefined) ?? ""}
-                  onChange={(e) => setConfig({ path: e.target.value })}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={pickFilePath}
-                >
-                  {t("template.stepInspector.browse")}
-                </Button>
-              </div>
-            </FormField>
-            <FormField
-              label={t("template.stepInspector.fileLoad.outputKind.label")}
-              description={t(
-                "template.stepInspector.fileLoad.outputKind.description",
-              )}
-            >
-              <Select
-                value={(config["outputKind"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ outputKind: e.target.value })}
-              >
-                {FILE_LOAD_OUTPUT_KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
-                  </option>
-                ))}
-              </Select>
-              {typeof config["outputKind"] === "string" &&
-              config["outputKind"] ? (
-                <KindPreviewBlock
-                  kind={config["outputKind"] as ArtifactKind}
-                  className="mt-2"
-                />
-              ) : null}
-            </FormField>
-          </>
+          <FileLoadConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "files.load" ? (
-          <>
-            <FormField
-              label={t("template.stepInspector.filesLoad.basePath.label")}
-              description={
-                <Trans
-                  t={t}
-                  i18nKey="template.stepInspector.filesLoad.basePath.description"
-                  components={{ code: <code /> }}
-                />
-              }
-            >
-              <div className="flex items-center gap-2">
-                <Input
-                  className="font-mono"
-                  placeholder="/chemin/absolu/vers/dossier"
-                  value={(config["path"] as string | undefined) ?? ""}
-                  onChange={(e) => setConfig({ path: e.target.value })}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={pickBasePath}
-                >
-                  {t("template.stepInspector.browse")}
-                </Button>
-              </div>
-            </FormField>
-            <FilesLoadSlotsEditor config={config} setConfig={setConfig} />
-          </>
+          <FilesLoadConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "file.load-markdown" ? (
-          <FormField
-            label={t("template.stepInspector.fileLoadMarkdown.path.label")}
-            description={
-              <Trans
-                t={t}
-                i18nKey="template.stepInspector.fileLoadMarkdown.path.description"
-                components={{ code: <code /> }}
-              />
-            }
-          >
-            <div className="flex items-center gap-2">
-              <Input
-                className="font-mono"
-                placeholder="/chemin/absolu/vers/spec.md"
-                value={(config["path"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ path: e.target.value })}
-              />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={pickMarkdownPath}
-              >
-                {t("template.stepInspector.browse")}
-              </Button>
-            </div>
-          </FormField>
+          <FileLoadMarkdownConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "skill.loader" ? (
