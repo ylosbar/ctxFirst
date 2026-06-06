@@ -1020,7 +1020,7 @@
         {
           "type": "code",
           "lang": "text",
-          "text": "tauri-app/                         (← nom historique du repo ; ce n'est PAS du Tauri/Rust)\n├── apps/\n│   ├── desktop/   @ctxfirst/desktop  ← app Electron — WORKSPACE PRINCIPAL\n│   ├── api/       @ctxfirst/api      ← serveur Hapi, placeholder (webhooks dev :3001)\n│   └── web/       @ctxfirst/web      ← scaffolding Vite/React/Tailwind, pas de feature\n├── packages/\n│   └── plugin-sdk/ @ctxfirst/plugin-sdk    ← types pour auteurs de plugins (main + renderer)\n├── doc/                                ← doc fonctionnelle (FR) : runs, templates, plugins…\n├── specs/                             ← specs de features (souvent en avance sur le code)\n├── scripts/                          ← audits (markdown-links, raw-jsx, large-components…)\n├── skills/                           ← skills Claude Code locales au repo\n└── justfile, eslint.config.js, CLAUDE.md"
+          "text": "tauri-app/                         (← nom historique du repo ; ce n'est PAS du Tauri/Rust)\n├── apps/\n│   ├── desktop/   @ctxfirst/desktop  ← app Electron — WORKSPACE PRINCIPAL\n│   ├── api/       @ctxfirst/api      ← serveur Hapi, placeholder (webhooks dev :3001)\n│   ├── web/       @ctxfirst/web      ← scaffolding Vite/React/Tailwind, pas de feature\n│   └── docs/      @ctxfirst/docs     ← site doc (Astro Starlight, FR/EN) : nodes, plugins, tutorials\n├── packages/\n│   └── plugin-sdk/ @ctxfirst/plugin-sdk    ← types pour auteurs de plugins (main + renderer)\n├── specs/                             ← specs de features (souvent en avance sur le code)\n├── scripts/                          ← audits (markdown-links, raw-jsx, large-components…) + générateur ARCHITECTURE\n└── justfile, eslint.config.js, CLAUDE.md"
         },
         {
           "type": "p",
@@ -1258,6 +1258,10 @@
             [
               "domain/BuiltIns/",
               "Définitions des kinds built-in (un fichier par kind) : String, Number, Boolean, Url, Email, DateTime, LinearRef, Markdown, Json, Path, PathList, MarkdownList, RunExport."
+            ],
+            [
+              "domain/services/",
+              "Règles pures de composition/itération : flatten-template (aplatissement des sous-workflows), iteration-scopes (inférence des scopes foreach), transition-policy, template-invoke, validate-template-invokes, validate-workflow-calls."
             ]
           ]
         }
@@ -1275,7 +1279,7 @@
           "type": "ul",
           "items": [
             "Ports outbound — application/ports/outbound/. Interfaces implémentées par les adapters (un fichier = un port) : artifact-schema-registry, artifact-store, channel-context, channel-icon-store, channel-registry, clock, environment, event-bus, event-log, file-system, hash, id-generator, linear-gateway, llm-gateway, llm-session-store, logger, notifier, parser-registry, parser-runtime, path, run-log, schedule-registry, shell-gateway, skill-registry, step-kind-suggestions, template-registry.",
-            "Use-cases — application/use-cases/. ~30 use-cases (chacun colocalisé avec son .test.ts). Fabriques make…(deps) => async (input) => …. Les mutateurs émettent des DomainEvent (append log puis publish bus) ; les lecteurs lisent la projection en mémoire. Aussi des migrations de données idempotentes.",
+            "Use-cases — application/use-cases/. une quarantaine de use-cases (chacun colocalisé avec son .test.ts). Fabriques make…(deps) => async (input) => …. Les mutateurs émettent des DomainEvent (append log puis publish bus) ; les lecteurs lisent la projection en mémoire. Aussi des migrations de données idempotentes.",
             "Orchestrateur — application/orchestrator/. La machine à états : s'abonne au bus, applique chaque event à l'EngineState, puis sur StepValidated calcule les successeurs, résout & valide les inputs, appelle le runner, traduit le StepOutcome, gère boucles, inférence de scopes d'itération (foreach) et propagation de StepSkipped. Sérialisation par instance (chaîne de promesses).",
             "Services — application/services/. Dont le context-assembler (assemble systemPrompt/userPrompt + historique de boucle en markdown, calcule un hash de corrélation pour le RunLog).",
             "Scheduler — application/scheduler/. start() (catch-up + arme les crons via croner), reload(), stop().",
@@ -1397,7 +1401,7 @@
       "body": [
         {
           "type": "p",
-          "text": "Chaque runner = un fichier implémentant le contrat StepRunner. Catalogue actuel (source de vérité = le dossier) :"
+          "text": "Chaque runner = un fichier implémentant le contrat StepRunner, enregistré dans la composition-root (wf/composition-root.ts). Catalogue actuel (source de vérité = les runners.register(...) de la composition-root) :"
         },
         {
           "type": "table",
@@ -1412,19 +1416,23 @@
             ],
             [
               "LLM",
-              "claude-code-invoke, codex-invoke, openrouter-invoke, llm-judge"
+              "claude-code-invoke, claude-code-judge, codex-invoke, openrouter-invoke, llm-judge"
             ],
             [
               "Validation / branchement",
-              "format-validate, branch-bool, branch-match"
+              "format-validate, branch-bool, branch-json, branch-match"
             ],
             [
               "Données / transform",
-              "json-transform, transform-run, render-markdown, concat-markdown, file-load-markdown"
+              "json-transform, transform-run, render-markdown, concat-markdown, select-markdown, file-load-markdown, file-load, files-load, files-load-manifest"
             ],
             [
               "Boucles / itération",
               "loop-foreach, loop-collect"
+            ],
+            [
+              "Sous-workflows / composition",
+              "workflow-call, template-invoke"
             ],
             [
               "Humain",
@@ -1435,12 +1443,12 @@
               "skill-loader"
             ],
             [
-              "Shell / env",
-              "shell-exec, shell-exec-formatter, shell-env"
+              "Shell",
+              "shell-exec"
             ],
             [
               "Git / CI",
-              "git-exec, git-commit-push, git-worktree-create, git-worktree-remove, gitlab-pipeline-wait"
+              "git-commit-push, git-worktree-create, git-worktree-remove, git-clone, gitlab-files-fetch, gitlab-mr-create, gitlab-mr-merge"
             ],
             [
               "Intégrations externes",
@@ -1450,7 +1458,7 @@
         },
         {
           "type": "p",
-          "text": "Référence fonctionnelle détaillée des nœuds : doc/node_reference.md."
+          "text": "Note : certains fichiers de wf/plugins/ existent mais ne sont pas câblés dans la composition-root (shell-env, shell-exec-formatter, git-exec, gitlab-pipeline-wait) — non actifs tant qu'aucun runners.register() ne les monte. Référence fonctionnelle détaillée des nœuds : apps/docs/src/content/docs/{fr,en}/nodes/ (site Starlight @ctxfirst/docs)."
         }
       ],
       "pathBase": "apps/desktop/electron/main/wf/"
@@ -1558,7 +1566,7 @@
         },
         {
           "type": "p",
-          "text": "Un plugin = un dossier avec manifest.json (zod-validé : id, version, main, renderer, permissions, networkHosts, contributions → stepKinds / artifactSchemas / parsers / routes / nav). Built-ins : plugins-builtin/ — hello-world, kanban, linear. Doc : doc/04-plugins.md."
+          "text": "Un plugin = un dossier avec manifest.json (zod-validé : id, version, main, renderer, permissions, networkHosts, contributions → stepKinds / artifactSchemas / parsers / routes / nav). Built-ins : plugins-builtin/ — hello-world, kanban, linear. Doc : apps/docs/src/content/docs/{fr,en}/plugins/ (site Starlight @ctxfirst/docs)."
         }
       ],
       "pathBase": "apps/desktop/"
@@ -1731,7 +1739,7 @@
           "items": [
             "domain — src/domain/ : types purs (workflow, chat, settings, explorer, plugin).",
             "application/ports — src/application/ports/ : interfaces *-gateway (workflow, chat, settings, system, plugin, folder, dev-log) + task-repository.",
-            "application/use-cases — src/application/use-cases/ : ~57 fabriques fines make…(gateway) qui appellent les ports.",
+            "application/use-cases — src/application/use-cases/ : une soixantaine de fabriques fines make…(gateway) qui appellent les ports.",
             "infrastructure/electron — src/infrastructure/electron/ : les adapters electron-*-gateway qui, eux seuls, appellent window.api.*. Pendant infrastructure/mock pour dev/tests."
           ]
         }
