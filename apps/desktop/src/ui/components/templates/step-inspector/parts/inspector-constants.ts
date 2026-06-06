@@ -1,3 +1,11 @@
+import type { ActorRole } from "../../../../../domain/workflow/types";
+
+export const ACTOR_ROLES: ReadonlyArray<ActorRole> = [
+  "PO",
+  "Developer",
+  "LLMAgent",
+];
+
 /**
  * Output kinds proposés par le node `file.load`. Restreint aux kinds
  * text-envelope (un fichier est du texte) — cf. `FILE_LOAD_FORMATS` côté runner.

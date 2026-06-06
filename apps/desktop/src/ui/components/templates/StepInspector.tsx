@@ -20,10 +20,14 @@ import ClaudeCodeInvokeConfig from "./step-inspector/config/ClaudeCodeInvokeConf
 import CodexInvokeConfig from "./step-inspector/config/CodexInvokeConfig";
 import OpenrouterInvokeConfig from "./step-inspector/config/OpenrouterInvokeConfig";
 import HumanGateConfig from "./step-inspector/config/HumanGateConfig";
+import LinearFetchConfig from "./step-inspector/config/LinearFetchConfig";
+import ShellExecConfig from "./step-inspector/config/ShellExecConfig";
+import SkillLoaderConfig from "./step-inspector/config/SkillLoaderConfig";
+import ConcatMarkdownConfig from "./step-inspector/config/ConcatMarkdownConfig";
+import PolymorphismKindEditor from "./step-inspector/config/PolymorphismKindEditor";
 import SuggestedNodes from "./step-inspector/components/SuggestedNodes";
 import PortsWiring from "./step-inspector/components/PortsWiring";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
@@ -32,30 +36,14 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type {
   ActorRole,
-  ArtifactKind,
   TemplateStepDraft,
   TemplateVariableDraft,
 } from "../../../domain/workflow/types";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
-import useSkills from "../../hooks/useSkills";
-import useArtifactSchemas from "../../hooks/useArtifactSchemas";
-import { useWorkbench } from "../../workbench/store";
-import { kindForArtifactSchema } from "../../../domain/workflow/types";
-import { ExternalLink } from "lucide-react";
-import { Trans } from "react-i18next";
 import { useT } from "../../i18n";
-import KindPreviewBlock from "../artifact-kinds/KindPreviewBlock";
-import ShellExecExitCodeEditor, {
-  type ExitCodesConfig,
-} from "./ShellExecExitCodeEditor";
-import {
-  ARTIFACT_KINDS,
-  getKindMeta,
-  polymorphismOf,
-} from "./step-kinds";
+import { getKindMeta, polymorphismOf } from "./step-kinds";
 import StepHeader from "./step-inspector/components/StepHeader";
-
-const ACTOR_ROLES: ReadonlyArray<ActorRole> = ["PO", "Developer", "LLMAgent"];
+import { ACTOR_ROLES } from "./step-inspector/parts/inspector-constants";
 
 const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "claude_code.invoke",
@@ -109,12 +97,9 @@ const StepInspector = ({
   onEnterStudio,
 }: Props) => {
   const t = useT();
-  const workbench = useWorkbench();
   const meta = getKindMeta(step.kind);
   const config = step.config;
   const specs = useNodeSpecs();
-  const { skills, loading: skillsLoading } = useSkills();
-  const { types: artifactSchemas } = useArtifactSchemas();
   const base =
     specs.status === "ready" ? specs.byKind.get(step.kind) ?? null : null;
   const resolvedSpec = base
@@ -160,62 +145,11 @@ const StepInspector = ({
         ) : null}
 
         {polymorphism ? (
-          (() => {
-            const currentKind =
-              (config[polymorphism.kind] as string | undefined) ?? "";
-            const dynamicKinds = artifactSchemas.map((t) => kindForArtifactSchema(t));
-            const knownKinds = new Set<string>([
-              ...ARTIFACT_KINDS,
-              ...dynamicKinds,
-            ]);
-            const showCurrentOption =
-              currentKind.length > 0 && !knownKinds.has(currentKind);
-            return (
-              <FormField
-                label={
-                  polymorphism.kind === "outputKind"
-                    ? t("template.stepInspector.polymorphism.outputKindLabel")
-                    : t("template.stepInspector.polymorphism.inputKindLabel")
-                }
-                description={t("template.stepInspector.polymorphism.description")}
-              >
-                <Select
-                  value={currentKind}
-                  onChange={(e) => {
-                    const next = e.target.value as ArtifactKind;
-                    setConfig({ [polymorphism.kind]: next });
-                  }}
-                >
-                  <option value="">{t("template.stepInspector.kindSelect.choose")}</option>
-                  {ARTIFACT_KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                  {dynamicKinds.length > 0 ? (
-                    <optgroup label={t("template.stepInspector.kindSelect.userPlugin")}>
-                      {dynamicKinds.map((k) => (
-                        <option key={k} value={k}>
-                          {k}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ) : null}
-                  {showCurrentOption ? (
-                    <option value={currentKind}>
-                      {t("template.stepInspector.kindSelect.orphan", { kind: currentKind })}
-                    </option>
-                  ) : null}
-                </Select>
-                {currentKind ? (
-                  <KindPreviewBlock
-                    kind={currentKind as ArtifactKind}
-                    className="mt-2"
-                  />
-                ) : null}
-              </FormField>
-            );
-          })()
+          <PolymorphismKindEditor
+            polymorphism={polymorphism}
+            config={config}
+            setConfig={setConfig}
+          />
         ) : null}
 
         {step.kind === "claude_code.invoke" ? (
@@ -231,35 +165,7 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "linear.fetch" ? (
-          <>
-            <FormField label={t("template.stepInspector.linear.ticketRef.label")}>
-              <Input
-                placeholder={t("template.stepInspector.linear.ticketRef.placeholder")}
-                value={(config["ticketRef"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ ticketRef: e.target.value })}
-              />
-            </FormField>
-            {step.humanGateRequired ? (
-              <FormField
-                label={t("template.stepInspector.linear.actorRole.label")}
-                description={t("template.stepInspector.linear.actorRole.description")}
-              >
-                <Select
-                  value={
-                    (config["actorRole"] as string | undefined) ??
-                    step.actorRole
-                  }
-                  onChange={(e) => setConfig({ actorRole: e.target.value })}
-                >
-                  {ACTOR_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            ) : null}
-          </>
+          <LinearFetchConfig step={step} config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "workspace.set" ? (
@@ -283,113 +189,7 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "shell.exec" ? (
-          <>
-            <FormField label={t("template.stepInspector.shellExec.command")}>
-              <Textarea
-                size="sm"
-                className="min-h-[60px] font-mono"
-                placeholder={
-                  (config["useShell"] === true
-                    ? "yarn tsc --noEmit"
-                    : "yarn") + ""
-                }
-                value={
-                  typeof config["command"] === "string"
-                    ? (config["command"])
-                    : Array.isArray(config["command"])
-                      ? (config["command"] as ReadonlyArray<string>).join(" ")
-                      : ""
-                }
-                onChange={(e) => setConfig({ command: e.target.value })}
-              />
-            </FormField>
-
-            <FormField
-              orientation="inline"
-              label={t("template.stepInspector.shellExec.useShell")}
-            >
-              <Checkbox
-                checked={config["useShell"] === true}
-                onCheckedChange={(v) => setConfig({ useShell: v })}
-              />
-            </FormField>
-
-            <FormField label={t("template.stepInspector.shellExec.subdir.label")}>
-              <Input
-                className="font-mono"
-                placeholder={t("template.stepInspector.shellExec.subdir.placeholder")}
-                value={(config["subdir"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ subdir: e.target.value })}
-              />
-            </FormField>
-
-            <FormField label={t("template.stepInspector.shellExec.timeout")}>
-              <Input
-                type="number"
-                min={1000}
-                max={600000}
-                value={(config["timeoutMs"] as number | undefined) ?? 60000}
-                onChange={(e) =>
-                  setConfig({ timeoutMs: Number(e.target.value) })
-                }
-              />
-            </FormField>
-
-            <FormField
-              label={t("template.stepInspector.shellExec.maxOutput.label")}
-              description={
-                <Trans
-                  t={t}
-                  i18nKey="template.stepInspector.shellExec.maxOutput.description"
-                  components={{ code: <code /> }}
-                />
-              }
-            >
-              <Input
-                type="number"
-                min={1}
-                value={Math.round(
-                  ((config["maxOutputBytes"] as number | undefined) ??
-                    256 * 1024) / 1024,
-                )}
-                onChange={(e) =>
-                  setConfig({ maxOutputBytes: Number(e.target.value) * 1024 })
-                }
-              />
-            </FormField>
-
-            <FormField
-              orientation="inline"
-              label={t("template.stepInspector.shellExec.customExitCodes.label")}
-              description={
-                <Trans
-                  t={t}
-                  i18nKey="template.stepInspector.shellExec.customExitCodes.description"
-                  components={{ code: <code /> }}
-                />
-              }
-            >
-              <Checkbox
-                checked={config["exitCodes"] !== undefined}
-                onCheckedChange={(v) => {
-                  if (v) {
-                    setConfig({
-                      exitCodes: { ok: [0], other: "*" },
-                    });
-                  } else {
-                    setConfig({ exitCodes: undefined });
-                  }
-                }}
-              />
-            </FormField>
-
-            {config["exitCodes"] !== undefined ? (
-              <ShellExecExitCodeEditor
-                value={config["exitCodes"] as ExitCodesConfig}
-                onChange={(next) => setConfig({ exitCodes: next })}
-              />
-            ) : null}
-          </>
+          <ShellExecConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "file.load" ? (
@@ -405,221 +205,15 @@ const StepInspector = ({
         ) : null}
 
         {step.kind === "skill.loader" ? (
-          (() => {
-            const skillRef = (config["skillRef"] as string | undefined) ?? "";
-            return (
-              <FormField
-                label={t("template.stepInspector.skillLoader.skill.label")}
-                description={
-                  <Trans
-                    t={t}
-                    i18nKey="template.stepInspector.skillLoader.skill.description"
-                    components={{ code: <code /> }}
-                  />
-                }
-              >
-                <Select
-                  value={skillRef}
-                  onChange={(e) => {
-                    if (e.target.value === "__create__") {
-                      onRequestCreateSkill?.();
-                      return;
-                    }
-                    setConfig({ skillRef: e.target.value });
-                  }}
-                >
-                  <option value="">
-                    {skillsLoading
-                      ? t("template.stepInspector.skillLoader.loading")
-                      : t("template.stepInspector.skillLoader.choose")}
-                  </option>
-                  {skills.map((s) => (
-                    <option key={s.ref} value={s.ref}>
-                      {s.ref}
-                    </option>
-                  ))}
-                  <option value="__create__">{t("template.stepInspector.skillLoader.createNew")}</option>
-                </Select>
-                {skillRef ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 self-start gap-1.5 text-xs"
-                    onClick={() =>
-                      workbench.openEditor(`skill://${skillRef}`, { focus: true })
-                    }
-                  >
-                    <ExternalLink className="size-3.5" />
-                    {t("template.stepInspector.skillLoader.open")}
-                  </Button>
-                ) : null}
-              </FormField>
-            );
-          })()
+          <SkillLoaderConfig
+            config={config}
+            setConfig={setConfig}
+            onRequestCreateSkill={onRequestCreateSkill}
+          />
         ) : null}
 
         {step.kind === "concat.markdown" ? (
-          <>
-            <FormField
-              label={t("template.stepInspector.concat.mode.label")}
-              description={
-                <Trans
-                  t={t}
-                  i18nKey="template.stepInspector.concat.mode.description"
-                  values={{ example: "{{name}}" }}
-                  components={{ code: <code /> }}
-                />
-              }
-            >
-              <Select
-                value={(config["mode"] as string | undefined) ?? "concat"}
-                onChange={(e) => setConfig({ mode: e.target.value })}
-              >
-                <option value="concat">{t("template.stepInspector.concat.mode.concat")}</option>
-                <option value="template">{t("template.stepInspector.concat.mode.template")}</option>
-              </Select>
-            </FormField>
-            <FormField label={t("template.stepInspector.concat.separator")}>
-              <Input
-                placeholder="\n\n"
-                value={(config["separator"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ separator: e.target.value })}
-              />
-            </FormField>
-            {((config["mode"] as string | undefined) ?? "concat") === "concat" ? (
-              <FormField label={t("template.stepInspector.concat.order.label")}>
-                <Select
-                  value={
-                    (config["order"] as string | undefined) ?? "top-to-bottom"
-                  }
-                  onChange={(e) => setConfig({ order: e.target.value })}
-                >
-                  <option value="top-to-bottom">
-                    {t("template.stepInspector.concat.order.topToBottom")}
-                  </option>
-                  <option value="bottom-to-top">
-                    {t("template.stepInspector.concat.order.bottomToTop")}
-                  </option>
-                </Select>
-              </FormField>
-            ) : (
-              <>
-                <FormField
-                  label={t("template.stepInspector.concat.onMissing.label")}
-                  description={t("template.stepInspector.concat.onMissing.description", { example: "{{name}}" })}
-                >
-                  <Select
-                    value={
-                      (config["onMissing"] as string | undefined) ?? "keep"
-                    }
-                    onChange={(e) => setConfig({ onMissing: e.target.value })}
-                  >
-                    <option value="keep">{t("template.stepInspector.concat.onMissing.keep")}</option>
-                    <option value="empty">{t("template.stepInspector.concat.onMissing.empty")}</option>
-                    <option value="error">{t("template.stepInspector.concat.onMissing.error")}</option>
-                  </Select>
-                </FormField>
-                <FormField
-                  label={t("template.stepInspector.concat.onUnused.label")}
-                  description={t("template.stepInspector.concat.onUnused.description")}
-                >
-                  <Select
-                    value={
-                      (config["onUnused"] as string | undefined) ?? "append"
-                    }
-                    onChange={(e) => setConfig({ onUnused: e.target.value })}
-                  >
-                    <option value="append">
-                      {t("template.stepInspector.concat.onUnused.append")}
-                    </option>
-                    <option value="ignore">{t("template.stepInspector.concat.onUnused.ignore")}</option>
-                  </Select>
-                </FormField>
-              </>
-            )}
-            <FormField label={t("template.stepInspector.concat.header")}>
-              <Textarea
-                size="sm"
-                className="min-h-[40px]"
-                value={(config["header"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ header: e.target.value })}
-              />
-            </FormField>
-            <FormField label={t("template.stepInspector.concat.footer")}>
-              <Textarea
-                size="sm"
-                className="min-h-[40px]"
-                value={(config["footer"] as string | undefined) ?? ""}
-                onChange={(e) => setConfig({ footer: e.target.value })}
-              />
-            </FormField>
-            {((config["mode"] as string | undefined) ?? "concat") === "concat" ? (
-              <Section
-                title={t("template.stepInspector.concat.perEntry.title")}
-                description={t("template.stepInspector.concat.perEntry.description")}
-                variant="card"
-                density="compact"
-                collapsible
-                defaultOpen={false}
-                persistKey="app.step-inspector.concat.per-entry"
-              >
-                {(["main", "markdown1", "markdown2", "markdown3"] as const).map(
-                  (port) => {
-                    const entriesCfg = config["entries"] as
-                      | Record<string, { header?: string; footer?: string } | undefined>
-                      | undefined;
-                    const entry = entriesCfg?.[port];
-                    const setEntry = (patch: {
-                      header?: string;
-                      footer?: string;
-                    }) => {
-                      const prev =
-                        (config["entries"] as Record<string, unknown> | undefined) ??
-                        {};
-                      const prevPort =
-                        (prev[port] as Record<string, unknown> | undefined) ?? {};
-                      const next = {
-                        ...prev,
-                        [port]: { ...prevPort, ...patch },
-                      };
-                      setConfig({ entries: next });
-                    };
-                    return (
-                      <div
-                        key={port}
-                        className="space-y-2 border-l-2 border-muted pl-3"
-                      >
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {port}
-                        </p>
-                        <FormField label={t("template.stepInspector.concat.perEntry.header")}>
-                          <Textarea
-                            size="sm"
-                            className="min-h-[40px]"
-                            value={entry?.header ?? ""}
-                            onChange={(e) =>
-                              setEntry({ header: e.target.value })
-                            }
-                          />
-                        </FormField>
-                        <FormField label={t("template.stepInspector.concat.perEntry.footer")}>
-                          <Textarea
-                            size="sm"
-                            className="min-h-[40px]"
-                            value={entry?.footer ?? ""}
-                            onChange={(e) =>
-                              setEntry({ footer: e.target.value })
-                            }
-                          />
-                        </FormField>
-                      </div>
-                    );
-                  },
-                )}
-              </Section>
-            ) : null}
-          </>
+          <ConcatMarkdownConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "transform.run" ? (
