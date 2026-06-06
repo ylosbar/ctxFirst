@@ -1030,10 +1030,13 @@ body {
   color: var(--chart-4);
 }
 .hljs-string,
-.hljs-attr,
 .hljs-addition,
 .hljs-template-tag {
   color: var(--chart-2);
+}
+/* JSON object keys — kept distinct from string values for readability. */
+.hljs-attr {
+  color: var(--chart-1);
 }
 .hljs-title,
 .hljs-type,

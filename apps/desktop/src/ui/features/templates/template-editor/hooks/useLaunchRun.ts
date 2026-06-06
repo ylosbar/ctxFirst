@@ -24,6 +24,7 @@ import type { Services } from "../../../../di/services";
 import type { WorkbenchApi } from "../../../../workbench/types";
 import { runUriFor } from "../../../runs/run-uri";
 import { resolveStepSpec, type ByKind } from "../graph/step-spec";
+import { stripStepUiFields } from "../graph/nodes-to-steps";
 
 type LaunchState = {
   text: string;
@@ -73,11 +74,7 @@ export const useLaunchRun = ({
     if (!entryStepId) return null;
     const n = nodes.find((x) => x.id === entryStepId);
     if (!n) return null;
-    const { isEntry: _isEntry, ...rest } =
-      n.data as unknown as TemplateStepDraft & {
-        isEntry: boolean;
-      };
-    return rest;
+    return stripStepUiFields(n.data as unknown as TemplateStepDraft);
   }, [nodes, entryStepId]);
 
   const launchNeedsSeed = launchEntryStep?.kind === "user.input";

@@ -25,6 +25,7 @@ import type {
   TemplateVariableDraft,
 } from "../../../../../domain/workflow/types";
 import { AUTO_LOOP_SOURCE_KINDS } from "./ids";
+import { nodesToSteps } from "./nodes-to-steps";
 import { resolveStepSpec, type ByKind } from "./step-spec";
 import type { EdgeData } from "./edge-style";
 
@@ -62,15 +63,7 @@ export const buildTemplateDraft = (
     variables,
     status,
   } = input;
-  const steps: TemplateStepDraft[] = nodes
-    .filter((n) => n.type === "step")
-    .map((n) => {
-      const { isEntry: _isEntry, ...rest } =
-        n.data as unknown as TemplateStepDraft & {
-          isEntry: boolean;
-        };
-      return rest;
-    });
+  const steps: TemplateStepDraft[] = nodesToSteps(nodes);
   const kindById = new Map(steps.map((s) => [s.id, s.kind]));
   const transitions = edges.map((e) => {
     const data = e.data as (EdgeData & { order?: number }) | undefined;
