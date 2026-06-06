@@ -499,7 +499,7 @@ export const ArtifactInlineView = ({
               <JsonDocumentView value={parsedJson} />
             )
           ) : (
-            <pre className="m-0 whitespace-pre bg-muted/20 p-4 font-mono text-xs leading-relaxed">
+            <pre className="m-0 whitespace-pre-wrap break-words bg-muted/20 p-4 font-mono text-xs leading-relaxed">
               <code
                 className="hljs language-json bg-transparent p-0"
                 dangerouslySetInnerHTML={{ __html: jsonHtml }}

@@ -28,6 +28,7 @@ import {
   totalMissing as totalMissingDeps,
 } from "../../../../../application/use-cases/collect-missing-template-deps";
 import { postImportStore } from "../../post-import-store";
+import { nodesToSteps } from "../graph/nodes-to-steps";
 
 type Options = {
   nodes: ReadonlyArray<Node>;
@@ -128,15 +129,7 @@ export const useTemplateDeps = ({
   const currentDraft = useMemo<{
     steps: ReadonlyArray<TemplateStepDraft>;
   } | null>(() => {
-    const steps: TemplateStepDraft[] = nodes
-      .filter((n) => n.type === "step")
-      .map((n) => {
-        const { isEntry: _isEntry, ...rest } =
-          n.data as unknown as TemplateStepDraft & {
-            isEntry: boolean;
-          };
-        return rest;
-      });
+    const steps = nodesToSteps(nodes);
     return steps.length > 0 ? { steps } : null;
   }, [nodes]);
 

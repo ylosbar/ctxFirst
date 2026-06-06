@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -8,11 +7,6 @@ import {
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Background,
-  BackgroundVariant,
-  Controls,
-  MiniMap,
-  ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   type Edge,
@@ -24,20 +18,6 @@ import type { TemplateLayout } from "@shared/wf/layout";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
 import { type TemplateStepDraft } from "../../../domain/workflow/types";
-import StepNode, {
-  NotesVisibilityProvider,
-} from "../../components/templates/StepNode";
-import StartNode from "../../components/templates/StartNode";
-import VariableNode from "../../components/templates/VariableNode";
-import GroupNode, {
-  GroupActionsProvider,
-} from "../../components/templates/GroupNode";
-import StickyNoteNode, {
-  StickyNoteActionsProvider,
-} from "../../components/templates/StickyNoteNode";
-import SelfLoopEdge from "../../components/templates/SelfLoopEdge";
-import StepEdge from "../../components/templates/StepEdge";
-import { getKindMeta } from "../../components/templates/step-kinds";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
 import { useTemplateEditorGridSnap } from "../../workbench/store";
@@ -45,10 +25,7 @@ import {
   fromRefFromTemplateUri,
   refFromTemplateUri,
 } from "./template-uri";
-import {
-  useRegisterTemplateCanvas,
-  type TemplateCanvasHandle,
-} from "../../stores/template-canvas-store";
+import { useRegisterTemplateCanvas } from "../../stores/template-canvas-store";
 import TemplateTitleBar from "./TemplateTitleBar";
 import LaunchRunDialog from "./LaunchRunDialog";
 import { useLayoutAutosave } from "./useLayoutAutosave";
@@ -56,6 +33,10 @@ import { useInspectorResize } from "./template-editor/hooks/useInspectorResize";
 import { useMaximize } from "./template-editor/hooks/useMaximize";
 import { useSkillHandoff } from "./template-editor/hooks/useSkillHandoff";
 import { useTemplateDeps } from "./template-editor/hooks/useTemplateDeps";
+import { useTemplateLoad } from "./template-editor/hooks/useTemplateLoad";
+import { useTemplateCanvasHandle } from "./template-editor/hooks/useTemplateCanvasHandle";
+import { useGraphSelection } from "./template-editor/hooks/useGraphSelection";
+import { useTemplateIdentity } from "./template-editor/hooks/useTemplateIdentity";
 import { useNodeReparenting } from "./template-editor/hooks/useNodeReparenting";
 import { useAutoLayout } from "./template-editor/hooks/useAutoLayout";
 import { useStickyNotes } from "./template-editor/hooks/useStickyNotes";
@@ -70,31 +51,12 @@ import { useDisplayGraph } from "./template-editor/hooks/useDisplayGraph";
 import { useCanvasHandlers } from "./template-editor/hooks/useCanvasHandlers";
 import TemplateEditorToolbar from "./template-editor/components/TemplateEditorToolbar";
 import TemplateEditorModals from "./template-editor/components/TemplateEditorModals";
-import TemplateCanvasOverlays from "./template-editor/components/TemplateCanvasOverlays";
+import TemplateCanvas from "./template-editor/components/TemplateCanvas";
 import type { VariableModalState } from "./template-editor/components/variable-modal";
 import type { RunOverlay } from "./run-overlay";
-import {
-  isSyntheticId,
-  makeStepId,
-} from "./template-editor/graph/ids";
-import { templateToGraph } from "./template-editor/graph/template-to-graph";
-import {
-  buildDefaultStep,
-  type ByKind,
-} from "./template-editor/graph/step-spec";
-import {
-  minimapNodeColor,
-  minimapNodeStrokeColor,
-} from "./template-editor/graph/edge-style";
-
-const nodeTypes = {
-  step: StepNode,
-  start: StartNode,
-  variable: VariableNode,
-  group: GroupNode,
-  stickyNote: StickyNoteNode,
-} as const;
-const edgeTypes = { selfLoop: SelfLoopEdge, step: StepEdge } as const;
+import { isSyntheticId } from "./template-editor/graph/ids";
+import { nodesToSteps } from "./template-editor/graph/nodes-to-steps";
+import { type ByKind } from "./template-editor/graph/step-spec";
 
 type Props = {
   readonly uri: EditorUri;
@@ -120,10 +82,32 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const fromRef = fromRefFromTemplateUri(uri);
   const isNew = editingRef === null;
 
-  const [name, setName] = useState("");
-  const [templateId, setTemplateId] = useState("");
-  const [version, setVersion] = useState("v1");
-  const [description, setDescription] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Propriétaire de l'identité (name/id/version/description/status) + rename
+  // inline persisté et rebascule du statut sur `draft` au changement d'ID/version
+  // (cf. le hook). Les setters bruts alimentent le chargement et le save.
+  const {
+    name,
+    templateId,
+    version,
+    description,
+    status,
+    setName,
+    setTemplateId,
+    setVersion,
+    setDescription,
+    setStatus,
+    persistName,
+    handleTemplateIdChange,
+    handleVersionChange,
+  } = useTemplateIdentity({
+    isViewRun,
+    editingRef,
+    services,
+    queryClient,
+    setError,
+  });
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -136,8 +120,16 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const edgesRef = useRef(edges);
   edgesRef.current = edges;
   const [entryStepId, setEntryStepId] = useState<string | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  // Propriétaire unique de la sélection (node/edge) + ses transitions. Les
+  // setters bruts restent exposés pour les hooks consommateurs (migration
+  // incrémentale — cf. le hook).
+  const {
+    selectedNodeId,
+    selectedEdgeId,
+    clearSelection,
+    setSelectedNodeId,
+    setSelectedEdgeId,
+  } = useGraphSelection();
   // État des variables + mutations avec cascade dans les nodes (un renommage
   // se propage dans les `writesTo`/`readsFrom` ; une suppression purge les
   // références). `setVariables` brut sert au chargement initial du template.
@@ -145,52 +137,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     useTemplateVariables({ setNodes });
 
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Statut persisté du template chargé (`draft` tant qu'on écrit, `published`
-  // une fois figé). Sert à savoir si la publication est encore possible : une
-  // ref publiée est immuable, on itère en bumpant la version (ce qui repasse le
-  // statut à `draft`, cf. `handleTemplateIdChange` / `handleVersionChange`).
-  const [status, setStatus] = useState<"draft" | "published">("draft");
-
-  // Inline rename (TemplateTitleBar) — met à jour l'état local ET persiste le
-  // nouveau nom en base via `renameWorkflowTemplate` (rename-in-place : ne
-  // touche que la colonne `name`, sans re-valider toute la structure ni écrire
-  // les éventuelles éditions structurelles non sauvegardées). Pour un template
-  // « nouveau »/dupliqué (editingRef null, pas encore de ligne), on ne persiste
-  // pas : le nom sera écrit au premier Save qui crée la ligne. En mode view-run,
-  // ce callback n'est pas branché (handle.setName est un noop).
-  const persistName = useCallback(
-    (next: string) => {
-      setName(next);
-      if (isViewRun || editingRef === null) return;
-      const ref = editingRef;
-      void (async () => {
-        try {
-          await services.renameWorkflowTemplate({
-            templateRef: ref,
-            newName: next,
-          });
-          await queryClient.invalidateQueries({ queryKey: ["templates"] });
-        } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      })();
-    },
-    [isViewRun, editingRef, services, queryClient],
-  );
-  // Éditer l'ID ou la version cible vise une *nouvelle* ref qui n'est pas encore
-  // publiée : on rebascule le statut local sur `draft` pour rouvrir la
-  // publication (une ref publiée reste immuable, on itère donc en bumpant la
-  // version). Le chargement initial utilise les setters bruts + un `setStatus`
-  // explicite, il n'est pas affecté.
-  const handleTemplateIdChange = useCallback((next: string) => {
-    setTemplateId(next);
-    setStatus("draft");
-  }, []);
-  const handleVersionChange = useCallback((next: string) => {
-    setVersion(next);
-    setStatus("draft");
-  }, []);
   const [loading, setLoading] = useState<boolean>(!isNew || Boolean(fromRef));
   // Layout chargé une seule fois à l'ouverture. Sert à initialiser les
   // positions de `templateToGraph` et le `defaultViewport` (uncontrolled) de
@@ -258,76 +204,29 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const counterRef = useRef(0);
   const flowWrapperRef = useRef<HTMLDivElement>(null);
-  // Load an existing template by ref, or seed a new one from a "from" ref.
-  useEffect(() => {
-    const sourceRef = editingRef ?? fromRef;
-    if (!sourceRef) {
-      // Nouveau template (pas une copie) : on l'amorce avec une node
-      // « User Input ». Tout workflow démarre par la capture d'une seed, donc
-      // ce point d'entrée est toujours nécessaire — autant l'ajouter d'office.
-      const kind = getKindMeta("user.input");
-      if (kind) {
-        const id = makeStepId(kind.id, 1);
-        counterRef.current = Math.max(counterRef.current, 1);
-        const step = buildDefaultStep(kind, id);
-        setNodes([
-          {
-            id,
-            type: "step",
-            position: { x: 80, y: 80 },
-            data: { ...step, isEntry: true },
-          },
-        ]);
-        setEntryStepId(id);
-        setSelectedNodeId(id);
-      }
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    void (async () => {
-      try {
-        // Fetch en parallèle : une erreur sur le layout (purement
-        // présentationnel) ne doit pas casser l'ouverture du template.
-        const [tpl, layout] = await Promise.all([
-          services.getWorkflowTemplate(sourceRef),
-          services.getTemplateLayout(sourceRef).catch(() => null),
-        ]);
-        if (cancelled) return;
-        const graph = templateToGraph(tpl, layout);
-        if (editingRef) {
-          setName(tpl.name);
-          setTemplateId(tpl.id);
-          setVersion(tpl.version);
-          setStatus(tpl.status);
-        } else {
-          // Une copie repart toujours d'un brouillon : nouvelle ref à publier.
-          setName(`${tpl.name} (copie)`);
-          setTemplateId(`${tpl.id}-copy`);
-          setVersion(tpl.version);
-          setStatus("draft");
-        }
-        setDescription(tpl.description);
-        setNodes(graph.nodes);
-        setEdges(graph.edges);
-        setEntryStepId(graph.entryStepId);
-        setVariables(tpl.variables ?? []);
-        setInitialLayout(layout);
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // `setVariables` provient désormais de `useTemplateVariables` (prop stable) :
-    // listé pour exhaustive-deps, les autres setters bruts restent reconnus.
-  }, [editingRef, fromRef, services, setVariables]);
+
+  // Chargement d'un template existant par ref, ou amorçage d'un template neuf
+  // (node « User Input » d'office) / d'une copie depuis un `fromRef`. Effet à
+  // I/O + setters — détaillé dans le hook (annulation au démontage incluse).
+  useTemplateLoad({
+    editingRef,
+    fromRef,
+    services,
+    counterRef,
+    setName,
+    setTemplateId,
+    setVersion,
+    setStatus,
+    setDescription,
+    setNodes,
+    setEdges,
+    setEntryStepId,
+    setVariables,
+    setInitialLayout,
+    setSelectedNodeId,
+    setError,
+    setLoading,
+  });
 
   const byKind: ByKind | null = specs.status === "ready" ? specs.byKind : null;
 
@@ -403,9 +302,8 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setNodes([]);
     setEdges([]);
     setEntryStepId(null);
-    setSelectedNodeId(null);
-    setSelectedEdgeId(null);
-  }, [nodes.length, edges.length]);
+    clearSelection();
+  }, [nodes.length, edges.length, clearSelection]);
 
   // Auto-layout group-aware (deux passes : layout intra-groupe puis layout des
   // supernodes au niveau global) — détaillé dans le hook. Les groupes survivent
@@ -541,82 +439,13 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     entryStepId === selectedNodeId && selectedNodeId !== null;
 
   const steps = useMemo<ReadonlyArray<TemplateStepDraft>>(
-    () =>
-      nodes
-        .filter((n) => n.type === "step")
-        .map((n) => {
-          const { isEntry: _isEntry, ...rest } =
-            n.data as unknown as TemplateStepDraft & {
-              isEntry: boolean;
-            };
-          return rest;
-        }),
+    () => nodesToSteps(nodes),
     [nodes],
   );
 
-  const handle = useMemo<TemplateCanvasHandle>(() => {
-    if (isViewRun) {
-      const noop = () => {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("[wf:templates] mutation ignored in view-run mode");
-        }
-      };
-      return {
-        uri,
-        mutationEnabled: false,
-        selectedStep,
-        selectedEdge: selectedEdgeInfo,
-        isSelectedEntry,
-        steps,
-        variables,
-        name,
-        templateId,
-        version,
-        description,
-        setName: noop,
-        setTemplateId: noop,
-        setVersion: noop,
-        setDescription: noop,
-        addStep: noop,
-        updateSelectedStep: noop,
-        deleteSelectedStep: noop,
-        setSelectedAsEntry: noop,
-        toggleSelectedEdgeLoop: noop,
-        deleteSelectedEdge: noop,
-        addVariable: noop,
-        updateVariable: noop,
-        deleteVariable: noop,
-        onRequestCreateSkill: noop,
-      };
-    }
-    return {
-      uri,
-      mutationEnabled: true,
-      selectedStep,
-      selectedEdge: selectedEdgeInfo,
-      isSelectedEntry,
-      steps,
-      variables,
-      name,
-      templateId,
-      version,
-      description,
-      setName: persistName,
-      setTemplateId: handleTemplateIdChange,
-      setVersion: handleVersionChange,
-      setDescription,
-      addStep,
-      updateSelectedStep,
-      deleteSelectedStep,
-      setSelectedAsEntry,
-      toggleSelectedEdgeLoop,
-      deleteSelectedEdge,
-      addVariable,
-      updateVariable,
-      deleteVariable,
-      onRequestCreateSkill: handleRequestCreateSkill,
-    };
-  }, [
+  // Handle impérative publiée pour l'inspecteur (assemblage mémoïsé des dérivés
+  // + mutateurs ci-dessus ; mutateurs neutralisés en view-run — cf. le hook).
+  const handle = useTemplateCanvasHandle({
     isViewRun,
     uri,
     selectedStep,
@@ -631,6 +460,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     persistName,
     handleTemplateIdChange,
     handleVersionChange,
+    setDescription,
     addStep,
     updateSelectedStep,
     deleteSelectedStep,
@@ -641,7 +471,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     updateVariable,
     deleteVariable,
     handleRequestCreateSkill,
-  ]);
+  });
   useRegisterTemplateCanvas(uri, handle);
 
   // Sauvegarde / publication + modales de fin (champs requis, confirmation de
@@ -765,105 +595,53 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         </div>
       ) : null}
 
-      <div
-        ref={flowWrapperRef}
-        className="relative flex min-h-0 min-w-0 flex-1"
-      >
-        <NotesVisibilityProvider value={notesVisible}>
-          <GroupActionsProvider value={groupActions}>
-            <StickyNoteActionsProvider value={stickyActions}>
-            <ReactFlow
-              // Don't mount/rasterize off-screen nodes. Visually identical, but
-              // keeps Chromium's GPU tile budget from blowing up when zoomed out
-              // (every visible backdrop-blur node is a separate compositor layer
-              // re-rasterized on each pan frame → "tile memory limits exceeded").
-              onlyRenderVisibleElements
-              nodes={displayNodes}
-              edges={displayEdges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              onNodesChange={isViewRun ? undefined : onNodesChange}
-              onEdgesChange={isViewRun ? undefined : onEdgesChange}
-              onConnect={isViewRun ? undefined : onConnect}
-              onConnectStart={isViewRun ? undefined : onConnectStart}
-              onConnectEnd={isViewRun ? undefined : onConnectEnd}
-              isValidConnection={isViewRun ? undefined : isValidConnection}
-              nodesDraggable={!isViewRun}
-              nodesConnectable={!isViewRun}
-              deleteKeyCode={isViewRun ? null : "Delete"}
-              onNodeClick={onNodeClick}
-              onNodeDoubleClick={onNodeDoubleClick}
-              onEdgeClick={onEdgeClick}
-              onPaneClick={onPaneClick}
-              onNodeDragStop={isViewRun ? undefined : handleNodeDragStop}
-              onMoveEnd={isViewRun ? undefined : layoutAutosave.onMoveEnd}
-              snapToGrid={gridSnap.enabled}
-              snapGrid={snapGrid}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              fitView={!initialLayout?.viewport}
-              defaultViewport={initialLayout?.viewport}
-              minZoom={0.2}
-              maxZoom={4}
-            >
-              {/* ComfyUI-style dual grid: lines slightly darker than the
-              background so the grid stays discreet. The major grid every
-              5 cells is barely a notch stronger than the minor one. */}
-              <Background
-                id="grid-minor"
-                variant={BackgroundVariant.Lines}
-                gap={20}
-                lineWidth={1}
-                color="color-mix(in srgb, black 10%, transparent)"
-              />
-              <Background
-                id="grid-major"
-                variant={BackgroundVariant.Lines}
-                gap={100}
-                lineWidth={1}
-                color="color-mix(in srgb, black 20%, transparent)"
-              />
-              <MiniMap
-                position="bottom-right"
-                pannable
-                zoomable
-                ariaLabel="Mini carte du graph"
-                nodeColor={minimapNodeColor}
-                nodeStrokeColor={minimapNodeStrokeColor}
-                nodeStrokeWidth={1.5}
-                nodeBorderRadius={8}
-                bgColor="color-mix(in srgb, var(--background) 92%, transparent)"
-                maskColor="color-mix(in srgb, var(--background) 58%, transparent)"
-                maskStrokeColor="var(--ring)"
-                maskStrokeWidth={1}
-                className="overflow-hidden rounded-md border border-border shadow-sm opacity-90 transition-opacity hover:opacity-100"
-                style={{ width: 164, height: 108 }}
-              />
-              <Controls />
-            </ReactFlow>
-            </StickyNoteActionsProvider>
-          </GroupActionsProvider>
-        </NotesVisibilityProvider>
-        <TemplateCanvasOverlays
-          isViewRun={isViewRun}
-          groupDrawingMode={groupDrawingMode}
-          onOverlayPointerDown={onOverlayPointerDown}
-          onOverlayPointerMove={onOverlayPointerMove}
-          onOverlayPointerUp={onOverlayPointerUp}
-          layoutSaveError={layoutSaveError}
-          pendingConnect={pendingConnect}
-          suggestions={suggestions}
-          handleSuggestionPick={handleSuggestionPick}
-          setPendingConnect={setPendingConnect}
-          selectedNodeId={selectedNodeId}
-          selectedEdgeId={selectedEdgeId}
-          inspectorWidth={inspectorWidth}
-          inspectorDragWidth={inspectorDragWidth}
-          onInspectorResizeStart={onInspectorResizeStart}
-          onInspectorResizeMove={onInspectorResizeMove}
-          onInspectorResizeEnd={onInspectorResizeEnd}
-        />
-      </div>
+      <TemplateCanvas
+        flowWrapperRef={flowWrapperRef}
+        isViewRun={isViewRun}
+        notesVisible={notesVisible}
+        groupActions={groupActions}
+        stickyActions={stickyActions}
+        displayNodes={displayNodes}
+        displayEdges={displayEdges}
+        snapToGrid={gridSnap.enabled}
+        snapGrid={snapGrid}
+        defaultViewport={initialLayout?.viewport}
+        handlers={{
+          onNodesChange,
+          onEdgesChange,
+          isValidConnection,
+          onConnect,
+          onConnectStart,
+          onConnectEnd,
+          onNodeClick,
+          onNodeDoubleClick,
+          onEdgeClick,
+          onPaneClick,
+          onNodeDragStop: handleNodeDragStop,
+          onMoveEnd: layoutAutosave.onMoveEnd,
+          onDragOver,
+          onDrop,
+        }}
+        overlays={{
+          isViewRun,
+          groupDrawingMode,
+          onOverlayPointerDown,
+          onOverlayPointerMove,
+          onOverlayPointerUp,
+          layoutSaveError,
+          pendingConnect,
+          suggestions,
+          handleSuggestionPick,
+          setPendingConnect,
+          selectedNodeId,
+          selectedEdgeId,
+          inspectorWidth,
+          inspectorDragWidth,
+          onInspectorResizeStart,
+          onInspectorResizeMove,
+          onInspectorResizeEnd,
+        }}
+      />
       <TemplateEditorModals
         missingDepsModalOpen={missingDepsModalOpen}
         setMissingDepsModalOpen={setMissingDepsModalOpen}

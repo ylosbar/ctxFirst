@@ -147,7 +147,7 @@ const ReviewArtifactViewer = ({
               >
                 <div
                   className={cn(
-                    "relative flex w-12 shrink-0 cursor-pointer items-center justify-end gap-1 border-r border-border bg-muted/30 px-2 text-right text-muted-foreground",
+                    "relative flex w-12 shrink-0 cursor-pointer items-start justify-end gap-1 border-r border-border bg-muted/30 px-2 py-0.5 text-right text-muted-foreground",
                     isInDrag && "bg-primary/20 text-primary",
                   )}
                   onMouseDown={() => handleGutterMouseDown(lineNum)}
@@ -181,7 +181,7 @@ const ReviewArtifactViewer = ({
                   ) : null}
                   <span>{lineNum}</span>
                 </div>
-                <pre className="flex-1 whitespace-pre px-3 py-0.5">
+                <pre className="min-w-0 flex-1 whitespace-pre-wrap break-words px-3 py-0.5">
                   {text.length === 0 ? " " : text}
                 </pre>
               </div>
