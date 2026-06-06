@@ -1,13 +1,6 @@
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Dialog } from "@base-ui/react/dialog";
-import { Slider } from "@base-ui/react/slider";
 import {
   Check,
   ChevronRight,
@@ -47,12 +40,9 @@ import {
   useSetFpsCounter,
   useSetLocale,
   useSetPanelShadows,
-  type DensityDescriptor,
-  type DensityId,
 } from "../../stores/appearance-store";
 import { Trans } from "react-i18next";
 import { useT } from "../../i18n";
-import { LOCALES, LOCALE_LABEL, type Locale } from "../../i18n/locales";
 import { useServices } from "../../di/services-provider";
 import type {
   GitLabTokenStatus,
@@ -88,6 +78,11 @@ import {
 import { formatError } from "./settings-editor/parts/format-error";
 import { parseArgs } from "./settings-editor/parts/parse-args";
 import { usePluginSettingsTabs } from "./settings-editor/hooks/use-plugin-settings-tabs";
+import CategoryNav from "./settings-editor/components/CategoryNav";
+import SettingRow from "./settings-editor/components/SettingRow";
+import OnOffToggle from "./settings-editor/components/OnOffToggle";
+import LocaleSelect from "./settings-editor/components/LocaleSelect";
+import DensitySlider from "./settings-editor/components/DensitySlider";
 
 const SettingsEditor = () => {
   const t = useT();
@@ -191,65 +186,6 @@ const SettingsEditor = () => {
           </div>
         </ScrollArea>
       </div>
-    </div>
-  );
-};
-
-type CategoryNavProps = {
-  readonly categories: readonly Category[];
-  readonly active: CategoryId;
-  readonly onSelect: (id: CategoryId) => void;
-};
-
-const CategoryNav = ({ categories, active, onSelect }: CategoryNavProps) => {
-  const t = useT();
-  return (
-    <nav className="flex w-56 shrink-0 flex-col gap-0.5 border-r border-border bg-sidebar px-2 py-4">
-      <h3 className="px-2 pb-2 text-2xs font-semibold tracking-wide uppercase text-muted-foreground">
-        {t("settings.options")}
-      </h3>
-      {categories.map((c) => {
-        const Icon = c.icon;
-        const isActive = c.id === active;
-        return (
-          <Button
-            key={c.id}
-            variant="ghost"
-            size="sm"
-            aria-pressed={isActive}
-            onClick={() => onSelect(c.id)}
-            className={cn(
-              "w-full justify-start gap-2 px-2 py-1.5 text-sm",
-              isActive
-                ? "bg-accent text-accent-foreground hover:bg-accent"
-                : "text-muted-foreground",
-            )}
-          >
-            <Icon className="size-4" />
-            <span>{c.label}</span>
-          </Button>
-        );
-      })}
-    </nav>
-  );
-};
-
-type SettingRowProps = {
-  readonly title: string;
-  readonly description?: ReactNode;
-  readonly children: ReactNode;
-};
-
-const SettingRow = ({ title, description, children }: SettingRowProps) => {
-  return (
-    <div className="flex items-start justify-between gap-6 border-b border-border pb-4 last:border-b-0 last:pb-0">
-      <div className="flex min-w-0 flex-col gap-1">
-        <p className="text-sm font-medium">{title}</p>
-        {description && (
-          <div className="text-xs text-muted-foreground">{description}</div>
-        )}
-      </div>
-      <div className="shrink-0">{children}</div>
     </div>
   );
 };
@@ -473,143 +409,6 @@ const DevPerfMonitorRow = () => {
           />
         </div>
       </div>
-    </div>
-  );
-};
-
-type OnOffToggleProps = {
-  value: boolean;
-  onChange: (value: boolean) => void;
-  onLabel: string;
-  offLabel: string;
-};
-
-const OnOffToggle = ({ value, onChange, onLabel, offLabel }: OnOffToggleProps) => (
-  <div className="inline-flex rounded-md border border-border p-0.5">
-    <Button
-      size="xs"
-      variant={value ? "default" : "ghost"}
-      onClick={() => onChange(true)}
-      aria-pressed={value}
-    >
-      {onLabel}
-    </Button>
-    <Button
-      size="xs"
-      variant={value ? "ghost" : "default"}
-      onClick={() => onChange(false)}
-      aria-pressed={!value}
-    >
-      {offLabel}
-    </Button>
-  </div>
-);
-
-type LocaleSelectProps = {
-  locale: Locale;
-  onSelect: (locale: Locale) => void;
-};
-
-const LocaleSelect = ({ locale, onSelect }: LocaleSelectProps) => (
-  <div className="inline-flex rounded-md border border-border p-0.5">
-    {LOCALES.map((l) => {
-      const isActive = l === locale;
-      return (
-        <Button
-          key={l}
-          size="xs"
-          variant={isActive ? "default" : "ghost"}
-          onClick={() => onSelect(l)}
-          aria-pressed={isActive}
-        >
-          {LOCALE_LABEL[l]}
-        </Button>
-      );
-    })}
-  </div>
-);
-
-type DensitySliderProps = {
-  density: DensityId;
-  densities: readonly DensityDescriptor[];
-  onSelect: (id: DensityId) => void;
-};
-
-const DensitySlider = ({ density, densities, onSelect }: DensitySliderProps) => {
-  const activeIndex = Math.max(
-    0,
-    densities.findIndex((d) => d.id === density),
-  );
-  const activeDensity = densities[activeIndex];
-  const lastIndex = densities.length - 1;
-
-  return (
-    <div className="flex flex-col gap-3 px-1 pt-1">
-      <Slider.Root
-        value={activeIndex}
-        min={0}
-        max={lastIndex}
-        step={1}
-        onValueChange={(v) => {
-          const next = densities[v];
-          if (next) onSelect(next.id);
-        }}
-      >
-        <Slider.Control className="relative flex h-5 w-full touch-none items-center select-none">
-          <Slider.Track className="relative h-1.5 w-full rounded-full bg-muted">
-            <Slider.Indicator className="absolute h-full rounded-full bg-primary" />
-            {densities.map((d, i) => (
-              <span
-                key={d.id}
-                aria-hidden
-                className={cn(
-                  "absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border",
-                  i <= activeIndex
-                    ? "border-primary bg-primary"
-                    : "border-border bg-background",
-                )}
-                style={{ left: `${(i / lastIndex) * 100}%` }}
-              />
-            ))}
-          </Slider.Track>
-          <Slider.Thumb className="size-4 rounded-full border-2 border-primary bg-background shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50" />
-        </Slider.Control>
-      </Slider.Root>
-      <div className="relative h-5 w-full">
-        {densities.map((d, i) => {
-          const selected = d.id === density;
-          const alignClass =
-            i === 0
-              ? "-translate-x-0 text-left"
-              : i === lastIndex
-                ? "-translate-x-full text-right"
-                : "-translate-x-1/2 text-center";
-          return (
-            <Button
-              key={d.id}
-              variant="ghost"
-              size="xs"
-              aria-pressed={selected}
-              onClick={() => onSelect(d.id)}
-              className={cn(
-                "absolute top-0 h-auto whitespace-nowrap px-0 py-0 text-xs hover:bg-transparent",
-                alignClass,
-                selected
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              style={{ left: `${(i / lastIndex) * 100}%` }}
-            >
-              {d.label}
-            </Button>
-          );
-        })}
-      </div>
-      {activeDensity && (
-        <p className="text-xs text-muted-foreground">
-          {activeDensity.description}
-        </p>
-      )}
     </div>
   );
 };
