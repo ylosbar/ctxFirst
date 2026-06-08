@@ -10,6 +10,10 @@ export type StepTokenUsage = {
   readonly tokensIn: number;
   /** Sum of output tokens across every LLM run of this step execution. */
   readonly tokensOut: number;
+  /** Sum of cache-write input tokens (`cache_creation_input_tokens`). */
+  readonly cacheCreate: number;
+  /** Sum of cache-read input tokens (`cache_read_input_tokens`). */
+  readonly cacheRead: number;
   /** Sum of USD cost when the provider reports it; `undefined` if none did. */
   readonly costUsd?: number;
   /** Number of LLM runs aggregated (a retried/looped step can have several). */

@@ -16,6 +16,10 @@ export type RunRecord = {
   promptHash: string;
   tokensIn: number;
   tokensOut: number;
+  /** Cache-write input tokens (`cache_creation_input_tokens`). Defaults to 0. */
+  cacheCreate?: number;
+  /** Cache-read input tokens (`cache_read_input_tokens`). Defaults to 0. */
+  cacheRead?: number;
   costUsd?: number;
   latencyMs: number;
   /** Optional {@link ArtifactId} of the produced artifact, as string. */

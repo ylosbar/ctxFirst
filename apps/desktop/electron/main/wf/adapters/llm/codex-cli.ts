@@ -297,6 +297,9 @@ export const createCodexCliLLMGateway = (deps: Deps = {}): LLMGateway => ({
       output,
       tokensIn,
       tokensOut,
+      // Codex reports cached input but no cache-write tokens.
+      cacheCreate: undefined,
+      cacheRead,
       latencyMs,
       costUsd: undefined,
       provider: "codex-cli",

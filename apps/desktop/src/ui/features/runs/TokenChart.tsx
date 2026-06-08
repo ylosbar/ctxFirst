@@ -19,7 +19,10 @@ const MARGIN = { top: 12, right: 16, bottom: 24, left: 200 };
 const IN_FILL = "var(--color-blue-500, #3b82f6)";
 const OUT_FILL = "var(--color-purple-500, #a855f7)";
 
-type Datum = { atMs: number; cumIn: number; cumTotal: number };
+// `cumInput` est l'entrée réelle cumulée, cache compris (Option A — cf.
+// specs/run-detail-tokens-cache-manquants.md). L'aire bleue la représente ;
+// l'aire violette empile la sortie par-dessus jusqu'à `cumTotal`.
+type Datum = { atMs: number; cumInput: number; cumTotal: number };
 
 type Props = {
   readonly width: number;
@@ -71,10 +74,10 @@ const TokenChart = ({
 
   // Point d'origine à (0, 0) pour ancrer les aires au démarrage du run.
   const series: Datum[] = [
-    { atMs: 0, cumIn: 0, cumTotal: 0 },
+    { atMs: 0, cumInput: 0, cumTotal: 0 },
     ...model.points.map((p) => ({
       atMs: p.atMs,
-      cumIn: p.cumIn,
+      cumInput: p.cumIn + p.cumCacheCreate + p.cumCacheRead,
       cumTotal: p.cumTotal,
     })),
   ];
@@ -111,11 +114,11 @@ const TokenChart = ({
         onDoubleClick={onResetZoom}
       >
         <Group left={MARGIN.left} top={MARGIN.top}>
-          {/* Aire input (0 → cumIn) */}
+          {/* Aire input, cache compris (0 → cumInput) */}
           <AreaClosed<Datum>
             data={series}
             x={(d) => xScale(d.atMs)}
-            y={(d) => yScale(d.cumIn)}
+            y={(d) => yScale(d.cumInput)}
             yScale={yScale}
             fill={IN_FILL}
             fillOpacity={0.35}
@@ -123,11 +126,11 @@ const TokenChart = ({
             strokeOpacity={0.6}
             strokeWidth={1}
           />
-          {/* Aire output empilée (cumIn → cumTotal) */}
+          {/* Aire output empilée (cumInput → cumTotal) */}
           <Area<Datum>
             data={series}
             x={(d) => xScale(d.atMs)}
-            y0={(d) => yScale(d.cumIn)}
+            y0={(d) => yScale(d.cumInput)}
             y1={(d) => yScale(d.cumTotal)}
             fill={OUT_FILL}
             fillOpacity={0.3}
@@ -218,11 +221,13 @@ const TokenChart = ({
 
 const PointTooltip = ({ point }: { point: TokenPoint }) => {
   const t = useT();
+  // Entrée affichée = entrée réelle, cache compris (Option A).
+  const inWithCache = point.tokensIn + point.cacheCreate + point.cacheRead;
   return (
     <div>
       <div style={{ fontWeight: 500 }}>{point.label}</div>
       <div style={{ opacity: 0.7 }}>
-        {t("runs.tokens.in")} {formatTokens(point.tokensIn)}
+        {t("runs.tokens.in")} {formatTokens(inWithCache)}
         {" · "}
         {t("runs.tokens.out")} {formatTokens(point.tokensOut)}
         {point.costUsd != null ? ` · ${formatCostUsd(point.costUsd)}` : ""}

@@ -16,6 +16,9 @@ export type ScriptedLlmResponse = {
   /** Override telemetry. Defaults: tokensIn/Out = lengths / 4, latency 1ms. */
   tokensIn?: number;
   tokensOut?: number;
+  /** Cache tokens to report back — default `undefined` (no caching). */
+  cacheCreate?: number;
+  cacheRead?: number;
   latencyMs?: number;
   costUsd?: number;
   /** Override provider tag — defaults to `"fake"`. */
@@ -54,6 +57,8 @@ export const createFakeLLMGateway = (): FakeLLMGateway => {
           next.tokensIn ??
           Math.ceil((req.systemPrompt.length + req.userPrompt.length) / 4),
         tokensOut: next.tokensOut ?? Math.ceil(next.output.length / 4),
+        cacheCreate: next.cacheCreate,
+        cacheRead: next.cacheRead,
         latencyMs: next.latencyMs ?? 1,
         costUsd: next.costUsd ?? 0,
         provider: next.provider ?? "fake",

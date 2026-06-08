@@ -716,4 +716,17 @@ export const migrations: Migration[] = [
       ).join("\n");
     })(),
   },
+  {
+    version: 30,
+    // Records the cache-token breakdown of each LLM run (cf.
+    // `specs/run-detail-tokens-cache-manquants.md`). With Claude Code prompt
+    // caching, `tokens_in` only counts the uncached delta — the bulk of the real
+    // input transits through `cache_read`. Persisting both lets the run-detail
+    // token counter reflect the true input cost. Historical runs keep 0 (an
+    // un-journalled usage can't be reconstructed).
+    sql: `
+      ALTER TABLE wf_runs ADD COLUMN cache_create INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE wf_runs ADD COLUMN cache_read   INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];

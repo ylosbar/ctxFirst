@@ -22,6 +22,8 @@ const EMPTY_MODEL: TokenModel = {
   points: [],
   totalIn: 0,
   totalOut: 0,
+  totalCacheCreate: 0,
+  totalCacheRead: 0,
   totalTokens: 0,
   totalCostUsd: undefined,
 };
@@ -81,12 +83,16 @@ export const buildTokenStats = (args: BuildTokenStatsArgs): TokenModel => {
 
   let cumIn = 0;
   let cumOut = 0;
+  let cumCacheCreate = 0;
+  let cumCacheRead = 0;
   let totalCostUsd = 0;
   let hasCost = false;
 
   const points: TokenPoint[] = raws.map((r) => {
     cumIn += r.u.tokensIn;
     cumOut += r.u.tokensOut;
+    cumCacheCreate += r.u.cacheCreate;
+    cumCacheRead += r.u.cacheRead;
     if (r.u.costUsd != null) {
       totalCostUsd += r.u.costUsd;
       hasCost = true;
@@ -98,11 +104,15 @@ export const buildTokenStats = (args: BuildTokenStatsArgs): TokenModel => {
       atMs: r.atMs,
       tokensIn: r.u.tokensIn,
       tokensOut: r.u.tokensOut,
-      total: r.u.tokensIn + r.u.tokensOut,
+      cacheCreate: r.u.cacheCreate,
+      cacheRead: r.u.cacheRead,
+      total: r.u.tokensIn + r.u.tokensOut + r.u.cacheCreate + r.u.cacheRead,
       costUsd: r.u.costUsd,
       cumIn,
       cumOut,
-      cumTotal: cumIn + cumOut,
+      cumCacheCreate,
+      cumCacheRead,
+      cumTotal: cumIn + cumOut + cumCacheCreate + cumCacheRead,
     };
   });
 
@@ -112,7 +122,9 @@ export const buildTokenStats = (args: BuildTokenStatsArgs): TokenModel => {
     points,
     totalIn: cumIn,
     totalOut: cumOut,
-    totalTokens: cumIn + cumOut,
+    totalCacheCreate: cumCacheCreate,
+    totalCacheRead: cumCacheRead,
+    totalTokens: cumIn + cumOut + cumCacheCreate + cumCacheRead,
     totalCostUsd: hasCost ? totalCostUsd : undefined,
   };
 };
