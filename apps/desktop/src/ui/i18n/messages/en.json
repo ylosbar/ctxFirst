@@ -1228,7 +1228,8 @@
       "confirmRerun_other": "Re-run from « {{label}} »? {{count}} downstream steps will be recomputed and their previous executions replaced."
     },
     "stats": {
-      "title": "Step timeline"
+      "title": "Step timeline",
+      "resetZoom": "Reset zoom"
     },
     "tokens": {
       "title": "Token usage",

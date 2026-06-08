@@ -12,6 +12,7 @@ import RunStatsHeader from "./RunStatsHeader";
 import RunTokensHeader from "./RunTokensHeader";
 import useRunTokenUsage from "./useRunTokenUsage";
 import { useTickingNow } from "./useTickingNow";
+import { useTimeZoom } from "./useTimeZoom";
 
 const TOKEN_CHART_BODY = 160;
 
@@ -46,6 +47,12 @@ const RunStatsView = () => {
     });
   }, [ctx, model, usage]);
 
+  // Zoom temps partagé : le Gantt et le graphe de tokens ont le même axe X, on
+  // garde donc une seule fenêtre visible pour qu'ils restent alignés. Réinitialisé
+  // au changement de run via l'id d'instance.
+  const domainMax = model ? Math.max(model.tEndMs - model.t0Ms, 1) : 1;
+  const zoom = useTimeZoom(domainMax, ctx?.instance.id);
+
   if (!ctx) {
     return (
       <div data-run-stats className="h-full">
@@ -69,8 +76,17 @@ const RunStatsView = () => {
 
   return (
     <div data-run-stats className="flex h-full min-h-0 flex-col">
-      <h2 className="border-b px-3 py-2 text-sm font-semibold text-foreground">
+      <h2 className="flex items-center justify-between border-b px-3 py-2 text-sm font-semibold text-foreground">
         {t("runs.stats.title")}
+        {zoom.isZoomed ? (
+          <button
+            type="button"
+            onClick={zoom.reset}
+            className="rounded px-1.5 py-0.5 text-xs font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            {t("runs.stats.resetZoom")}
+          </button>
+        ) : null}
       </h2>
       <RunStatsHeader summary={model.summary} />
       <PanelBody>
@@ -82,6 +98,11 @@ const RunStatsView = () => {
               model={model}
               selectedStepId={ctx.selected?.stepId ?? null}
               onSelectStep={ctx.onSelectStep}
+              view={zoom.view}
+              isZoomed={zoom.isZoomed}
+              onZoomAtFraction={zoom.zoomAtFraction}
+              onPanByFraction={zoom.panByFraction}
+              onResetZoom={zoom.reset}
             />
           )}
         </ParentSize>
@@ -101,6 +122,11 @@ const RunStatsView = () => {
                   model={tokenModel}
                   selectedStepId={ctx.selected?.stepId ?? null}
                   onSelectStep={ctx.onSelectStep}
+                  view={zoom.view}
+                  isZoomed={zoom.isZoomed}
+                  onZoomAtFraction={zoom.zoomAtFraction}
+                  onPanByFraction={zoom.panByFraction}
+                  onResetZoom={zoom.reset}
                 />
               )}
             </ParentSize>

@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatExecDuration, formatTime } from "../format-exec-time";
 import { useT } from "../../i18n";
 import type {
   NodeSpecView,
@@ -31,31 +32,6 @@ export type StepNodeData = TemplateStepDraft & {
    *  Triggers the landing "pop" animation; the editor clears it once the
    *  animation has finished so re-renders don't replay it. */
   justDropped?: boolean;
-};
-
-const formatTime = (iso?: string): string | null => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-};
-
-const formatDuration = (startedAt?: string, endedAt?: string): string | null => {
-  if (!startedAt || !endedAt) return null;
-  const start = new Date(startedAt).getTime();
-  const end = new Date(endedAt).getTime();
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
-  const ms = end - start;
-  if (ms < 1000) return `${ms}ms`;
-  const totalSec = Math.round(ms / 1000);
-  if (totalSec < 60) return `${totalSec}s`;
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}m${sec.toString().padStart(2, "0")}`;
 };
 
 const overlayBorderClass = (overlay: StepExecutionOverlay): string => {
@@ -175,10 +151,7 @@ const StepNode = ({ data, selected }: NodeProps) => {
     if (!overlayLatest) return undefined;
     const parts: string[] = [overlayLatest.status];
     const started = formatTime(overlayLatest.startedAt);
-    const duration = formatDuration(
-      overlayLatest.startedAt,
-      overlayLatest.endedAt,
-    );
+    const duration = formatExecDuration(overlayLatest);
     if (started) parts.push(`démarrée ${started}`);
     if (duration) parts.push(`durée ${duration}`);
     if (overlayLatest.error) parts.push(`erreur: ${overlayLatest.error}`);

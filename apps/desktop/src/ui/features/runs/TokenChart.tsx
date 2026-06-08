@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
@@ -8,6 +8,7 @@ import { useT } from "../../i18n";
 import { formatDurationMs } from "./build-step-stats";
 import { formatCostUsd, formatTokens } from "./build-token-stats";
 import type { TokenModel, TokenPoint } from "./token-stats-types";
+import { useChartGestures, type TimeView } from "./useTimeZoom";
 
 export const TOKEN_AXIS_HEIGHT = 24;
 
@@ -26,6 +27,12 @@ type Props = {
   readonly model: TokenModel;
   readonly selectedStepId: string | null;
   readonly onSelectStep: (stepId: string) => void;
+  /** Fenêtre temps visible (zoom/pan partagés avec le Gantt). */
+  readonly view: TimeView;
+  readonly isZoomed: boolean;
+  readonly onZoomAtFraction: (fraction: number, deltaY: number) => void;
+  readonly onPanByFraction: (fraction: number) => void;
+  readonly onResetZoom: () => void;
 };
 
 const TokenChart = ({
@@ -34,15 +41,25 @@ const TokenChart = ({
   model,
   selectedStepId,
   onSelectStep,
+  view,
+  isZoomed,
+  onZoomAtFraction,
+  onPanByFraction,
+  onResetZoom,
 }: Props) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const innerW = Math.max(width - MARGIN.left - MARGIN.right, 0);
   const innerH = Math.max(height - MARGIN.top - MARGIN.bottom, 0);
 
-  const domainMax = Math.max(model.tEndMs - model.t0Ms, 1);
+  const { isPanning } = useChartGestures(svgRef, MARGIN.left, innerW, {
+    zoomAtFraction: onZoomAtFraction,
+    panByFraction: onPanByFraction,
+  });
+
   const yMax = Math.max(model.totalTokens, 1);
 
   const xScale = scaleLinear<number>({
-    domain: [0, domainMax],
+    domain: [view.startMs, view.endMs],
     range: [0, innerW],
     clamp: true,
   });
@@ -83,7 +100,16 @@ const TokenChart = ({
 
   return (
     <div className="relative" style={{ width, height }}>
-      <svg width={width} height={height} className="block">
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        className="block"
+        style={{
+          cursor: isPanning ? "grabbing" : isZoomed ? "grab" : "default",
+        }}
+        onDoubleClick={onResetZoom}
+      >
         <Group left={MARGIN.left} top={MARGIN.top}>
           {/* Aire input (0 → cumIn) */}
           <AreaClosed<Datum>
@@ -114,6 +140,8 @@ const TokenChart = ({
             strokeWidth={1.5}
           />
           {model.points.map((p) => {
+            // Hors fenêtre zoomée : pas de point résiduel collé au bord.
+            if (p.atMs < view.startMs || p.atMs > view.endMs) return null;
             const cx = xScale(p.atMs);
             const cy = yScale(p.cumTotal);
             const isSelected = p.stepId === selectedStepId;

@@ -1228,7 +1228,8 @@
       "confirmRerun_other": "Relancer depuis « {{label}} » ? {{count}} étapes en aval seront recalculées et leurs exécutions précédentes remplacées."
     },
     "stats": {
-      "title": "Chronologie des étapes"
+      "title": "Chronologie des étapes",
+      "resetZoom": "Réinitialiser le zoom"
     },
     "tokens": {
       "title": "Consommation de tokens",
