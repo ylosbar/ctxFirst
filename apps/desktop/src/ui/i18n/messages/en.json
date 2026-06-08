@@ -308,6 +308,7 @@
           "png": "Export as PNG"
         },
         "clearAll": "Clear everything and start over",
+        "reload": "Reload the template data from disk",
         "saveDraft": "Save draft",
         "saveLocked": "Template published (immutable) — change the version to edit",
         "saving": "Saving…",

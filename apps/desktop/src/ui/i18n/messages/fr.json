@@ -308,6 +308,7 @@
           "png": "Exporter en PNG"
         },
         "clearAll": "Tout effacer et repartir de zéro",
+        "reload": "Recharger les données du template depuis le disque",
         "saveDraft": "Sauvegarder le brouillon",
         "saveLocked": "Template publié (immuable) — change la version pour éditer",
         "saving": "Sauvegarde…",

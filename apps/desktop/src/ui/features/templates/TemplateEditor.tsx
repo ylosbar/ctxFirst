@@ -138,6 +138,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
 
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState<boolean>(!isNew || Boolean(fromRef));
+  // Incrémenté par le bouton Refresh de la toolbar pour forcer `useTemplateLoad`
+  // à re-fetch le template depuis le disque (cf. le hook).
+  const [reloadToken, setReloadToken] = useState(0);
   // Layout chargé une seule fois à l'ouverture. Sert à initialiser les
   // positions de `templateToGraph` et le `defaultViewport` (uncontrolled) de
   // ReactFlow. La source de vérité ensuite est l'état xyflow ; le hook
@@ -211,6 +214,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   useTemplateLoad({
     editingRef,
     fromRef,
+    reloadToken,
     services,
     counterRef,
     setName,
@@ -292,6 +296,19 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
       setLayoutSaveError(e instanceof Error ? e.message : String(e));
     },
   });
+
+  // Recharge le template depuis le disque (re-fetch via `useTemplateLoad`).
+  // Sans ref persistée il n'y a rien à recharger ; on confirme sinon car
+  // l'opération écrase les éventuelles modifications non sauvegardées.
+  const handleReload = useCallback(() => {
+    if (editingRef === null) return;
+    const ok = window.confirm(
+      "Recharger le template depuis le disque ? Les modifications non sauvegardées seront perdues.",
+    );
+    if (!ok) return;
+    clearSelection();
+    setReloadToken((n) => n + 1);
+  }, [editingRef, clearSelection]);
 
   const handleClearAll = useCallback(() => {
     if (nodes.length === 0 && edges.length === 0) return;
@@ -571,6 +588,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           handleSave={handleSave}
           handlePublish={handlePublish}
           handleClearAll={handleClearAll}
+          handleReload={handleReload}
         />
       )}
 
