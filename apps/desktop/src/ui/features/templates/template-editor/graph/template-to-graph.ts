@@ -16,6 +16,7 @@ import {
 } from "./auto-layout";
 import { edgeStyle } from "./edge-style";
 import { findContainingGroupId } from "./geometry";
+import { AUTO_LOOP_SOURCE_KINDS } from "./ids";
 
 export const groupLayoutToNode = (g: GroupLayout): Node => ({
   id: g.id,
@@ -112,8 +113,11 @@ export const templateToGraph = (
       data: { ...stepData, isEntry: s.id === tpl.entryStep },
     };
   });
+  const kindByStepId = new Map(tpl.steps.map((s) => [s.id, s.kind]));
   const edges: Edge[] = tpl.transitions.map((t, i) => {
     const isSelfLoop = t.from === t.to;
+    const isAutoLoop =
+      t.isLoop && AUTO_LOOP_SOURCE_KINDS.has(kindByStepId.get(t.from) ?? "");
     return {
       id: `e-${t.from}-${t.to}-${i}`,
       source: t.from,
@@ -126,7 +130,7 @@ export const templateToGraph = (
         ...(typeof t.order === "number" ? { order: t.order } : {}),
       },
       zIndex: isSelfLoop ? 1000 : undefined,
-      ...edgeStyle(t.isLoop),
+      ...edgeStyle(t.isLoop, isAutoLoop),
     };
   });
   // React Flow exige que les parents apparaissent AVANT leurs enfants dans

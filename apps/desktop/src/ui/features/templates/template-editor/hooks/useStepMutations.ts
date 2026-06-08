@@ -21,6 +21,7 @@ import type { Edge, Node } from "@xyflow/react";
 import type { TemplateStepDraft } from "../../../../../domain/workflow/types";
 import type { SelectedEdgeInfo } from "../../../../stores/template-canvas-store";
 import { edgeStyle, type EdgeData } from "../graph/edge-style";
+import { AUTO_LOOP_SOURCE_KINDS } from "../graph/ids";
 
 type Options = {
   nodes: Node[];
@@ -138,10 +139,13 @@ export const useStepMutations = ({
       eds.map((e) => {
         if (e.id !== selectedEdgeId) return e;
         const next = !((e.data as EdgeData | undefined)?.isLoop ?? false);
-        return { ...e, data: { isLoop: next }, ...edgeStyle(next) };
+        const sourceKind = nodes.find((n) => n.id === e.source)?.data?.kind;
+        const isAutoLoop =
+          next && AUTO_LOOP_SOURCE_KINDS.has((sourceKind as string) ?? "");
+        return { ...e, data: { isLoop: next }, ...edgeStyle(next, isAutoLoop) };
       }),
     );
-  }, [selectedEdgeId, setEdges]);
+  }, [selectedEdgeId, setEdges, nodes]);
 
   const deleteSelectedEdge = useCallback(() => {
     if (!selectedEdgeId) return;

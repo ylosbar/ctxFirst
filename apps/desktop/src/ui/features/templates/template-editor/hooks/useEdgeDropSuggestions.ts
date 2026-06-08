@@ -42,7 +42,12 @@ import {
   STEP_KIND_CATALOG,
 } from "../../../../components/templates/step-kinds";
 import type { EdgeDropSuggestion } from "../../../../components/templates/EdgeDropSuggestions";
-import { START_NODE_ID, highestCounterForKind, makeStepId } from "../graph/ids";
+import {
+  AUTO_LOOP_SOURCE_KINDS,
+  START_NODE_ID,
+  highestCounterForKind,
+  makeStepId,
+} from "../graph/ids";
 import { buildDefaultStep, resolveStepSpec, type ByKind } from "../graph/step-spec";
 import { edgeStyle, type EdgeData } from "../graph/edge-style";
 
@@ -115,6 +120,9 @@ export const useEdgeDropSuggestions = ({
   const onConnect = useCallback(
     (conn: Connection) => {
       const isSelfLoop = conn.source === conn.target;
+      const sourceKind = nodes.find((n) => n.id === conn.source)?.data?.kind;
+      const isAutoLoop =
+        isSelfLoop && AUTO_LOOP_SOURCE_KINDS.has((sourceKind as string) ?? "");
       setEdges((eds) =>
         addEdge(
           {
@@ -123,13 +131,13 @@ export const useEdgeDropSuggestions = ({
             type: isSelfLoop ? "selfLoop" : "step",
             data: { isLoop: isSelfLoop } satisfies EdgeData,
             zIndex: isSelfLoop ? 1000 : undefined,
-            ...edgeStyle(isSelfLoop),
+            ...edgeStyle(isSelfLoop, isAutoLoop),
           },
           eds,
         ),
       );
     },
-    [setEdges],
+    [setEdges, nodes],
   );
 
   const onConnectStart = useCallback(

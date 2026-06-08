@@ -20,6 +20,7 @@ export const isSyntheticId = (id: string): boolean =>
 export const AUTO_LOOP_SOURCE_KINDS: ReadonlySet<string> = new Set([
   "llm.judge",
   "format.validate",
+  "claude_code.judge",
 ]);
 
 export const makeStepId = (kind: string, counter: number) =>
