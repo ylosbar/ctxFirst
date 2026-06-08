@@ -32,6 +32,12 @@ import { buildDefaultStep } from "../graph/step-spec";
 type Options = {
   editingRef: string | null;
   fromRef: string | null;
+  /**
+   * Jeton de rechargement : incrémenter sa valeur (via le bouton Refresh de la
+   * toolbar) relance l'effet et re-fetch le template depuis le disque, écrasant
+   * l'état courant de l'éditeur. Inerte pour un template neuf non persisté.
+   */
+  reloadToken: number;
   services: Services;
   counterRef: MutableRefObject<number>;
   setName: Dispatch<SetStateAction<string>>;
@@ -52,6 +58,7 @@ type Options = {
 export const useTemplateLoad = ({
   editingRef,
   fromRef,
+  reloadToken,
   services,
   counterRef,
   setName,
@@ -137,6 +144,7 @@ export const useTemplateLoad = ({
     };
     // `setVariables` provient de `useTemplateVariables` (prop stable) : listé
     // pour exhaustive-deps, les autres setters bruts restent reconnus.
+    // `reloadToken` relance volontairement l'effet à chaque incrément.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingRef, fromRef, services, setVariables]);
+  }, [editingRef, fromRef, reloadToken, services, setVariables]);
 };

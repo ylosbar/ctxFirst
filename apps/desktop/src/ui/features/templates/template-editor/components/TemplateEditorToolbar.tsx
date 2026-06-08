@@ -18,6 +18,7 @@ import {
   Minimize2,
   NotebookPen,
   Play,
+  RefreshCw,
   Rocket,
   Save,
   StickyNote,
@@ -81,6 +82,7 @@ type Props = {
   readonly handleSave: () => Promise<void>;
   readonly handlePublish: () => void;
   readonly handleClearAll: () => void;
+  readonly handleReload: () => void;
 };
 
 const TemplateEditorToolbar = ({
@@ -114,6 +116,7 @@ const TemplateEditorToolbar = ({
   handleSave,
   handlePublish,
   handleClearAll,
+  handleReload,
 }: Props) => {
   const t = useT();
   return (
@@ -362,6 +365,12 @@ const TemplateEditorToolbar = ({
             className="text-destructive hover:text-destructive"
           />
         ) : null}
+        <ToolbarButton
+          icon={RefreshCw}
+          label={t("template.editor.toolbar.reload")}
+          onClick={handleReload}
+          disabled={busy || editingRef === null}
+        />
         <ToolbarButton
           icon={Save}
           label={t(
