@@ -18,6 +18,12 @@ type SessionItem = LlmSessionEvent & { readonly endSeq: number };
 
 type SessionsMap = Readonly<Record<string, ReadonlyArray<SessionItem>>>;
 
+// Coalescing window for event-driven timeline refetches. A burst of workflow
+// events (StepStarted/StepValidated/… during an active run) collapses into at
+// most one `getWorkflowTimeline` round-trip per window, mirroring the 150 ms
+// debounce used for the instance list elsewhere.
+const TIMELINE_REFRESH_COALESCE_MS = 150;
+
 type UseWorkflow = {
   instance: InstanceView | null;
   template: TemplateView | null;
@@ -137,6 +143,7 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
   const pendingRef = useRef<Map<string, LlmSessionEvent[]>>(new Map());
   const flushHandleRef = useRef<number | null>(null);
   const loadedRef = useRef<Set<string>>(new Set());
+  const timelineRefreshHandleRef = useRef<number | null>(null);
 
   const flushSessions = useCallback(() => {
     flushHandleRef.current = null;
@@ -173,14 +180,22 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
     loadedRef.current.clear();
   }, []);
 
+  const cancelTimelineRefresh = useCallback(() => {
+    if (timelineRefreshHandleRef.current !== null) {
+      clearTimeout(timelineRefreshHandleRef.current);
+      timelineRefreshHandleRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       if (flushHandleRef.current !== null) {
         cancelAnimationFrame(flushHandleRef.current);
         flushHandleRef.current = null;
       }
+      cancelTimelineRefresh();
     };
-  }, []);
+  }, [cancelTimelineRefresh]);
 
   const refreshTimeline = useCallback(
     async (id: string) => {
@@ -190,7 +205,28 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
     [services],
   );
 
+  // Coalesce event-driven refetches: the first event arms a timer; subsequent
+  // events within the window are dropped (a single refetch already covers
+  // them). Guarantees a bounded refresh rate even under a continuous event
+  // stream, unlike a trailing debounce which could starve.
+  const scheduleTimelineRefresh = useCallback(
+    (id: string) => {
+      if (timelineRefreshHandleRef.current !== null) return;
+      timelineRefreshHandleRef.current = window.setTimeout(() => {
+        timelineRefreshHandleRef.current = null;
+        refreshTimeline(id).catch((err) => {
+
+          console.error("[wf:ui] refreshTimeline failed", err);
+        });
+      }, TIMELINE_REFRESH_COALESCE_MS);
+    },
+    [refreshTimeline],
+  );
+
   useEffect(() => {
+    // A pending coalesced refresh targets the previous instance; drop it. The
+    // immediate refetch below (or the cleared state) supersedes it.
+    cancelTimelineRefresh();
     if (!instanceId) {
       setInstance(null);
       setSessions({});
@@ -213,7 +249,7 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
     return () => {
       cancelled = true;
     };
-  }, [instanceId, refreshTimeline, resetSessionBuffers]);
+  }, [instanceId, refreshTimeline, resetSessionBuffers, cancelTimelineRefresh]);
 
   const templateRef = instance
     ? `${instance.templateId}@${instance.templateVersion}`
@@ -243,10 +279,7 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
     const handleEvent = (evt: WfEvent) => {
       if (!instanceId) return;
       if (evt.instanceId !== instanceId) return;
-      refreshTimeline(instanceId).catch((err) => {
-         
-        console.error("[wf:ui] refreshTimeline failed", err);
-      });
+      scheduleTimelineRefresh(instanceId);
     };
     const handleSession = (ev: LlmSessionEvent) => {
       const buf = pendingRef.current.get(ev.stepExecId);
@@ -264,7 +297,7 @@ const useWorkflow = (instanceId: string | null): UseWorkflow => {
     return () => {
       unsub();
     };
-  }, [services, refreshTimeline, instanceId, scheduleFlush]);
+  }, [services, scheduleTimelineRefresh, instanceId, scheduleFlush]);
 
   const loadSession = useCallback(
     async (stepExecId: string): Promise<void> => {

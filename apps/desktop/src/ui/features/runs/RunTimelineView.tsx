@@ -75,22 +75,17 @@ const RunTimelineView = () => {
   const services = useServices();
   const t = useT();
 
-  const tickInterval =
-    ctx && (ctx.instance.status === "running" || ctx.instance.status === "awaitingHuman")
-      ? 1000
-      : null;
-  const nowMs = useTickingNow(tickInterval);
-
-  const model = useMemo(() => {
-    if (!ctx) return null;
-    return buildTimeline({
-      instance: ctx.instance,
-      template: ctx.template,
-      nowMs,
-    });
-  }, [ctx, nowMs]);
-
   const instance = ctx?.instance ?? null;
+  const template = ctx?.template ?? null;
+
+  // The model is `now`-independent, so it depends only on the structural
+  // inputs (`instance`/`template`) — not on `ctx` as a whole, and never on a
+  // ticking clock. A run's per-second tick no longer rebuilds the tree; only
+  // the in-progress row's `LiveDuration` leaf re-renders (perf P2/P4).
+  const model = useMemo(
+    () => (instance ? buildTimeline({ instance, template }) : null),
+    [instance, template],
+  );
 
   const handleRerun = useCallback(
     (row: TimelineRow) => {
@@ -461,6 +456,17 @@ type RowProps = {
   readonly onOpenChild: (childInstanceId: string) => void;
 };
 
+/**
+ * Live-ticking compute duration for an in-progress row. The clock lives here,
+ * at the leaf, so a run's per-second tick re-renders only this tiny node — the
+ * timeline model and tree stay put (perf P2). Unmounts (and stops ticking) the
+ * moment the row settles and switches back to its frozen `durationMs`.
+ */
+const LiveDuration = ({ startedAtMs }: { readonly startedAtMs: number }) => {
+  const now = useTickingNow(1000);
+  return <>{formatDurationMs(Math.max(now - startedAtMs, 0))}</>;
+};
+
 const TimelineRowItem = ({
   row,
   depth,
@@ -589,7 +595,11 @@ const TimelineRowItem = ({
               row.hasError && "text-destructive",
             )}
           >
-            {formatDurationMs(row.durationMs)}
+            {row.inProgress ? (
+              <LiveDuration startedAtMs={row.startedAtMs} />
+            ) : (
+              formatDurationMs(row.durationMs)
+            )}
           </span>
           <span className="text-muted-foreground/60">
             {formatClock(row.startedAtMs)}

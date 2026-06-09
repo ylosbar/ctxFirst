@@ -17,7 +17,6 @@ import type {
 export type BuildTimelineArgs = {
   readonly instance: InstanceView;
   readonly template: TemplateView | null;
-  readonly nowMs?: number;
 };
 
 const EMPTY_MODEL: TimelineModel = {
@@ -49,7 +48,6 @@ const IDLE_GAP_MIN_MS = 2000;
 
 export const buildTimeline = (args: BuildTimelineArgs): TimelineModel => {
   const { instance, template } = args;
-  const nowMs = args.nowMs ?? Date.now();
 
   if (instance.executions.length === 0) return EMPTY_MODEL;
 
@@ -101,13 +99,20 @@ export const buildTimeline = (args: BuildTimelineArgs): TimelineModel => {
 
   const parsed: Parsed[] = considered.map((exec) => {
     const startedMs = Date.parse(exec.startedAt as string);
-    const wallEndedMs = exec.endedAt ? Date.parse(exec.endedAt) : nowMs;
-    const execEndedMs = exec.executionEndedAt
-      ? Date.parse(exec.executionEndedAt)
-      : wallEndedMs;
     // "In progress" = work is still being done. A step in `awaitingHuman`
     // has finished its compute, so it's NOT in progress.
     const inProgress = !exec.executionEndedAt && !exec.endedAt;
+    // No `nowMs` here: the structural model is `now`-independent so it can be
+    // memoized on `instance`/`template` alone (perf P2). A genuinely-running
+    // row freezes at `startedMs` (duration 0) — its live elapsed is computed
+    // at render time, not baked into the model. `awaitingHuman` already has a
+    // fixed `executionEndedAt`, so its compute duration was never `now`-bound.
+    const execEndedMs = exec.executionEndedAt
+      ? Date.parse(exec.executionEndedAt)
+      : exec.endedAt
+        ? Date.parse(exec.endedAt)
+        : startedMs;
+    const wallEndedMs = exec.endedAt ? Date.parse(exec.endedAt) : execEndedMs;
     return { exec, startedMs, execEndedMs, wallEndedMs, inProgress };
   });
 

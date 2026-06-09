@@ -15,7 +15,6 @@ import type {
 export type BuildStepStatsArgs = {
   readonly instance: InstanceView;
   readonly template: TemplateView | null;
-  readonly nowMs?: number;
 };
 
 const ZERO_STATUS_COUNTS: StatusCounts = {
@@ -95,7 +94,6 @@ export const formatDurationMs = (ms: number): string => {
 
 export const buildStepStats = (args: BuildStepStatsArgs): GanttModel => {
   const { instance, template } = args;
-  const nowMs = args.nowMs ?? Date.now();
 
   if (!template) return EMPTY_MODEL;
   if (instance.executions.length === 0) return EMPTY_MODEL;
@@ -140,14 +138,17 @@ export const buildStepStats = (args: BuildStepStatsArgs): GanttModel => {
   const startedMsByExec = new Map<string, number>();
   // Bar end = end of *compute time*. Prefers `executionEndedAt`, falls back to
   // the terminal `endedAt` (legacy events without `executionEndedAt`), and to
-  // `nowMs` for steps that are still actively computing (no gate/terminal yet).
+  // `startedMs` (duration 0) for a genuinely-running step — its live extent is
+  // applied later by `projectLiveStats`, keeping this builder `now`-independent
+  // so it can be memoized across ticks (perf P2).
   const execEndedMsByExec = new Map<string, number>();
   // Timeline end = end of *wall-clock time*. Drives the x-axis extent. Counts
   // the human/child wait of *completed* gates (`endedAt` lands after the wait),
   // but freezes while a gate is *still open*: a step that has paused
-  // (`executionEndedAt` set) but not yet terminated stops at `executionEndedAt`
-  // instead of growing with `nowMs`, so an open human gate doesn't keep the
-  // timeline counter ticking. Only a genuinely-running step extends to `nowMs`.
+  // (`executionEndedAt` set) but not yet terminated stops at `executionEndedAt`,
+  // so an open human gate doesn't keep the timeline counter ticking. A
+  // genuinely-running step freezes at `startedMs` here and is extended live by
+  // `projectLiveStats`.
   const wallEndedMsByExec = new Map<string, number>();
 
   for (const exec of considered) {
@@ -156,7 +157,7 @@ export const buildStepStats = (args: BuildStepStatsArgs): GanttModel => {
       ? Date.parse(exec.executionEndedAt)
       : exec.endedAt
         ? Date.parse(exec.endedAt)
-        : nowMs;
+        : startedMs;
     const wallEndedMs = exec.endedAt ? Date.parse(exec.endedAt) : execEndedMs;
     startedMsByExec.set(exec.id, startedMs);
     execEndedMsByExec.set(exec.id, execEndedMs);
@@ -173,8 +174,9 @@ export const buildStepStats = (args: BuildStepStatsArgs): GanttModel => {
     const startedMs = startedMsByExec.get(exec.id) as number;
     const endedMs = execEndedMsByExec.get(exec.id) as number;
     // "In progress" = work is still being done. A step in `awaitingHuman`
-    // has finished its compute, so it's NOT in progress (its bar should
-    // freeze at `executionEndedAt`, not grow with `nowMs`).
+    // has finished its compute, so it's NOT in progress (its bar freezes at
+    // `executionEndedAt`). Only an in-progress bar grows live — see
+    // `projectLiveStats`.
     const inProgress = !exec.executionEndedAt && !exec.endedAt;
     const bar: GanttBar = {
       stepExecId: exec.id,
@@ -225,6 +227,49 @@ export const buildStepStats = (args: BuildStepStatsArgs): GanttModel => {
       statusCounts,
       retriedStepsCount,
       humanGatesCount,
+    },
+  };
+};
+
+/**
+ * Overlay the live wall-clock onto a structural model: extends only the
+ * genuinely-running bar(s), the x-axis extent and the wall-clock/compute
+ * summary up to `nowMs`. Cheap — no `Date.parse`, sort or regroup — so the
+ * heavy {@link buildStepStats} stays memoized on `instance`/`template` while a
+ * run ticks (perf P2). Returns the **same reference** when nothing is in
+ * progress, so a finished run never churns its consumers.
+ */
+export const projectLiveStats = (
+  model: GanttModel,
+  nowMs: number,
+): GanttModel => {
+  const liveEndRel = Math.max(nowMs - model.t0Ms, 0);
+  let changed = false;
+  const rows = model.rows.map((row) => {
+    if (!row.bars.some((b) => b.inProgress)) return row;
+    changed = true;
+    const bars = row.bars.map((b) =>
+      b.inProgress
+        ? { ...b, durationMs: Math.max(liveEndRel - b.startMs, 0) }
+        : b,
+    );
+    const cumulativeMs = bars.reduce((acc, b) => acc + b.durationMs, 0);
+    return { ...row, bars, cumulativeMs };
+  });
+  if (!changed) return model;
+
+  const computeMs = rows.reduce((acc, r) => acc + r.cumulativeMs, 0);
+  // Reapplies the 5% right margin to the live end so the running bar never
+  // touches the axis edge — matching the structural builder's `T_END_MARGIN`.
+  const liveSpan = Math.max(model.tEndMs - model.t0Ms, liveEndRel * (1 + T_END_MARGIN));
+  return {
+    ...model,
+    rows,
+    tEndMs: model.t0Ms + liveSpan,
+    summary: {
+      ...model.summary,
+      wallClockMs: Math.max(model.summary.wallClockMs, liveEndRel),
+      computeMs,
     },
   };
 };
