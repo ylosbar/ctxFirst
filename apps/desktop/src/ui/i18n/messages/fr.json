@@ -1206,6 +1206,7 @@
       "noSelection": "(aucune étape sélectionnée)"
     },
     "list": {
+      "ariaLabel": "Liste des runs",
       "groupBy": "Grouper par",
       "filterByStatus": "Filtrer par statut",
       "showAll": "Tout afficher",
@@ -1221,6 +1222,7 @@
       "feedbackComments_other": "{{count}} commentaires",
       "subworkflowStepCount_one": "sous-workflow · {{count}} étape",
       "subworkflowStepCount_other": "sous-workflow · {{count}} étapes",
+      "ariaLabel": "Chronologie du run",
       "collapseAll": "Tout replier",
       "expandAll": "Tout déplier",
       "openChild": "Ouvrir le sous-run",

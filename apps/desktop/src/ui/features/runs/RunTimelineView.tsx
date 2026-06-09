@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Boxes,
   ChevronDown,
@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import VirtualList from "@/components/ui/virtual-list";
 import {
   STATUS_LABEL,
   STATUS_STYLE,
@@ -207,6 +207,37 @@ type RenderItem =
 /** Collapse-set key for a sub-workflow group keyed by its call prefix. */
 const subKey = (prefix: string): string => `sub:${prefix}`;
 
+/** Stable reconciliation key for a flattened render item. */
+const renderItemKey = (item: RenderItem): string => {
+  switch (item.kind) {
+    case "step":
+      return item.row.stepExecId;
+    case "loopHeader":
+      return `loop-${item.loop.loopStepId}`;
+    case "iterationHeader":
+      return `iter-${item.iteration.iterationKey}`;
+    case "subworkflowHeader":
+      return `sub-${item.prefix}`;
+  }
+};
+
+/**
+ * Per-kind height estimate (px) for the virtualizer — refined by real
+ * measurement after mount. A step bundles its trailing gaps, so its estimate
+ * leans slightly high to limit scrollbar drift before measure.
+ */
+const estimateRenderItem = (item: RenderItem): number => {
+  switch (item.kind) {
+    case "step":
+      return 44;
+    case "loopHeader":
+      return 40;
+    case "iterationHeader":
+    case "subworkflowHeader":
+      return 30;
+  }
+};
+
 /**
  * Top-level namespace prefix of a flattened step id, or `null` when the step is
  * host-local. Inlined sub-workflow steps carry `callId/originalId`
@@ -354,6 +385,75 @@ const TimelineTree = ({
     return map;
   }, [model.gaps]);
 
+  // Renders one flattened item. Absolutely-positioned virtual rows leave the
+  // normal flow, so the former `<ol>`'s `divide-y` no longer draws separators —
+  // each virtual row carries its own `border-b`. A step bundles its trailing
+  // gaps into the same row so they measure as one unit.
+  const renderRow = (item: RenderItem): React.ReactNode => {
+    let content: React.ReactNode;
+    switch (item.kind) {
+      case "loopHeader":
+        content = (
+          <LoopHeaderItem
+            loop={item.loop}
+            depth={item.depth}
+            collapsed={collapsed.has(item.loop.loopStepId)}
+            isSelected={item.loop.foreach.stepExecId === selectedExecId}
+            onToggle={() => toggle(item.loop.loopStepId)}
+            onSelect={() => onSelectExec(item.loop.foreach.stepExecId)}
+          />
+        );
+        break;
+      case "iterationHeader":
+        content = (
+          <IterationHeaderItem
+            iteration={item.iteration}
+            depth={item.depth}
+            collapsed={collapsed.has(item.iteration.iterationKey)}
+            onToggle={() => toggle(item.iteration.iterationKey)}
+          />
+        );
+        break;
+      case "subworkflowHeader":
+        content = (
+          <SubworkflowHeaderItem
+            prefix={item.prefix}
+            count={item.count}
+            depth={item.depth}
+            collapsed={collapsed.has(subKey(item.prefix))}
+            onToggle={() => toggle(subKey(item.prefix))}
+          />
+        );
+        break;
+      case "step": {
+        const gapsAfter = gapsByExecId.get(item.row.stepExecId) ?? [];
+        content = (
+          <>
+            <TimelineRowItem
+              row={item.row}
+              depth={item.depth}
+              isSelected={item.row.stepExecId === selectedExecId}
+              onClick={() => onSelectExec(item.row.stepExecId)}
+              onRerun={() => onRerun(item.row)}
+              onOpenChild={(childId) =>
+                wb.openEditor(runUriFor(childId), { focus: true })
+              }
+            />
+            {gapsAfter.map((gap, gi) => (
+              <TimelineGapItem
+                key={`gap-${item.row.stepExecId}-${gi}`}
+                gap={gap}
+                depth={item.depth}
+              />
+            ))}
+          </>
+        );
+        break;
+      }
+    }
+    return <div className="border-b border-border/60">{content}</div>;
+  };
+
   return (
     <div className="flex h-full min-w-0 flex-col">
       <RunViewHeader
@@ -374,75 +474,20 @@ const TimelineTree = ({
           </button>
         </div>
       ) : null}
-      <ScrollArea className="min-h-0 flex-1">
-        <ol className="divide-y divide-border/60">
-          {items.map((item) => {
-            if (item.kind === "loopHeader") {
-              return (
-                <LoopHeaderItem
-                  key={`loop-${item.loop.loopStepId}`}
-                  loop={item.loop}
-                  depth={item.depth}
-                  collapsed={collapsed.has(item.loop.loopStepId)}
-                  isSelected={item.loop.foreach.stepExecId === selectedExecId}
-                  onToggle={() => toggle(item.loop.loopStepId)}
-                  onSelect={() =>
-                    onSelectExec(item.loop.foreach.stepExecId)
-                  }
-                />
-              );
-            }
-            if (item.kind === "iterationHeader") {
-              return (
-                <IterationHeaderItem
-                  key={`iter-${item.iteration.iterationKey}`}
-                  iteration={item.iteration}
-                  depth={item.depth}
-                  collapsed={collapsed.has(item.iteration.iterationKey)}
-                  onToggle={() => toggle(item.iteration.iterationKey)}
-                />
-              );
-            }
-            if (item.kind === "subworkflowHeader") {
-              return (
-                <SubworkflowHeaderItem
-                  key={`sub-${item.prefix}`}
-                  prefix={item.prefix}
-                  count={item.count}
-                  depth={item.depth}
-                  collapsed={collapsed.has(subKey(item.prefix))}
-                  onToggle={() => toggle(subKey(item.prefix))}
-                />
-              );
-            }
-            const gapsAfter = gapsByExecId.get(item.row.stepExecId) ?? [];
-            return (
-              <Fragment key={item.row.stepExecId}>
-                <TimelineRowItem
-                  row={item.row}
-                  depth={item.depth}
-                  isSelected={item.row.stepExecId === selectedExecId}
-                  onClick={() => onSelectExec(item.row.stepExecId)}
-                  onRerun={() => onRerun(item.row)}
-                  onOpenChild={(childId) =>
-                    wb.openEditor(runUriFor(childId), { focus: true })
-                  }
-                />
-                {gapsAfter.map((gap, gi) => (
-                  <TimelineGapItem
-                    key={`gap-${item.row.stepExecId}-${gi}`}
-                    gap={gap}
-                    depth={item.depth}
-                  />
-                ))}
-              </Fragment>
-            );
-          })}
-        </ol>
-        {model.skipped.length > 0 ? (
-          <SkippedFooter skipped={model.skipped} onSelect={onSelectStep} />
-        ) : null}
-      </ScrollArea>
+      <VirtualList
+        as="ol"
+        className="min-h-0 flex-1"
+        ariaLabel={t("runs.timeline.ariaLabel")}
+        items={items}
+        getKey={renderItemKey}
+        estimateSize={estimateRenderItem}
+        renderItem={renderRow}
+        footer={
+          model.skipped.length > 0 ? (
+            <SkippedFooter skipped={model.skipped} onSelect={onSelectStep} />
+          ) : null
+        }
+      />
     </div>
   );
 };
@@ -481,7 +526,7 @@ const TimelineRowItem = ({
   // the rewind & replay rebuilds the target and its downstream.
   const canRerun = row.status === "validated" || row.status === "failed";
   return (
-    <li className="group/row relative">
+    <div className="group/row relative">
       <button
         type="button"
         onClick={onClick}
@@ -621,7 +666,7 @@ const TimelineRowItem = ({
           {t("runs.timeline.rerunFromHere")}
         </button>
       ) : null}
-    </li>
+    </div>
   );
 };
 
@@ -646,7 +691,6 @@ const LoopHeaderItem = ({
   const Chevron = collapsed ? ChevronRight : ChevronDown;
   const inProgress = loop.collect === null;
   return (
-    <li>
       <div
         style={indentStyle(depth)}
         className={cn(
@@ -688,7 +732,6 @@ const LoopHeaderItem = ({
           </span>
         </button>
       </div>
-    </li>
   );
 };
 
@@ -708,7 +751,6 @@ const IterationHeaderItem = ({
   const t = useT();
   const Chevron = collapsed ? ChevronRight : ChevronDown;
   return (
-    <li>
       <button
         type="button"
         onClick={onToggle}
@@ -721,7 +763,6 @@ const IterationHeaderItem = ({
           {t("runs.timeline.iterationHeader", { index: iteration.index })}
         </span>
       </button>
-    </li>
   );
 };
 
@@ -749,7 +790,6 @@ const SubworkflowHeaderItem = ({
   const t = useT();
   const Chevron = collapsed ? ChevronRight : ChevronDown;
   return (
-    <li>
       <div
         style={indentStyle(depth)}
         className="flex w-full items-center gap-1.5 bg-muted/20 py-1.5 pr-3 transition-colors hover:bg-muted/40"
@@ -768,7 +808,6 @@ const SubworkflowHeaderItem = ({
           {`· ${t("runs.timeline.subworkflowStepCount", { count })}`}
         </span>
       </div>
-    </li>
   );
 };
 
@@ -799,7 +838,7 @@ const TimelineGapItem = ({
   const isHumanWait = gap.kind === "humanWait";
   const Icon = isHumanWait ? Hourglass : null;
   return (
-    <li
+    <div
       style={indentStyle(depth, INDENT_STEP_REM)}
       className={cn(
         "flex items-center gap-2 py-1 pr-3 text-2xs",
@@ -816,7 +855,7 @@ const TimelineGapItem = ({
         {" · "}
         {formatDurationMs(gap.durationMs)}
       </span>
-    </li>
+    </div>
   );
 };
 

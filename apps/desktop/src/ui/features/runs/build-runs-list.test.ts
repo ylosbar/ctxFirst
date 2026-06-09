@@ -3,7 +3,7 @@ import type {
   InstanceStatus,
   InstanceSummaryView,
 } from "../../../domain/workflow/types";
-import { buildRunsList } from "./build-runs-list";
+import { buildRunsList, flattenRunsList } from "./build-runs-list";
 
 const mkRun = (
   id: string,
@@ -236,5 +236,129 @@ describe("buildRunsList", () => {
         "child",
       ]);
     });
+  });
+});
+
+describe("flattenRunsList", () => {
+  const withParent = (
+    r: InstanceSummaryView,
+    parentId: string,
+  ): InstanceSummaryView => ({
+    ...r,
+    parent: { instanceId: parentId, stepExecId: `exec-${r.id}` },
+  });
+
+  const groupsOf = (
+    instances: ReadonlyArray<InstanceSummaryView>,
+    pinnedIds: ReadonlySet<string> = new Set(),
+  ) =>
+    buildRunsList({
+      instances,
+      pinnedIds,
+      statusFilter: new Set(),
+      groupMode: "status",
+    });
+
+  it("emits a header then its runs, in order", () => {
+    const groups = groupsOf([
+      mkRun("b", "running", "2026-05-27T12:00:00Z"),
+      mkRun("a", "running", "2026-05-27T10:00:00Z"),
+    ]);
+    const rows = flattenRunsList({
+      groups,
+      collapsedGroupIds: new Set(),
+      collapsedRunIds: new Set(),
+      hasQuery: false,
+    });
+    expect(rows.map((r) => r.kind)).toEqual(["groupHeader", "run", "run"]);
+    expect(rows[0].kind === "groupHeader" && rows[0].group.id).toBe(
+      "status:running",
+    );
+    expect(
+      rows.flatMap((r) => (r.kind === "run" ? [r.node.instance.id] : [])),
+    ).toEqual(["b", "a"]);
+  });
+
+  it("a collapsed group emits only its header", () => {
+    const groups = groupsOf([mkRun("a", "running", "2026-05-27T10:00:00Z")]);
+    const rows = flattenRunsList({
+      groups,
+      collapsedGroupIds: new Set(["status:running"]),
+      collapsedRunIds: new Set(),
+      hasQuery: false,
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe("groupHeader");
+    expect(rows[0].kind === "groupHeader" && rows[0].collapsed).toBe(true);
+  });
+
+  it("hasQuery forces a collapsed group open", () => {
+    const groups = groupsOf([mkRun("a", "running", "2026-05-27T10:00:00Z")]);
+    const rows = flattenRunsList({
+      groups,
+      collapsedGroupIds: new Set(["status:running"]),
+      collapsedRunIds: new Set(),
+      hasQuery: true,
+    });
+    expect(rows.map((r) => r.kind)).toEqual(["groupHeader", "run"]);
+    expect(rows[0].kind === "groupHeader" && rows[0].collapsed).toBe(false);
+  });
+
+  it("emits nested children in pre-order under an expanded run", () => {
+    const root = mkRun("root", "running", "2026-05-27T10:00:00Z");
+    const child = withParent(
+      mkRun("child", "completed", "2026-05-27T10:01:00Z"),
+      "root",
+    );
+    const groups = groupsOf([root, child]);
+    const rows = flattenRunsList({
+      groups,
+      collapsedGroupIds: new Set(),
+      collapsedRunIds: new Set(),
+      hasQuery: false,
+    });
+    const runs = rows.filter((r) => r.kind === "run");
+    expect(
+      runs.map((r) => (r.kind === "run" ? r.node.instance.id : null)),
+    ).toEqual(["root", "child"]);
+    const rootRow = runs[0];
+    expect(rootRow.kind === "run" && rootRow.hasChildren).toBe(true);
+    expect(rootRow.kind === "run" && rootRow.expanded).toBe(true);
+    expect(runs[1].kind === "run" && runs[1].node.depth).toBe(1);
+  });
+
+  it("a collapsed run hides its descendants but keeps the row", () => {
+    const root = mkRun("root", "running", "2026-05-27T10:00:00Z");
+    const child = withParent(
+      mkRun("child", "completed", "2026-05-27T10:01:00Z"),
+      "root",
+    );
+    const groups = groupsOf([root, child]);
+    const rows = flattenRunsList({
+      groups,
+      collapsedGroupIds: new Set(),
+      collapsedRunIds: new Set(["root"]),
+      hasQuery: false,
+    });
+    const runs = rows.filter((r) => r.kind === "run");
+    expect(
+      runs.map((r) => (r.kind === "run" ? r.node.instance.id : null)),
+    ).toEqual(["root"]);
+    expect(runs[0].kind === "run" && runs[0].expanded).toBe(false);
+    expect(runs[0].kind === "run" && runs[0].hasChildren).toBe(true);
+  });
+
+  it("tags each run row with its owning group id", () => {
+    const a = mkRun("a", "running", "2026-05-27T10:00:00Z");
+    const groups = groupsOf([a], new Set(["a"]));
+    const rows = flattenRunsList({
+      groups,
+      collapsedGroupIds: new Set(),
+      collapsedRunIds: new Set(),
+      hasQuery: false,
+    });
+    // `a` is pinned: appears once under "pinned" and once under "status:running".
+    const runGroups = rows.flatMap((r) => (r.kind === "run" ? [r.groupId] : []));
+    expect(runGroups).toEqual(["pinned", "status:running"]);
   });
 });
