@@ -1221,6 +1221,7 @@
       "feedbackComments_other": "{{count}} comments",
       "subworkflowStepCount_one": "sub-workflow · {{count}} step",
       "subworkflowStepCount_other": "sub-workflow · {{count}} steps",
+      "ariaLabel": "Run timeline",
       "collapseAll": "Collapse all",
       "expandAll": "Expand all",
       "openChild": "Open child run",
