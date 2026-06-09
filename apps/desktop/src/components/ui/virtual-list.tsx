@@ -87,11 +87,18 @@ type VirtualListProps<T> = {
   readonly footer?: ReactNode
   readonly ariaLabel?: string
   /**
-   * Marks rows that pin to the top while their section scrolls (group headers).
-   * The current section's header stays mounted even when scrolled out of the
-   * window and is rendered `position: sticky` instead of absolute.
+   * Marks rows that pin to the top while their section scrolls (e.g. group
+   * headers). The headers covering the current scroll position stay mounted
+   * even when scrolled out of the window and render `position: sticky`.
    */
   readonly isSticky?: (item: T, index: number) => boolean
+  /**
+   * Nesting depth of every row (not only sticky ones), enabling a *stack* of
+   * pinned ancestor headers (loop › iteration › …). A header at depth d covers
+   * the following rows of depth > d until a row of depth ≤ d. Omit for flat,
+   * single-level sticky (all headers treated as depth 0).
+   */
+  readonly rowDepth?: (item: T, index: number) => number
 }
 
 const VirtualList = <T,>({
@@ -105,36 +112,53 @@ const VirtualList = <T,>({
   footer,
   ariaLabel,
   isSticky,
+  rowDepth,
 }: VirtualListProps<T>) => {
   const scrollRef = useRef<ScrollAreaHandle>(null)
 
-  const stickyIndices = useMemo(() => {
-    if (!isSticky) return [] as number[]
-    return items.flatMap((item, i) => (isSticky(item, i) ? [i] : []))
-  }, [items, isSticky])
-  const stickySet = useMemo(() => new Set(stickyIndices), [stickyIndices])
+  // For each row, the chain of sticky-header indices that *cover* it (shallow →
+  // deep), plus the set of all sticky indices. Computed in one depth-stack pass.
+  // Without `rowDepth`, every header is depth 0 and content depth 1, so the
+  // stack collapses to a single pinned header (flat behaviour).
+  const sticky = useMemo(() => {
+    if (!isSticky) return null
+    const depthOf =
+      rowDepth ?? ((item: T, i: number) => (isSticky(item, i) ? 0 : 1))
+    const ancestors: number[][] = new Array(items.length)
+    const set = new Set<number>()
+    const stack: Array<{ index: number; depth: number }> = []
+    for (let i = 0; i < items.length; i++) {
+      const d = depthOf(items[i], i)
+      while (stack.length > 0 && stack[stack.length - 1].depth >= d) stack.pop()
+      ancestors[i] = stack.map((s) => s.index)
+      if (isSticky(items[i], i)) {
+        set.add(i)
+        stack.push({ index: i, depth: d })
+      }
+    }
+    return { ancestors, set }
+  }, [items, isSticky, rowDepth])
 
-  // The header to pin = the last sticky index at or above the window start. It
-  // is tracked in a ref (written during `rangeExtractor`, read while rendering
-  // rows below) and force-kept in the window so it never unmounts mid-section.
-  const activeStickyRef = useRef<number | null>(null)
+  // The pinned stack for the current window start — its covering headers, plus
+  // the header itself when the start row *is* one. Written during
+  // `rangeExtractor` (force-keeps them mounted), read below while rendering.
+  const pinnedRef = useRef<number[]>([])
   const rangeExtractor = useCallback(
     (range: Range): number[] => {
-      if (stickyIndices.length === 0) {
-        activeStickyRef.current = null
+      if (!sticky) {
+        pinnedRef.current = []
         return defaultRangeExtractor(range)
       }
-      let active: number | null = null
-      for (const i of stickyIndices) {
-        if (i <= range.startIndex) active = i
-        else break
-      }
-      activeStickyRef.current = active
+      const start = range.startIndex
+      const covering = sticky.ancestors[start] ?? []
+      const pinned = sticky.set.has(start) ? [...covering, start] : covering
+      pinnedRef.current = pinned
+      if (pinned.length === 0) return defaultRangeExtractor(range)
       const next = new Set(defaultRangeExtractor(range))
-      if (active !== null) next.add(active)
+      for (const idx of pinned) next.add(idx)
       return [...next].sort((a, b) => a - b)
     },
-    [stickyIndices],
+    [sticky],
   )
 
   const virtualizer = useScrollAreaVirtualizer(scrollRef, {
@@ -151,7 +175,20 @@ const VirtualList = <T,>({
   const RowTag: ElementType = as === "div" ? "div" : "li"
   const isList = as === "div"
   const rows = virtualizer.getVirtualItems()
-  const activeSticky = activeStickyRef.current
+
+  // Stack the pinned headers from the top: each sits below the shallower ones,
+  // offset by their measured (or estimated) heights.
+  const pinned = pinnedRef.current
+  let pinnedTops: Map<number, number> | null = null
+  if (pinned.length > 0) {
+    const sizeByIndex = new Map(rows.map((r) => [r.index, r.size]))
+    pinnedTops = new Map()
+    let acc = 0
+    for (const idx of pinned) {
+      pinnedTops.set(idx, acc)
+      acc += sizeByIndex.get(idx) ?? estimateSize(items[idx], idx)
+    }
+  }
 
   return (
     <ScrollArea ref={scrollRef} className={className}>
@@ -162,24 +199,28 @@ const VirtualList = <T,>({
         style={{ height: virtualizer.getTotalSize() }}
       >
         {rows.map((vr) => {
-          const isActiveSticky = vr.index === activeSticky
-          // Active header: pinned at the viewport top (in flow, since every
-          // other row is absolute). Non-active headers ride above normal rows.
-          const style: CSSProperties = isActiveSticky
-            ? { position: "sticky", zIndex: 2 }
+          const pinnedTop = pinnedTops?.get(vr.index)
+          const isPinned = pinnedTop !== undefined
+          // Pinned headers stack at the top (in flow, since every other row is
+          // absolute); shallower ones sit higher and win z-order during swaps.
+          // Non-pinned headers ride just above normal rows.
+          const style: CSSProperties = isPinned
+            ? { position: "sticky", top: pinnedTop, zIndex: 30 - pinned.indexOf(vr.index) }
             : {
                 position: "absolute",
                 transform: `translateY(${vr.start}px)`,
-                zIndex: stickySet.has(vr.index) ? 1 : undefined,
+                zIndex: sticky?.set.has(vr.index) ? 1 : undefined,
               }
           return (
             <RowTag
               key={vr.key}
               data-index={vr.index}
-              data-sticky={isActiveSticky ? "" : undefined}
+              data-sticky={isPinned ? "" : undefined}
               role={isList ? "listitem" : undefined}
               ref={virtualizer.measureElement}
-              className="left-0 top-0 w-full"
+              // Pinned rows need an opaque backdrop so the rows scrolling under
+              // them (and shallower pinned layers) don't bleed through.
+              className={isPinned ? "left-0 top-0 w-full bg-background" : "left-0 top-0 w-full"}
               style={style}
             >
               {renderItem(items[vr.index], vr.index)}

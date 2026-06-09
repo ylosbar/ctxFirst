@@ -22,7 +22,6 @@ export type EdgeDropSuggestion = {
 };
 
 type Props = {
-  position: { x: number; y: number };
   suggestions: ReadonlyArray<EdgeDropSuggestion>;
   onSelect: (suggestion: EdgeDropSuggestion) => void;
   onClose: () => void;
@@ -31,29 +30,15 @@ type Props = {
 const suggestionKey = (s: EdgeDropSuggestion) =>
   `${s.kind.id}::${s.resolvedInputKinds.join("|")}::${s.resolvedOutputKind ?? ""}`;
 
-const EdgeDropSuggestions = ({ position, suggestions, onSelect, onClose }: Props) => {
+const EdgeDropSuggestions = ({ suggestions, onSelect, onClose }: Props) => {
   const t = useT();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handleMouseDown);
-    return () => document.removeEventListener("mousedown", handleMouseDown);
-  }, [onClose]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -97,60 +82,72 @@ const EdgeDropSuggestions = ({ position, suggestions, onSelect, onClose }: Props
 
   return (
     <div
-      ref={containerRef}
-      className="absolute z-50 w-72 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg"
-      style={{ left: position.x, top: position.y }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onPointerDown={(e) => {
+        // Backdrop click closes; clicks on the box itself stop here.
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <Input
-        ref={inputRef}
-        className="rounded-none border-0 border-b py-1.5"
-        placeholder={t("template.canvas.edgeDropSuggestions.searchPlaceholder")}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
-      <ScrollArea className="max-h-64">
-        <ul className="py-1">
-          {filtered.length === 0 ? (
-            <li className="px-2 py-2 text-xs text-muted-foreground">
-              {t("template.canvas.edgeDropSuggestions.noMatch")}
-            </li>
-          ) : (
-            filtered.map((s, i) => {
-              const selected = i === activeIndex;
-              return (
-                <li key={suggestionKey(s)}>
-                  <div
-                    role="option"
-                    aria-selected={selected}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    onClick={() => onSelect(s)}
-                    className={cn(
-                      "flex cursor-pointer flex-col items-start gap-0.5 px-2 py-1.5 text-left",
-                      selected
-                        ? "bg-accent text-accent-foreground"
-                        : "text-foreground",
-                    )}
-                  >
-                    <div className="flex w-full items-center justify-between gap-2">
-                      <span className="text-sm font-medium">{s.kind.label}</span>
-                      <span className="font-mono text-2xs text-muted-foreground">
-                        {s.resolvedInputKinds.length > 0
-                          ? `${portKindsLabel(s.resolvedInputKinds)} →`
-                          : "→"}{" "}
-                        {s.resolvedOutputKind ?? "—"}
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="w-96 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg"
+      >
+        <Input
+          ref={inputRef}
+          className="rounded-none border-0 border-b py-1.5"
+          placeholder={t(
+            "template.canvas.edgeDropSuggestions.searchPlaceholder",
+          )}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+        />
+        <ScrollArea className="max-h-96">
+          <ul className="py-1">
+            {filtered.length === 0 ? (
+              <li className="px-2 py-2 text-xs text-muted-foreground">
+                {t("template.canvas.edgeDropSuggestions.noMatch")}
+              </li>
+            ) : (
+              filtered.map((s, i) => {
+                const selected = i === activeIndex;
+                return (
+                  <li key={suggestionKey(s)}>
+                    <div
+                      role="option"
+                      aria-selected={selected}
+                      onMouseEnter={() => setActiveIndex(i)}
+                      onClick={() => onSelect(s)}
+                      className={cn(
+                        "flex cursor-pointer flex-col items-start gap-0.5 px-2 py-1.5 text-left",
+                        selected
+                          ? "bg-accent text-accent-foreground"
+                          : "text-foreground",
+                      )}
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className="text-sm font-medium">
+                          {s.kind.label}
+                        </span>
+                        <span className="font-mono text-2xs text-muted-foreground">
+                          {s.resolvedInputKinds.length > 0
+                            ? `${portKindsLabel(s.resolvedInputKinds)} →`
+                            : "→"}{" "}
+                          {s.resolvedOutputKind ?? "—"}
+                        </span>
+                      </div>
+                      <span className="text-2xs text-muted-foreground">
+                        {s.kind.description}
                       </span>
                     </div>
-                    <span className="text-2xs text-muted-foreground">
-                      {s.kind.description}
-                    </span>
-                  </div>
-                </li>
-              );
-            })
-          )}
-        </ul>
-      </ScrollArea>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </ScrollArea>
+      </div>
     </div>
   );
 };

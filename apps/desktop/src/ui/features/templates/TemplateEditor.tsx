@@ -75,7 +75,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const services = useServices();
   const queryClient = useQueryClient();
   const rf = useReactFlow();
-  const { screenToFlowPosition } = rf;
+  const { screenToFlowPosition, setCenter, getZoom } = rf;
   const specs = useNodeSpecs();
 
   const editingRef = refFromTemplateUri(uri);
@@ -443,7 +443,8 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     subTemplates,
     refinementResolver,
     screenToFlowPosition,
-    flowWrapperRef,
+    setCenter,
+    getZoom,
     counterRef,
     setNodes,
     setEdges,

@@ -67,7 +67,6 @@ const TemplateCanvasOverlays = ({
       ) : null}
       {pendingConnect ? (
         <EdgeDropSuggestions
-          position={pendingConnect.popupPos}
           suggestions={suggestions}
           onSelect={handleSuggestionPick}
           onClose={() => setPendingConnect(null)}

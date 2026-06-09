@@ -238,6 +238,12 @@ const estimateRenderItem = (item: RenderItem): number => {
   }
 };
 
+/** Headers pin while their section scrolls; steps don't. */
+const isStickyRenderItem = (item: RenderItem): boolean => item.kind !== "step";
+
+/** Nesting depth drives the stack of pinned ancestors (loop › iteration › …). */
+const renderItemDepth = (item: RenderItem): number => item.depth;
+
 /**
  * Top-level namespace prefix of a flattened step id, or `null` when the step is
  * host-local. Inlined sub-workflow steps carry `callId/originalId`
@@ -481,6 +487,8 @@ const TimelineTree = ({
         items={items}
         getKey={renderItemKey}
         estimateSize={estimateRenderItem}
+        isSticky={isStickyRenderItem}
+        rowDepth={renderItemDepth}
         renderItem={renderRow}
         footer={
           model.skipped.length > 0 ? (

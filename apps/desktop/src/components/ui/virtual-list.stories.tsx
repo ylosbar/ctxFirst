@@ -139,3 +139,94 @@ export const StickyHeaders: StoryObj<typeof meta> = {
     })
   },
 }
+
+// ── Nested (stacked) sticky headers ──────────────────────────────────────────
+
+type NestedRow =
+  | { readonly kind: "section"; readonly id: string; readonly label: string; readonly depth: 0 }
+  | { readonly kind: "sub"; readonly id: string; readonly label: string; readonly depth: 1 }
+  | { readonly kind: "item"; readonly id: string; readonly label: string; readonly depth: 2 }
+
+const SECTIONS = 3
+const SUBS = 3
+const ITEMS_PER_SUB = 20
+const SECTION_PX = 30
+const SUB_PX = 26
+
+const NESTED: ReadonlyArray<NestedRow> = Array.from(
+  { length: SECTIONS },
+  (_, s) => s,
+).flatMap((s) => [
+  { kind: "section" as const, id: `s-${s}`, label: `Section ${s}`, depth: 0 as const },
+  ...Array.from({ length: SUBS }, (_, ss) => ss).flatMap((ss) => [
+    {
+      kind: "sub" as const,
+      id: `s${s}-sub${ss}`,
+      label: `Sous-section ${s}.${ss}`,
+      depth: 1 as const,
+    },
+    ...Array.from({ length: ITEMS_PER_SUB }, (_, i) => ({
+      kind: "item" as const,
+      id: `s${s}-sub${ss}-i${i}`,
+      label: `${s}.${ss} · élément ${i}`,
+      depth: 2 as const,
+    })),
+  ]),
+])
+
+const NestedDemo = () => (
+  <div className="h-96 w-80 rounded-md border">
+    <VirtualList
+      className="h-full"
+      items={NESTED}
+      as="ol"
+      ariaLabel="Liste imbriquée"
+      getKey={(row) => row.id}
+      estimateSize={(row) =>
+        row.kind === "section" ? SECTION_PX : row.kind === "sub" ? SUB_PX : ITEM_PX
+      }
+      isSticky={(row) => row.kind !== "item"}
+      rowDepth={(row) => row.depth}
+      renderItem={(row) =>
+        row.kind === "section" ? (
+          <div className="flex h-[30px] items-center border-b border-border bg-muted px-3 text-2xs font-semibold uppercase tracking-wide">
+            {row.label}
+          </div>
+        ) : row.kind === "sub" ? (
+          <div className="flex h-[26px] items-center border-b border-border/60 bg-muted/40 px-4 text-2xs font-medium text-muted-foreground">
+            {row.label}
+          </div>
+        ) : (
+          <div className="flex h-7 items-center px-6 text-xs">{row.label}</div>
+        )
+      }
+    />
+  </div>
+)
+
+export const NestedStickyHeaders: StoryObj<typeof meta> = {
+  name: "En-têtes collants imbriqués",
+  render: () => <NestedDemo />,
+  play: async ({ canvasElement }) => {
+    const scroller = canvasElement.querySelector(
+      "[data-overlayscrollbars-initialize]",
+    ) as HTMLElement
+
+    // Scroll into Section 0 › Sous-section 0.1's items: both ancestors pin.
+    scroller.scrollTop =
+      SECTION_PX + SUB_PX + ITEMS_PER_SUB * ITEM_PX + SUB_PX + 60
+    await waitFor(() => {
+      const pinned = Array.from(canvasElement.querySelectorAll("[data-sticky]"))
+      const texts = pinned.map((el) => el.textContent ?? "")
+      expect(texts.some((t) => t.includes("Section 0"))).toBe(true)
+      expect(texts.some((t) => t.includes("Sous-section 0.1"))).toBe(true)
+      // The section pins at the very top; the sub-section stacks below it.
+      const section = pinned.find((el) => el.textContent?.includes("Section 0"))
+      const sub = pinned.find((el) =>
+        el.textContent?.includes("Sous-section 0.1"),
+      )
+      expect((section as HTMLElement).style.top).toBe("0px")
+      expect((sub as HTMLElement).style.top).not.toBe("0px")
+    })
+  },
+}
