@@ -30,11 +30,15 @@ export const makeGetRunTokenUsage =
         if (runs.length === 0) return null;
         let tokensIn = 0;
         let tokensOut = 0;
+        let cacheCreate = 0;
+        let cacheRead = 0;
         let costUsd = 0;
         let hasCost = false;
         for (const run of runs) {
           tokensIn += run.tokensIn;
           tokensOut += run.tokensOut;
+          cacheCreate += run.cacheCreate ?? 0;
+          cacheRead += run.cacheRead ?? 0;
           if (run.costUsd != null) {
             costUsd += run.costUsd;
             hasCost = true;
@@ -44,6 +48,8 @@ export const makeGetRunTokenUsage =
           stepExecId: exec.id,
           tokensIn,
           tokensOut,
+          cacheCreate,
+          cacheRead,
           costUsd: hasCost ? costUsd : undefined,
           runCount: runs.length,
         } satisfies StepTokenUsage;

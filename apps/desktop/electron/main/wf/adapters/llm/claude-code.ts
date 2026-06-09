@@ -324,6 +324,8 @@ export const createClaudeCodeLLMGateway = (deps: Deps = {}): LLMGateway => ({
       output,
       tokensIn,
       tokensOut,
+      cacheCreate,
+      cacheRead,
       latencyMs,
       costUsd,
       provider: "claude-code",

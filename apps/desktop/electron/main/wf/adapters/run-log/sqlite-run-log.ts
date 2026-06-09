@@ -12,6 +12,8 @@ type Row = {
   prompt_hash: string;
   tokens_in: number;
   tokens_out: number;
+  cache_create: number;
+  cache_read: number;
   cost_usd: number | null;
   latency_ms: number;
   output_ref: string | null;
@@ -26,6 +28,8 @@ const rowToRecord = (r: Row): RunRecord => ({
   promptHash: r.prompt_hash,
   tokensIn: r.tokens_in,
   tokensOut: r.tokens_out,
+  cacheCreate: r.cache_create,
+  cacheRead: r.cache_read,
   costUsd: r.cost_usd ?? undefined,
   latencyMs: r.latency_ms,
   outputRef: r.output_ref ?? undefined,
@@ -35,11 +39,11 @@ const rowToRecord = (r: Row): RunRecord => ({
 export const createSqliteRunLog = ({ db }: Deps): RunLog => {
   const insert = db.prepare(
     `INSERT INTO wf_runs (id, step_exec_id, provider, model, prompt_hash,
-                           tokens_in, tokens_out, cost_usd, latency_ms,
-                           output_ref, created_at)
+                           tokens_in, tokens_out, cache_create, cache_read,
+                           cost_usd, latency_ms, output_ref, created_at)
      VALUES (@id, @step_exec_id, @provider, @model, @prompt_hash,
-             @tokens_in, @tokens_out, @cost_usd, @latency_ms,
-             @output_ref, @created_at)`,
+             @tokens_in, @tokens_out, @cache_create, @cache_read,
+             @cost_usd, @latency_ms, @output_ref, @created_at)`,
   );
   const selectByStepExec = db.prepare(
     `SELECT * FROM wf_runs WHERE step_exec_id = ? ORDER BY created_at ASC`,
@@ -55,6 +59,8 @@ export const createSqliteRunLog = ({ db }: Deps): RunLog => {
         prompt_hash: run.promptHash,
         tokens_in: run.tokensIn,
         tokens_out: run.tokensOut,
+        cache_create: run.cacheCreate ?? 0,
+        cache_read: run.cacheRead ?? 0,
         cost_usd: run.costUsd ?? null,
         latency_ms: run.latencyMs,
         output_ref: run.outputRef ?? null,

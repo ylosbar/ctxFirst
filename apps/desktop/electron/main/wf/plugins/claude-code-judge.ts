@@ -157,6 +157,8 @@ const callJudge = async (
     promptHash: ctx.deps.hash.sha256([systemPrompt, " ", userPrompt]),
     tokensIn: res.tokensIn,
     tokensOut: res.tokensOut,
+    cacheCreate: res.cacheCreate,
+    cacheRead: res.cacheRead,
     costUsd: res.costUsd,
     latencyMs: res.latencyMs,
     outputRef: undefined,

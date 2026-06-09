@@ -10,6 +10,11 @@ type Props = {
 // de tokens. Coloré par catégorie pour rappeler les aires du graphe.
 const RunTokensHeader = ({ model }: Props) => {
   const t = useT();
+  // Option A : « tokens in » = entrée réelle, cache compris (cf.
+  // specs/run-detail-tokens-cache-manquants.md). Le détail frais/caché reste
+  // persisté en DB et porté par le modèle pour un éventuel affichage séparé.
+  const totalInWithCache =
+    model.totalIn + model.totalCacheCreate + model.totalCacheRead;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
       <Stat
@@ -18,7 +23,7 @@ const RunTokensHeader = ({ model }: Props) => {
       />
       <Stat
         label={t("runs.tokens.in")}
-        value={formatTokens(model.totalIn)}
+        value={formatTokens(totalInWithCache)}
         dotClass="bg-blue-500"
       />
       <Stat

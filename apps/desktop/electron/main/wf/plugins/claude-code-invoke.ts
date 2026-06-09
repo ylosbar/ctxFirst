@@ -121,6 +121,12 @@ export const createClaudeCodeInvokeRunner = (): StepRunner => ({
         provider: res.provider,
         tokensIn: String(res.tokensIn),
         tokensOut: String(res.tokensOut),
+        ...(res.cacheCreate !== undefined
+          ? { cacheCreate: String(res.cacheCreate) }
+          : {}),
+        ...(res.cacheRead !== undefined
+          ? { cacheRead: String(res.cacheRead) }
+          : {}),
         latencyMs: String(res.latencyMs),
         ...(res.costUsd !== undefined ? { costUsd: String(res.costUsd) } : {}),
       },
@@ -135,6 +141,8 @@ export const createClaudeCodeInvokeRunner = (): StepRunner => ({
       promptHash: assembled.hash,
       tokensIn: res.tokensIn,
       tokensOut: res.tokensOut,
+      cacheCreate: res.cacheCreate,
+      cacheRead: res.cacheRead,
       costUsd: res.costUsd,
       latencyMs: res.latencyMs,
       outputRef: artifact.id,

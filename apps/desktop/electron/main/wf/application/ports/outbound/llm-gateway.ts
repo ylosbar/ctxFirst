@@ -51,6 +51,18 @@ export type ClaudeCodeInvokeResult = {
   output: string;
   tokensIn: number;
   tokensOut: number;
+  /**
+   * Cache-write input tokens reported by the provider (`cache_creation_input_tokens`
+   * for Claude Code). `undefined` when the provider does not do prompt caching.
+   */
+  cacheCreate?: number;
+  /**
+   * Cache-read input tokens reported by the provider (`cache_read_input_tokens`
+   * for Claude Code, `cached_input_tokens` for Codex). With Claude Code prompt
+   * caching this is usually the bulk of the real input — see
+   * `specs/run-detail-tokens-cache-manquants.md`.
+   */
+  cacheRead?: number;
   latencyMs: number;
   costUsd?: number;
   /** Short provider identifier (e.g. `"claude-code"`, `"fake"`). */

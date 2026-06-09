@@ -36,6 +36,8 @@ export const createFakeLLMGateway = ({ respond, chunkSize = 40 }: Deps): LLMGate
       output: full,
       tokensIn,
       tokensOut,
+      cacheCreate: undefined,
+      cacheRead: undefined,
       latencyMs,
       costUsd: 0,
       provider: "fake",
