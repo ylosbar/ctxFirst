@@ -15,12 +15,7 @@
  * pas possédé par le hook.
  */
 import { useCallback, useMemo, useRef, useState } from "react";
-import type {
-  Dispatch,
-  MutableRefObject,
-  RefObject,
-  SetStateAction,
-} from "react";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import {
   addEdge,
   type Connection,
@@ -50,12 +45,15 @@ import {
 } from "../graph/ids";
 import { buildDefaultStep, resolveStepSpec, type ByKind } from "../graph/step-spec";
 import { edgeStyle, type EdgeData } from "../graph/edge-style";
+import {
+  AUTO_LAYOUT_DEFAULT_HEIGHT,
+  AUTO_LAYOUT_DEFAULT_WIDTH,
+} from "../graph/auto-layout";
 
 type PendingConnect = {
   fromNodeId: string;
   handleType: "source" | "target";
   handleId: string | null;
-  popupPos: { x: number; y: number };
   flowPos: { x: number; y: number };
 };
 
@@ -71,7 +69,13 @@ type Options = {
     x: number;
     y: number;
   };
-  flowWrapperRef: RefObject<HTMLDivElement | null>;
+  /** Recentre le viewport sur un point flow (zoom courant conservé). */
+  setCenter: (
+    x: number,
+    y: number,
+    opts?: { zoom?: number; duration?: number },
+  ) => void;
+  getZoom: () => number;
   counterRef: MutableRefObject<number>;
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
@@ -100,7 +104,8 @@ export const useEdgeDropSuggestions = ({
   subTemplates,
   refinementResolver,
   screenToFlowPosition,
-  flowWrapperRef,
+  setCenter,
+  getZoom,
   counterRef,
   setNodes,
   setEdges,
@@ -172,21 +177,16 @@ export const useEdgeDropSuggestions = ({
           : (event as MouseEvent);
       const clientX = point.clientX;
       const clientY = point.clientY;
-      const rect = flowWrapperRef.current?.getBoundingClientRect();
-      const popupPos = rect
-        ? { x: clientX - rect.left, y: clientY - rect.top }
-        : { x: clientX, y: clientY };
       const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
 
       setPendingConnect({
         fromNodeId: origin.nodeId,
         handleType: origin.handleType,
         handleId: origin.handleId,
-        popupPos,
         flowPos,
       });
     },
-    [screenToFlowPosition, flowWrapperRef],
+    [screenToFlowPosition],
   );
 
   const suggestions = useMemo<ReadonlyArray<EdgeDropSuggestion>>(() => {
@@ -266,6 +266,14 @@ export const useEdgeDropSuggestions = ({
     setSelectedNodeId(newId);
     setSelectedEdgeId(null);
     setPendingConnect(null);
+    // Recentre le canvas sur la node fraîchement créée. Elle n'est pas encore
+    // mesurée par xyflow, on vise donc son centre estimé via les dimensions par
+    // défaut (assez proche pour un recentrage visuellement correct).
+    setCenter(
+      pendingConnect.flowPos.x + AUTO_LAYOUT_DEFAULT_WIDTH / 2,
+      pendingConnect.flowPos.y + AUTO_LAYOUT_DEFAULT_HEIGHT / 2,
+      { zoom: getZoom(), duration: 400 },
+    );
   };
 
   return {
