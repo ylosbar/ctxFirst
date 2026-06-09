@@ -285,7 +285,7 @@ describe("buildTimeline", () => {
     expect(model.skipped[0].label).toBe("Skipped A");
   });
 
-  it("marks the last in-progress row and computes its duration from nowMs", () => {
+  it("marks the last in-progress row and freezes its duration to 0 (live applied at render)", () => {
     const template = tpl([{ id: "s1", name: "Running" }]);
     const executions = [
       exec({
@@ -297,16 +297,14 @@ describe("buildTimeline", () => {
         executionEndedAt: undefined,
       }),
     ];
-    const nowMs = T0 + 5000;
-    const model = buildTimeline({
-      instance: inst(executions),
-      template,
-      nowMs,
-    });
+    const model = buildTimeline({ instance: inst(executions), template });
     const rows = stepRows(model.nodes);
     expect(rows).toHaveLength(1);
     expect(rows[0].inProgress).toBe(true);
-    expect(rows[0].durationMs).toBe(5000);
+    // The model is `now`-independent: an in-progress row carries 0 here and the
+    // live elapsed is computed from `startedAtMs` at render.
+    expect(rows[0].durationMs).toBe(0);
+    expect(rows[0].startedAtMs).toBe(T0);
   });
 
   it("does not mark an awaitingHuman exec as in progress", () => {
@@ -321,14 +319,10 @@ describe("buildTimeline", () => {
         endedAt: undefined,
       }),
     ];
-    const nowMs = T0 + 30_000;
-    const model = buildTimeline({
-      instance: inst(executions),
-      template,
-      nowMs,
-    });
+    const model = buildTimeline({ instance: inst(executions), template });
     const rows = stepRows(model.nodes);
     expect(rows[0].inProgress).toBe(false);
+    // Compute duration is fixed at executionEndedAt — never `now`-bound.
     expect(rows[0].durationMs).toBe(3000);
     expect(rows[0].hasHumanGate).toBe(true);
   });

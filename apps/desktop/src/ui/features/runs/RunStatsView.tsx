@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PanelBody } from "@/components/ui/panel-body";
 import { useRunPanelContext } from "../../stores/run-panel-store";
 import { useT } from "../../i18n";
-import { buildStepStats } from "./build-step-stats";
+import { buildStepStats, projectLiveStats } from "./build-step-stats";
 import { buildTokenStats } from "./build-token-stats";
 import GanttChart, { AXIS_HEIGHT, ROW_HEIGHT } from "./GanttChart";
 import TokenChart, { TOKEN_AXIS_HEIGHT } from "./TokenChart";
@@ -25,27 +25,36 @@ const RunStatsView = () => {
       : null;
   const nowMs = useTickingNow(tickInterval);
 
-  const usage = useRunTokenUsage(ctx?.instance ?? null);
+  const instance = ctx?.instance ?? null;
+  const template = ctx?.template ?? null;
+  const usage = useRunTokenUsage(instance);
 
-  const model = useMemo(() => {
-    if (!ctx) return null;
-    return buildStepStats({
-      instance: ctx.instance,
-      template: ctx.template,
-      nowMs,
-    });
-  }, [ctx, nowMs]);
+  // Structural model: `now`-independent, so a run's per-second tick doesn't
+  // rebuild it (no Date.parse / sort / regroup). Keyed on the inputs only.
+  const baseModel = useMemo(
+    () => (instance ? buildStepStats({ instance, template }) : null),
+    [instance, template],
+  );
 
+  // Cheap live overlay applied per tick — grows only the running bar + axis.
+  const model = useMemo(
+    () => (baseModel ? projectLiveStats(baseModel, nowMs) : null),
+    [baseModel, nowMs],
+  );
+
+  // Tokens don't change between events and the chart shares the Gantt's zoom
+  // window, so derive from `baseModel`'s frozen extent — it stays stable across
+  // ticks rather than rebuilding the cumulative curve every second.
   const tokenModel = useMemo(() => {
-    if (!ctx || !model) return null;
+    if (!instance || !baseModel) return null;
     return buildTokenStats({
-      instance: ctx.instance,
-      template: ctx.template,
+      instance,
+      template,
       usage,
-      t0Ms: model.t0Ms,
-      tEndMs: model.tEndMs,
+      t0Ms: baseModel.t0Ms,
+      tEndMs: baseModel.tEndMs,
     });
-  }, [ctx, model, usage]);
+  }, [instance, template, usage, baseModel]);
 
   // Zoom temps partagé : le Gantt et le graphe de tokens ont le même axe X, on
   // garde donc une seule fenêtre visible pour qu'ils restent alignés. Réinitialisé

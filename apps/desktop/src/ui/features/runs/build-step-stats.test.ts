@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildStepStats, formatDurationMs } from "./build-step-stats";
+import {
+  buildStepStats,
+  formatDurationMs,
+  projectLiveStats,
+} from "./build-step-stats";
 import type {
   InstanceView,
   StepExecutionView,
@@ -141,18 +145,13 @@ describe("buildStepStats", () => {
         endedAt: undefined,
       }),
     ];
-    const nowMs = T0 + 20_000;
-    const model = buildStepStats({
-      instance: inst(executions),
-      template,
-      nowMs,
-    });
+    const model = buildStepStats({ instance: inst(executions), template });
     const bar = model.rows[0].bars[0];
     expect(bar.inProgress).toBe(false);
     expect(bar.durationMs).toBe(3000);
   });
 
-  it("freezes the timeline extent while a gate is open (does not count wait with nowMs)", () => {
+  it("freezes the timeline extent at executionEndedAt while a gate is open", () => {
     const template = tpl([{ id: "s1", name: "Step 1" }]);
     const executions = [
       exec({
@@ -164,49 +163,16 @@ describe("buildStepStats", () => {
         endedAt: undefined,
       }),
     ];
-    // The human has been sitting on the gate for 17s past compute end; the
-    // timeline must not keep ticking — it freezes at executionEndedAt.
-    const nowMs = T0 + 20_000;
-    const model = buildStepStats({
-      instance: inst(executions),
-      template,
-      nowMs,
-    });
+    // An awaitingHuman exec is not in progress, so even a live projection must
+    // not extend it — the timeline freezes at executionEndedAt.
+    const base = buildStepStats({ instance: inst(executions), template });
+    const model = projectLiveStats(base, T0 + 20_000);
+    expect(model).toBe(base); // nothing in progress → same reference
     expect(model.summary.wallClockMs).toBe(3000);
     expect(model.tEndMs).toBe(T0 + 3000 * 1.05);
   });
 
-  it("still extends the timeline to nowMs when a step is genuinely running", () => {
-    const template = tpl([
-      { id: "s1", name: "Done" },
-      { id: "s2", name: "Running" },
-    ]);
-    const executions = [
-      exec({
-        id: "e1",
-        stepId: "s1",
-        status: "validated",
-        startedAt: ISO(T0),
-        endedAt: ISO(T0 + 2000),
-      }),
-      exec({
-        id: "e2",
-        stepId: "s2",
-        status: "running",
-        startedAt: ISO(T0 + 2500),
-        endedAt: undefined,
-      }),
-    ];
-    const nowMs = T0 + 9000;
-    const model = buildStepStats({
-      instance: inst(executions),
-      template,
-      nowMs,
-    });
-    expect(model.summary.wallClockMs).toBe(9000);
-  });
-
-  it("uses nowMs for an in-progress exec without endedAt", () => {
+  it("builds an in-progress bar with 0 duration, `now`-independent", () => {
     const template = tpl([{ id: "s1", name: "Step 1" }]);
     const executions = [
       exec({
@@ -217,16 +183,10 @@ describe("buildStepStats", () => {
         endedAt: undefined,
       }),
     ];
-    const nowMs = T0 + 5000;
-    const model = buildStepStats({
-      instance: inst(executions),
-      template,
-      nowMs,
-    });
-    expect(model.rows).toHaveLength(1);
+    const model = buildStepStats({ instance: inst(executions), template });
     const bar = model.rows[0].bars[0];
     expect(bar.inProgress).toBe(true);
-    expect(bar.durationMs).toBe(5000);
+    expect(bar.durationMs).toBe(0);
   });
 
   it("excludes skipped execs from rows but counts them", () => {
@@ -439,5 +399,74 @@ describe("formatDurationMs", () => {
   it("formats >= 1 minute as m s", () => {
     expect(formatDurationMs(64_000)).toBe("1m 04s");
     expect(formatDurationMs(125_000)).toBe("2m 05s");
+  });
+});
+
+describe("projectLiveStats", () => {
+  it("returns the same reference when nothing is in progress", () => {
+    const template = tpl([{ id: "s1", name: "Step 1" }]);
+    const base = buildStepStats({
+      instance: inst([
+        exec({
+          id: "e1",
+          stepId: "s1",
+          startedAt: ISO(T0),
+          endedAt: ISO(T0 + 1000),
+        }),
+      ]),
+      template,
+    });
+    expect(projectLiveStats(base, T0 + 9000)).toBe(base);
+  });
+
+  it("extends the running bar and the timeline to nowMs", () => {
+    const template = tpl([
+      { id: "s1", name: "Done" },
+      { id: "s2", name: "Running" },
+    ]);
+    const base = buildStepStats({
+      instance: inst([
+        exec({
+          id: "e1",
+          stepId: "s1",
+          status: "validated",
+          startedAt: ISO(T0),
+          endedAt: ISO(T0 + 2000),
+        }),
+        exec({
+          id: "e2",
+          stepId: "s2",
+          status: "running",
+          startedAt: ISO(T0 + 2500),
+          endedAt: undefined,
+        }),
+      ]),
+      template,
+    });
+    const model = projectLiveStats(base, T0 + 9000);
+    // Running bar grows to now: 9000 - 2500 = 6500ms of live compute.
+    expect(model.rows[1].bars[0].durationMs).toBe(6500);
+    expect(model.summary.wallClockMs).toBe(9000);
+    expect(model.tEndMs).toBe(T0 + 9000 * 1.05);
+  });
+
+  it("recomputes cumulative and compute totals from the live bar", () => {
+    const template = tpl([{ id: "s1", name: "Running" }]);
+    const base = buildStepStats({
+      instance: inst([
+        exec({
+          id: "e1",
+          stepId: "s1",
+          status: "running",
+          startedAt: ISO(T0),
+          endedAt: undefined,
+        }),
+      ]),
+      template,
+    });
+    const model = projectLiveStats(base, T0 + 5000);
+    expect(model.rows[0].bars[0].durationMs).toBe(5000);
+    expect(model.rows[0].cumulativeMs).toBe(5000);
+    expect(model.summary.computeMs).toBe(5000);
   });
 });

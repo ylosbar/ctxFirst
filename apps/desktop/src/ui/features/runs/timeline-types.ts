@@ -6,6 +6,11 @@ export type TimelineRow = {
   readonly label: string;
   readonly status: StepExecStatus;
   readonly startedAtMs: number;
+  /**
+   * Compute duration, frozen. `0` while `inProgress` — the live elapsed is
+   * derived from `startedAtMs` at render (the model stays `now`-independent so
+   * it isn't rebuilt every tick).
+   */
   readonly durationMs: number;
   readonly inProgress: boolean;
   readonly hasHumanGate: boolean;
