@@ -19,14 +19,37 @@ const VALID_STATUSES: ReadonlyArray<InstanceStatus> = [
 export type RunsViewState = {
   readonly groupMode: RunsGroupMode;
   readonly statusFilter: ReadonlySet<InstanceStatus>;
+  /**
+   * Group headers the user collapsed, by group id. Lifted out of the row tree
+   * so the flat list (`flattenRunsList`) knows the visible window before render
+   * — a prerequisite for virtualization. Persisted, like the legacy
+   * per-section `ExplorerSection` collapse state it replaces.
+   */
+  readonly collapsedGroupIds: ReadonlySet<string>;
+  /**
+   * Run rows whose `template.invoke` children the user collapsed, by instance
+   * id. Session-scoped (not persisted), mirroring the old per-row local
+   * `expanded` state that defaulted to open on mount.
+   */
+  readonly collapsedRunIds: ReadonlySet<string>;
   readonly setGroupMode: (mode: RunsGroupMode) => void;
   readonly toggleStatus: (status: InstanceStatus) => void;
   readonly clearStatusFilter: () => void;
+  readonly toggleGroupCollapsed: (groupId: string) => void;
+  readonly toggleRunCollapsed: (instanceId: string) => void;
 };
 
 type Persisted = {
   readonly groupMode?: unknown;
   readonly statusFilter?: unknown;
+  readonly collapsedGroupIds?: unknown;
+};
+
+const toggleInSet = <T>(set: ReadonlySet<T>, value: T): Set<T> => {
+  const next = new Set(set);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
 };
 
 export const useRunsViewStore = create<RunsViewState>()(
@@ -34,7 +57,17 @@ export const useRunsViewStore = create<RunsViewState>()(
     (set) => ({
       groupMode: "status",
       statusFilter: new Set<InstanceStatus>(),
+      collapsedGroupIds: new Set<string>(),
+      collapsedRunIds: new Set<string>(),
       setGroupMode: (mode) => set({ groupMode: mode }),
+      toggleGroupCollapsed: (groupId) =>
+        set((s) => ({
+          collapsedGroupIds: toggleInSet(s.collapsedGroupIds, groupId),
+        })),
+      toggleRunCollapsed: (instanceId) =>
+        set((s) => ({
+          collapsedRunIds: toggleInSet(s.collapsedRunIds, instanceId),
+        })),
       toggleStatus: (status) =>
         set((s) => {
           // Canonical "all visible" state = empty set. Clicking a chip from
@@ -64,6 +97,7 @@ export const useRunsViewStore = create<RunsViewState>()(
       partialize: (s) => ({
         groupMode: s.groupMode,
         statusFilter: [...s.statusFilter],
+        collapsedGroupIds: [...s.collapsedGroupIds],
       }),
       merge: (persisted, current) => {
         const p = persisted as Persisted | undefined;
@@ -79,7 +113,13 @@ export const useRunsViewStore = create<RunsViewState>()(
             (VALID_STATUSES as ReadonlyArray<string>).includes(v),
           ),
         );
-        return { ...current, groupMode, statusFilter };
+        const groupIds = Array.isArray(p?.collapsedGroupIds)
+          ? p.collapsedGroupIds
+          : [];
+        const collapsedGroupIds = new Set<string>(
+          groupIds.filter((v): v is string => typeof v === "string"),
+        );
+        return { ...current, groupMode, statusFilter, collapsedGroupIds };
       },
     },
   ),
@@ -96,3 +136,15 @@ export const useRunsStatusFilter = (): ReadonlySet<InstanceStatus> =>
 
 export const useToggleRunsStatus = (): ((status: InstanceStatus) => void) =>
   useRunsViewStore((s) => s.toggleStatus);
+
+export const useCollapsedRunGroupIds = (): ReadonlySet<string> =>
+  useRunsViewStore((s) => s.collapsedGroupIds);
+
+export const useCollapsedRunIds = (): ReadonlySet<string> =>
+  useRunsViewStore((s) => s.collapsedRunIds);
+
+export const useToggleRunGroupCollapsed = (): ((groupId: string) => void) =>
+  useRunsViewStore((s) => s.toggleGroupCollapsed);
+
+export const useToggleRunCollapsed = (): ((instanceId: string) => void) =>
+  useRunsViewStore((s) => s.toggleRunCollapsed);

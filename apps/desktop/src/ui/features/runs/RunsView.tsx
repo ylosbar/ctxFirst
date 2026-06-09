@@ -9,12 +9,12 @@ import {
   Plus,
 } from "lucide-react";
 import { Menu } from "@base-ui/react/menu";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import VirtualList from "@/components/ui/virtual-list";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   RUN_STATUS_STYLE,
@@ -30,10 +30,14 @@ import {
   useUnpinRun,
 } from "../../stores/runs-store";
 import {
+  useCollapsedRunGroupIds,
+  useCollapsedRunIds,
   useRunsGroupMode,
   useRunsStatusFilter,
   useRunsViewStore,
   useSetRunsGroupMode,
+  useToggleRunCollapsed,
+  useToggleRunGroupCollapsed,
   useToggleRunsStatus,
 } from "../../stores/runs-view-store";
 import {
@@ -41,13 +45,14 @@ import {
   useEditors,
   useWorkbench,
 } from "../../workbench/WorkbenchProvider";
-import ExplorerSection from "../explorer/ExplorerSection";
 import {
   buildRunsList,
+  flattenRunsList,
   RUNS_STATUS_ORDER,
   type RunsGroupMode,
   type RunsListGroup,
   type RunsListItem,
+  type RunListRow,
 } from "./build-runs-list";
 import { menuItemClass, menuPopupClass } from "../explorer/menus/menu-styles";
 import RunLeafMenu from "./RunLeafMenu";
@@ -87,82 +92,92 @@ const formatRelativeTime = (iso: string, now: number): string => {
 
 type RunRowProps = {
   readonly item: RunsListItem;
+  readonly hasChildren: boolean;
+  readonly expanded: boolean;
   readonly now: number;
-  readonly isActive: (instanceId: string) => boolean;
-  readonly isOpen: (instanceId: string) => boolean;
+  readonly active: boolean;
+  readonly open: boolean;
   readonly onPick: (instanceId: string) => void;
   readonly onPin: (instanceId: string) => void;
   readonly onUnpin: (instanceId: string) => void;
   readonly onExport: (instanceId: string) => void;
   readonly onDelete: (instanceId: string) => void;
+  readonly onToggleExpand: (instanceId: string) => void;
 };
 
-const RunRow = ({
-  item,
-  now,
-  isActive,
-  isOpen,
-  onPick,
-  onPin,
-  onUnpin,
-  onExport,
-  onDelete,
-}: RunRowProps) => {
-  const { instance } = item;
-  const shortId = instance.id.slice(0, 8);
-  const ref = `${instance.templateId}@${instance.templateVersion}`;
-  const relative = formatRelativeTime(instance.updatedAt, now);
-  const hasChildren = item.children.length > 0;
-  const [expanded, setExpanded] = useState(true);
-  const active = isActive(instance.id);
+/**
+ * A single, non-recursive run row. Memoized so a re-render of the list (30 s
+ * tick aside, store/search changes) skips rows whose props are unchanged —
+ * possible only because expansion/selection are now booleans resolved by the
+ * container (was per-row local state + per-render callbacks, perf P3). The
+ * subtree is flattened by {@link flattenRunsList}, not rendered here.
+ */
+const RunRow = memo(
+  ({
+    item,
+    hasChildren,
+    expanded,
+    now,
+    active,
+    open,
+    onPick,
+    onPin,
+    onUnpin,
+    onExport,
+    onDelete,
+    onToggleExpand,
+  }: RunRowProps) => {
+    const { instance } = item;
+    const shortId = instance.id.slice(0, 8);
+    const ref = `${instance.templateId}@${instance.templateVersion}`;
+    const relative = formatRelativeTime(instance.updatedAt, now);
 
-  const trigger = (
-    <div>
-      <button
-        type="button"
-        onClick={() => onPick(instance.id)}
-        aria-pressed={active}
-        title={`${ref} · ${shortId}`}
-        style={{ paddingInlineStart: 8 + (item.depth + 1) * 6 }}
-        className={cn(
-          "group/leaf flex h-7 w-full items-center gap-1.5 rounded-none px-2 text-left text-xs font-normal outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
-          active
-            ? "bg-gradient-to-r from-primary/40 via-primary/20 to-transparent text-foreground hover:from-primary/45 hover:via-primary/25 hover:to-transparent"
-            : "hover:bg-accent/40 hover:text-foreground",
-          isOpen(instance.id) && !active && "text-foreground",
-        )}
-      >
-        {hasChildren ? (
-          <span
-            role="button"
-            aria-label={expanded ? "Replier" : "Déplier"}
-            aria-expanded={expanded}
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-            className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-          >
-            {expanded ? (
-              <ChevronDown className="size-3" />
-            ) : (
-              <ChevronRight className="size-3" />
-            )}
+    const trigger = (
+      <div>
+        <button
+          type="button"
+          onClick={() => onPick(instance.id)}
+          aria-pressed={active}
+          title={`${ref} · ${shortId}`}
+          style={{ paddingInlineStart: 8 + (item.depth + 1) * 6 }}
+          className={cn(
+            "group/leaf flex h-7 w-full items-center gap-1.5 rounded-none px-2 text-left text-xs font-normal outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+            active
+              ? "bg-gradient-to-r from-primary/40 via-primary/20 to-transparent text-foreground hover:from-primary/45 hover:via-primary/25 hover:to-transparent"
+              : "hover:bg-accent/40 hover:text-foreground",
+            open && !active && "text-foreground",
+          )}
+        >
+          {hasChildren ? (
+            <span
+              role="button"
+              aria-label={expanded ? "Replier" : "Déplier"}
+              aria-expanded={expanded}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(instance.id);
+              }}
+              className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+            >
+              {expanded ? (
+                <ChevronDown className="size-3" />
+              ) : (
+                <ChevronRight className="size-3" />
+              )}
+            </span>
+          ) : (
+            <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <RunStatusGlyph status={instance.status} />
+          <span className="min-w-0 flex-1 truncate">{instance.templateId}</span>
+          <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">
+            {relative}
           </span>
-        ) : (
-          <span aria-hidden className="h-3.5 w-3.5 shrink-0" />
-        )}
-        <RunStatusGlyph status={instance.status} />
-        <span className="min-w-0 flex-1 truncate">{instance.templateId}</span>
-        <span className="shrink-0 text-2xs text-muted-foreground tabular-nums">
-          {relative}
-        </span>
-      </button>
-    </div>
-  );
+        </button>
+      </div>
+    );
 
-  return (
-    <>
+    return (
       <RunLeafMenu
         trigger={trigger}
         instanceId={instance.id}
@@ -173,57 +188,73 @@ const RunRow = ({
         onExport={() => onExport(instance.id)}
         onDelete={() => onDelete(instance.id)}
       />
-      {hasChildren && expanded
-        ? item.children.map((child) => (
-            <RunRow
-              key={child.instance.id}
-              item={child}
-              now={now}
-              isActive={isActive}
-              isOpen={isOpen}
-              onPick={onPick}
-              onPin={onPin}
-              onUnpin={onUnpin}
-              onExport={onExport}
-              onDelete={onDelete}
-            />
-          ))
-        : null}
-    </>
-  );
-};
+    );
+  },
+);
+RunRow.displayName = "RunRow";
 
-type RunGroupProps = {
+type RunGroupHeaderProps = {
   readonly group: RunsListGroup;
-  readonly hasQuery: boolean;
-  readonly children: React.ReactNode;
+  readonly collapsed: boolean;
+  readonly onToggle: (groupId: string) => void;
 };
 
-const RunGroup = ({ group, hasQuery, children }: RunGroupProps) => {
-  const dotClass = group.status
-    ? RUN_STATUS_STYLE[group.status].dot
-    : group.id === "pinned"
-      ? "bg-amber-500"
-      : "bg-muted-foreground/50";
+/**
+ * Flat group header row — the virtualized counterpart of the former
+ * `ExplorerSection` wrapper (§6.2). Sticky positioning is dropped in v1; the
+ * chevron/leading dot/count visuals are preserved.
+ */
+const RunGroupHeader = memo(
+  ({ group, collapsed, onToggle }: RunGroupHeaderProps) => {
+    const dotClass = group.status
+      ? RUN_STATUS_STYLE[group.status].dot
+      : group.id === "pinned"
+        ? "bg-amber-500"
+        : "bg-muted-foreground/50";
 
-  return (
-    <ExplorerSection
-      title={group.label}
-      persistKey={`app.runs.${group.id}`}
-      defaultOpen
-      forceOpen={hasQuery}
-      count={group.items.length}
-      leading={
-        <span
-          aria-hidden
-          className={cn("size-1.5 shrink-0 rounded-full", dotClass)}
-        />
-      }
-    >
-      {children}
-    </ExplorerSection>
-  );
-};
+    return (
+      <div className="flex h-[26px] items-stretch border-b border-border bg-muted/50 backdrop-blur-sm hover:bg-muted/80">
+        <button
+          type="button"
+          onClick={() => onToggle(group.id)}
+          aria-expanded={!collapsed}
+          className="flex min-w-0 flex-1 items-center gap-1 pl-1.5 pr-1 text-left text-2xs font-semibold uppercase tracking-wide text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          <ChevronRight
+            aria-hidden
+            className={cn(
+              "size-3.5 shrink-0 transition-transform",
+              !collapsed && "rotate-90",
+            )}
+          />
+          <span
+            aria-hidden
+            className={cn("size-1.5 shrink-0 rounded-full", dotClass)}
+          />
+          <span className="truncate">{group.label}</span>
+          <span className="ml-1 shrink-0 rounded-full bg-foreground/10 px-1.5 py-px text-2xs font-medium tabular-nums text-muted-foreground">
+            {group.items.length}
+          </span>
+        </button>
+      </div>
+    );
+  },
+);
+RunGroupHeader.displayName = "RunGroupHeader";
+
+const ROW_ESTIMATE_PX = 28;
+const HEADER_ESTIMATE_PX = 26;
+
+const runRowKey = (row: RunListRow): string =>
+  row.kind === "groupHeader"
+    ? `group:${row.group.id}`
+    : `${row.groupId}:${row.node.instance.id}`;
+
+const estimateRunRow = (row: RunListRow): number =>
+  row.kind === "groupHeader" ? HEADER_ESTIMATE_PX : ROW_ESTIMATE_PX;
+
+/** Module-stable so it doesn't churn the virtualizer's sticky index set. */
+const isStickyRunRow = (row: RunListRow): boolean => row.kind === "groupHeader";
 
 type RunsViewProps = {
   // Mode workspace (spec runs-unified-resizable-workspace.md §6.4) : quand
@@ -252,6 +283,11 @@ const RunsView = ({ selectedRunId, onPick }: RunsViewProps = {}) => {
   const toggleStatus = useToggleRunsStatus();
   const clearStatusFilter = useRunsViewStore((s) => s.clearStatusFilter);
   const filterActive = statusFilter.size > 0;
+
+  const collapsedGroupIds = useCollapsedRunGroupIds();
+  const collapsedRunIds = useCollapsedRunIds();
+  const toggleGroupCollapsed = useToggleRunGroupCollapsed();
+  const toggleRunCollapsed = useToggleRunCollapsed();
 
   const [rawQuery, setRawQuery] = useState("");
   const [query, setQuery] = useState("");
@@ -285,20 +321,107 @@ const RunsView = ({ selectedRunId, onPick }: RunsViewProps = {}) => {
   );
   const now = useTickingNow(hasRunningRun ? 30_000 : null);
 
-  const handleExportRun = async (instanceId: string) => {
-    try {
-      const { path } = await services.exportRun(instanceId);
-      if (path) {
-        toast.success("Run exporté en JSON", { description: path });
-      }
-    } catch (e) {
-      toast.error("Export impossible", {
-        description: e instanceof Error ? e.message : String(e),
-      });
-    }
-  };
-
   const hasQuery = query.trim().length > 0;
+
+  const rows = useMemo(
+    () =>
+      flattenRunsList({
+        groups,
+        collapsedGroupIds,
+        collapsedRunIds,
+        hasQuery,
+      }),
+    [groups, collapsedGroupIds, collapsedRunIds, hasQuery],
+  );
+
+  // Selection/openness are passed to each row as booleans (not predicates) so
+  // memoized rows bail out; the workspace-vs-editor switch lives here.
+  const workspaceMode = onPick != null;
+  const isActiveId = useCallback(
+    (id: string) =>
+      workspaceMode ? selectedRunId === id : activeUri === runUriFor(id),
+    [workspaceMode, selectedRunId, activeUri],
+  );
+  const isOpenId = useCallback(
+    (id: string) =>
+      workspaceMode ? selectedRunId === id : openUris.has(runUriFor(id)),
+    [workspaceMode, selectedRunId, openUris],
+  );
+
+  const handlePick = useCallback(
+    (id: string) =>
+      onPick ? onPick(id) : wb.openEditor(runUriFor(id), { focus: true }),
+    [onPick, wb],
+  );
+  const handlePin = useCallback((id: string) => pinRun(id), [pinRun]);
+  const handleUnpin = useCallback((id: string) => unpinRun(id), [unpinRun]);
+  const handleDelete = useCallback(
+    (id: string) => void deleteInstance(id),
+    [deleteInstance],
+  );
+  const handleExportRun = useCallback(
+    async (id: string) => {
+      try {
+        const { path } = await services.exportRun(id);
+        if (path) {
+          toast.success("Run exporté en JSON", { description: path });
+        }
+      } catch (e) {
+        toast.error("Export impossible", {
+          description: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    [services],
+  );
+  const handleExport = useCallback(
+    (id: string) => void handleExportRun(id),
+    [handleExportRun],
+  );
+
+  const renderRow = useCallback(
+    (row: RunListRow) => {
+      if (row.kind === "groupHeader") {
+        return (
+          <RunGroupHeader
+            group={row.group}
+            collapsed={row.collapsed}
+            onToggle={toggleGroupCollapsed}
+          />
+        );
+      }
+      const id = row.node.instance.id;
+      return (
+        <RunRow
+          item={row.node}
+          hasChildren={row.hasChildren}
+          expanded={row.expanded}
+          now={now}
+          active={isActiveId(id)}
+          open={isOpenId(id)}
+          onPick={handlePick}
+          onPin={handlePin}
+          onUnpin={handleUnpin}
+          onExport={handleExport}
+          onDelete={handleDelete}
+          onToggleExpand={toggleRunCollapsed}
+        />
+      );
+    },
+    [
+      now,
+      isActiveId,
+      isOpenId,
+      handlePick,
+      handlePin,
+      handleUnpin,
+      handleExport,
+      handleDelete,
+      toggleGroupCollapsed,
+      toggleRunCollapsed,
+    ],
+  );
+
   const totalCount = useMemo(
     () =>
       groups.reduce(
@@ -443,9 +566,9 @@ const RunsView = ({ selectedRunId, onPick }: RunsViewProps = {}) => {
 
       {error ? <ErrorState variant="inline" message={error} /> : null}
 
-      <ScrollArea className="min-h-0 flex-1 pb-2">
-        {groups.length === 0 ? (
-          instances.length === 0 ? (
+      {rows.length === 0 ? (
+        <div className="min-h-0 flex-1">
+          {instances.length === 0 ? (
             <EmptyState
               icon={<History />}
               title="Aucun run pour le moment"
@@ -473,39 +596,19 @@ const RunsView = ({ selectedRunId, onPick }: RunsViewProps = {}) => {
                   : "Aucun run ne correspond aux filtres."
               }
             />
-          )
-        ) : (
-          groups.map((group) => {
-            const workspaceMode = onPick != null;
-            const isActive = (id: string) =>
-              workspaceMode ? selectedRunId === id : activeUri === runUriFor(id);
-            const isOpen = (id: string) =>
-              workspaceMode
-                ? selectedRunId === id
-                : openUris.has(runUriFor(id));
-            const pick = (id: string) =>
-              onPick ? onPick(id) : wb.openEditor(runUriFor(id), { focus: true });
-            return (
-              <RunGroup key={group.id} group={group} hasQuery={hasQuery}>
-                {group.items.map((item) => (
-                  <RunRow
-                    key={`${group.id}:${item.instance.id}`}
-                    item={item}
-                    now={now}
-                    isActive={isActive}
-                    isOpen={isOpen}
-                    onPick={pick}
-                    onPin={(id) => pinRun(id)}
-                    onUnpin={(id) => unpinRun(id)}
-                    onExport={(id) => void handleExportRun(id)}
-                    onDelete={(id) => void deleteInstance(id)}
-                  />
-                ))}
-              </RunGroup>
-            );
-          })
-        )}
-      </ScrollArea>
+          )}
+        </div>
+      ) : (
+        <VirtualList
+          className="min-h-0 flex-1 pb-2"
+          ariaLabel={t("runs.list.ariaLabel")}
+          items={rows}
+          getKey={runRowKey}
+          estimateSize={estimateRunRow}
+          renderItem={renderRow}
+          isSticky={isStickyRunRow}
+        />
+      )}
 
       <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-1.5 text-2xs uppercase tracking-wide text-muted-foreground">
         <span className="flex items-center gap-1">

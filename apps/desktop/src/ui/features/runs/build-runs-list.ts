@@ -219,3 +219,60 @@ export const buildRunsList = (
 
 export const RUNS_STATUS_ORDER = STATUS_ORDER;
 export const RUNS_STATUS_LABEL = STATUS_LABEL;
+
+// ── Flattening for virtualization ────────────────────────────────────────────
+
+/**
+ * One render descriptor in the flattened runs list. Group headers and run rows
+ * share a single array so the virtualizer sees a flat, indexable list (see
+ * `specs/virtualized-list.md` §3). `expanded`/`collapsed` are resolved here, not
+ * by the rows, so the visible window is known before any row renders.
+ */
+export type RunListRow =
+  | {
+      readonly kind: "groupHeader";
+      readonly group: RunsListGroup;
+      readonly collapsed: boolean;
+    }
+  | {
+      readonly kind: "run";
+      readonly node: RunsListItem;
+      /** Owning group id — disambiguates a run that appears pinned and grouped. */
+      readonly groupId: string;
+      readonly hasChildren: boolean;
+      readonly expanded: boolean;
+    };
+
+export type FlattenRunsListArgs = {
+  readonly groups: ReadonlyArray<RunsListGroup>;
+  readonly collapsedGroupIds: ReadonlySet<string>;
+  readonly collapsedRunIds: ReadonlySet<string>;
+  /** Active search forces every group open, mirroring the legacy `forceOpen`. */
+  readonly hasQuery: boolean;
+};
+
+/**
+ * Pure: walks the grouped run tree into a flat, depth-tagged array honouring the
+ * collapse sets. A collapsed group emits only its header; an expanded run emits
+ * its descendants in pre-order beneath it. With an active query every group is
+ * forced open (the collapse set is ignored), matching the previous behaviour.
+ */
+export const flattenRunsList = (args: FlattenRunsListArgs): RunListRow[] => {
+  const { groups, collapsedGroupIds, collapsedRunIds, hasQuery } = args;
+  const out: RunListRow[] = [];
+  for (const group of groups) {
+    const collapsed = !hasQuery && collapsedGroupIds.has(group.id);
+    out.push({ kind: "groupHeader", group, collapsed });
+    if (collapsed) continue;
+    const pushNode = (node: RunsListItem): void => {
+      const hasChildren = node.children.length > 0;
+      const expanded = hasChildren && !collapsedRunIds.has(node.instance.id);
+      out.push({ kind: "run", node, groupId: group.id, hasChildren, expanded });
+      if (expanded) {
+        for (const child of node.children) pushNode(child);
+      }
+    };
+    for (const node of group.items) pushNode(node);
+  }
+  return out;
+};
