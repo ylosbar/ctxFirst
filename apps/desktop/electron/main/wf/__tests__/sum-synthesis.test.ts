@@ -99,6 +99,9 @@ describe("registry — OneOf<…> synthesis", () => {
         properties: { id: { type: "string" }, label: { type: "string" } },
         required: ["id", "label"],
       },
+      // In-place mutation of a published kind — a breaking diff (new required
+      // field); this test exercises cache invalidation, not the BACKWARD gate.
+      allowBreaking: true,
     });
     const after = registry.resolve("OneOf<Markdown,user:ticket@v1>");
     expect(after).not.toBe(before);

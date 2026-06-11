@@ -45,6 +45,10 @@ import {
   composeWrapperStructuralHash,
   computeStructuralHash,
 } from "../../domain/artifact-schema-hash";
+import {
+  ArtifactSchemaBreakingChangeError,
+  classifyChange,
+} from "../../domain/artifact-schema-compat";
 import { plainFallback } from "../../domain/artifact-serializer";
 import type {
   ArtifactKindDescriptor,
@@ -215,6 +219,30 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
 
   const resolveParentHash = (kind: ArtifactKind): string | null =>
     findRecord(kind)?.structuralHash ?? null;
+
+  // Mirrors the SQLite adapter's eager dependent-hash recompute: when a user
+  // record's hash changes, every user record that refines it (transitively)
+  // is recomputed in dependency order so no child keeps a stale parent hash.
+  const recomputeDependentHashes = (changedKind: ArtifactKind): void => {
+    const affected = new Set<string>([changedKind]);
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const [kind, desc] of userRecords) {
+        const parent = desc.extends;
+        if (!parent || !affected.has(parent) || affected.has(kind)) continue;
+        affected.add(kind);
+        progressed = true;
+        const newHash = computeStructuralHash(
+          { simplifiedSchema: desc.simplifiedSchema, extends: parent },
+          resolveParentHash,
+        );
+        if (newHash !== desc.structuralHash) {
+          userRecords.set(kind, { ...desc, structuralHash: newHash });
+        }
+      }
+    }
+  };
 
   const synthesizeList = (kind: ArtifactKind): ArtifactKindDescriptor | null => {
     if (!isContainerArtifactKind(kind)) return null;
@@ -453,6 +481,20 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
     async save(type: SaveUserArtifactSchema) {
       const kind = `user:${type.id}@${type.version}` as ArtifactKind;
       const simplifiedSchema = type.simplifiedSchema;
+      // Mirror the SQLite adapter's BACKWARD gate: an in-place overwrite at the
+      // same (id, version) must still read payloads valid under the stored one.
+      if (!type.allowBreaking) {
+        const existing = userRecords.get(kind);
+        if (existing) {
+          const verdict = classifyChange(existing.simplifiedSchema, simplifiedSchema);
+          if (verdict.breaking.length > 0) {
+            throw new ArtifactSchemaBreakingChangeError(
+              { id: type.id, version: type.version, name: type.name },
+              verdict.breaking,
+            );
+          }
+        }
+      }
       let schema: z.ZodTypeAny;
       try {
         schema = z.fromJSONSchema(simplifiedSchema as never);
@@ -482,6 +524,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
           ? { kind: "template", template: type.markdownTemplate }
           : null,
       });
+      recomputeDependentHashes(kind);
       synthesizedCache.clear();
     },
     async remove(ref: ArtifactSchemaRef) {

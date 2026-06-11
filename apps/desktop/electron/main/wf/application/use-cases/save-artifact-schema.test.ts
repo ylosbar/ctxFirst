@@ -69,3 +69,96 @@ describe("saveArtifactSchema use-case", () => {
     ).rejects.toThrow(/simplifiedSchema must be a JSON Schema object/);
   });
 });
+
+describe("saveArtifactSchema — BACKWARD gate", () => {
+  const objSchema = (
+    properties: Record<string, unknown>,
+    required: string[] = [],
+  ) => ({ type: "object", properties, required, additionalProperties: false });
+
+  it("allows a first-ever save (no predecessor to break)", async () => {
+    const { artifactSchemas, save } = buildDeps();
+    await save(
+      validInput({ simplifiedSchema: objSchema({ a: { type: "string" } }, ["a"]) }),
+    );
+    expect(artifactSchemas.resolve("user:Foo@v1")).not.toBeNull();
+  });
+
+  it("allows an additive in-place overwrite silently", async () => {
+    const { save } = buildDeps();
+    await save(
+      validInput({ simplifiedSchema: objSchema({ a: { type: "string" } }, ["a"]) }),
+    );
+    await expect(
+      save(
+        validInput({
+          simplifiedSchema: objSchema(
+            { a: { type: "string" }, b: { type: "number" } },
+            ["a"],
+          ),
+        }),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects a breaking in-place overwrite", async () => {
+    const { save } = buildDeps();
+    await save(
+      validInput({
+        simplifiedSchema: objSchema(
+          { a: { type: "string" }, b: { type: "string" } },
+          ["a", "b"],
+        ),
+      }),
+    );
+    await expect(
+      save(
+        validInput({ simplifiedSchema: objSchema({ a: { type: "string" } }, ["a"]) }),
+      ),
+    ).rejects.toThrow(/would break existing data/);
+  });
+
+  it("allows a breaking overwrite when allowBreaking is set", async () => {
+    const { save } = buildDeps();
+    await save(
+      validInput({
+        simplifiedSchema: objSchema(
+          { a: { type: "string" }, b: { type: "string" } },
+          ["a", "b"],
+        ),
+      }),
+    );
+    await expect(
+      save(
+        validInput({
+          simplifiedSchema: objSchema({ a: { type: "string" } }, ["a"]),
+          allowBreaking: true,
+        }),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not gate a bump to a new version (fresh identity)", async () => {
+    const { artifactSchemas, save } = buildDeps();
+    await save(
+      validInput({
+        version: "v1",
+        simplifiedSchema: objSchema(
+          { a: { type: "string" }, b: { type: "string" } },
+          ["a", "b"],
+        ),
+      }),
+    );
+    // @v2 drops a required field vs @v1 — breaking as a diff, but a new
+    // identity, so the gate must not fire.
+    await expect(
+      save(
+        validInput({
+          version: "v2",
+          simplifiedSchema: objSchema({ a: { type: "string" } }, ["a"]),
+        }),
+      ),
+    ).resolves.toBeUndefined();
+    expect(artifactSchemas.resolve("user:Foo@v2")).not.toBeNull();
+  });
+});

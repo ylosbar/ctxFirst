@@ -48,6 +48,10 @@ import {
   composeWrapperStructuralHash,
   computeStructuralHash,
 } from "../../domain/artifact-schema-hash";
+import {
+  ArtifactSchemaBreakingChangeError,
+  classifyChange,
+} from "../../domain/artifact-schema-compat";
 import { parseArtifact } from "../../domain/parse-artifact";
 import { plainFallback } from "../../domain/artifact-serializer";
 import {
@@ -238,6 +242,16 @@ export const createSqliteArtifactSchemaRegistry = (
 
   const findUserRow = db.prepare(
     `SELECT 1 FROM wf_artifact_schemas WHERE id = ? AND version = ? LIMIT 1`,
+  );
+
+  // BACKWARD gate predecessor lookup: the schema currently stored at the SAME
+  // `(id, version)` — the only thing an in-place overwrite can break. A bump to
+  // a new version publishes a fresh identity and is never gated here. `(id,
+  // version)` is globally unique (the upsert's ON CONFLICT target), so this is
+  // unscoped by channel like `findUserRow`.
+  const selectSchemaByRef = db.prepare(
+    `SELECT simplified_schema_json FROM wf_artifact_schemas
+      WHERE id = ? AND version = ? LIMIT 1`,
   );
 
   const findPluginRecord = (
@@ -552,6 +566,49 @@ export const createSqliteArtifactSchemaRegistry = (
     }
   };
 
+  /**
+   * Eager dependent recompute (§5 "Risques" follow-up). When a user record's
+   * schema — and thus its structural hash — changes at save, every user record
+   * that refines it folds the *stale* parent bytes into its own identity until
+   * re-saved. Left uncorrected, `portAccepts` rule 6 (hash equality) and
+   * `record:<hash>` resolution can match against a stale child hash.
+   *
+   * We sweep the user rows to a fixpoint: a child enters `affected` only once
+   * its parent has been recomputed *and persisted*, so by the time we compute a
+   * child's hash, `resolveParentHash` reads the parent's fresh column. Robust to
+   * any chain depth; built-in / plugin parents never reach here (they can't be
+   * `save`d), so only user→user refinement chains are walked — few and cheap.
+   */
+  const recomputeDependentHashes = (changedKind: ArtifactKind): void => {
+    const rows = selectAllUnscoped.all() as Row[];
+    const affected = new Set<string>([changedKind]);
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const row of rows) {
+        const parent = row.extends_kind;
+        if (!parent || !affected.has(parent)) continue;
+        const rowKind = toUserArtifactKind({
+          id: row.id,
+          version: row.version,
+        });
+        if (affected.has(rowKind)) continue;
+        affected.add(rowKind);
+        progressed = true;
+        const newHash = computeStructuralHash(
+          {
+            simplifiedSchema: JSON.parse(row.simplified_schema_json),
+            extends: parent as ArtifactKind,
+          },
+          resolveParentHash,
+        );
+        if (newHash !== row.structural_hash) {
+          updateHash.run(newHash, row.id, row.version);
+        }
+      }
+    }
+  };
+
   backfillUserHashes();
 
   const getSchema = (kind: ArtifactKind): z.ZodTypeAny | null =>
@@ -626,6 +683,26 @@ export const createSqliteArtifactSchemaRegistry = (
           `cannot save artifact type "${type.id}": collides with a built-in kind`,
         );
       }
+      // BACKWARD-compatibility gate (§2.3): an in-place overwrite at the same
+      // `(id, version)` must still read every payload valid under the stored
+      // schema. Reject breaking deltas unless the caller opts in to overwrite.
+      if (!type.allowBreaking) {
+        const existing = selectSchemaByRef.get(type.id, type.version) as
+          | { simplified_schema_json: string }
+          | undefined;
+        if (existing) {
+          const verdict = classifyChange(
+            JSON.parse(existing.simplified_schema_json),
+            type.simplifiedSchema,
+          );
+          if (verdict.breaking.length > 0) {
+            throw new ArtifactSchemaBreakingChangeError(
+              { id: type.id, version: type.version, name: type.name },
+              verdict.breaking,
+            );
+          }
+        }
+      }
       const extendsKind: ArtifactKind | null = type.extends ?? null;
       // Compute the hash *before* the upsert so the column is populated on
       // insert — no second-pass UPDATE, and `record:<hash>` lookups resolve
@@ -652,11 +729,13 @@ export const createSqliteArtifactSchemaRegistry = (
         channel_id: channels.getActive(),
         now: new Date().toISOString(),
       });
+      // Refinement children fold this kind's hash into their own identity;
+      // recompute & persist them so none keeps a stale hash.
+      recomputeDependentHashes(
+        toUserArtifactKind({ id: type.id, version: type.version }),
+      );
       // A synthesised entry might transitively depend on the saved kind
       // (e.g. `List<user:foo@v1>` if `user:foo@v1` was just updated).
-      // Children that refine this kind keep their stored hash — they go
-      // stale until re-saved (cf. spec §5 "Risques", follow-up: eager
-      // dependent recompute).
       synthesizedCache.clear();
     },
 

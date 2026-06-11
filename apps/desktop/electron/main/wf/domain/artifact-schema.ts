@@ -149,6 +149,14 @@ export type SaveUserArtifactSchema = {
    * on resolve; `null`/omitted ⇒ no projection (fallback chain).
    */
   markdownTemplate?: string | null;
+  /**
+   * Escape hatch for the BACKWARD-compatibility gate (§2.3). When an in-place
+   * overwrite at the same `(id, version)` would reject payloads valid under the
+   * stored schema, the registry throws unless this is `true`. Not persisted;
+   * it only authorises the single save it rides on. Bumping to a new version is
+   * the preferred path — this is for deliberate breaking redesigns.
+   */
+  allowBreaking?: boolean;
 };
 
 /** Encodes a `(id, version)` ref into the `user:` artifact kind string. */
