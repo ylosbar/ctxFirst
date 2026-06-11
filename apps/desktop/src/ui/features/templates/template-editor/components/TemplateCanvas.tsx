@@ -26,6 +26,8 @@ import {
 } from "@xyflow/react";
 import type { ComponentProps, RefObject } from "react";
 
+import type { CanvasModeFlowProps } from "../hooks/useCanvasMode";
+
 import StepNode, {
   NotesVisibilityProvider,
 } from "../../../../components/templates/StepNode";
@@ -87,6 +89,11 @@ type Props = {
   readonly snapToGrid: boolean;
   readonly snapGrid: CanvasHandlers["snapGrid"];
   readonly defaultViewport: Viewport | undefined;
+  // Outil de canvas (drag/select) dérivé en amont — pilote le geste de
+  // left-drag (pan vs box-selection) sans toucher aux autres handlers.
+  readonly panOnDrag: CanvasModeFlowProps["panOnDrag"];
+  readonly selectionOnDrag: CanvasModeFlowProps["selectionOnDrag"];
+  readonly selectionMode: CanvasModeFlowProps["selectionMode"];
   readonly handlers: Handlers;
   readonly overlays: ComponentProps<typeof TemplateCanvasOverlays>;
 };
@@ -102,6 +109,9 @@ const TemplateCanvas = ({
   snapToGrid,
   snapGrid,
   defaultViewport,
+  panOnDrag,
+  selectionOnDrag,
+  selectionMode,
   handlers,
   overlays,
 }: Props) => (
@@ -138,6 +148,9 @@ const TemplateCanvas = ({
             onMoveEnd={isViewRun ? undefined : handlers.onMoveEnd}
             snapToGrid={snapToGrid}
             snapGrid={snapGrid}
+            panOnDrag={panOnDrag}
+            selectionOnDrag={selectionOnDrag}
+            selectionMode={selectionMode}
             onDragOver={handlers.onDragOver}
             onDrop={handlers.onDrop}
             fitView={!defaultViewport}

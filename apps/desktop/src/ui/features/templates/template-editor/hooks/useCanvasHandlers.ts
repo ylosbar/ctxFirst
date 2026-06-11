@@ -85,6 +85,20 @@ type Options = {
   setSelectedEdgeId: Dispatch<SetStateAction<string | null>>;
 };
 
+/**
+ * Entrée du template après application d'une suppression de nodes : `null` si
+ * l'entrée courante figure parmi les ids retirés, inchangée sinon. Centralise la
+ * réconciliation de `entryStepId` sur **tous** les chemins de suppression natifs
+ * (Delete sur sélection unitaire ou au rectangle) — pure, donc testable seule.
+ */
+export const entryStepIdAfterRemoval = (
+  removedIds: readonly string[],
+  entryStepId: string | null,
+): string | null =>
+  entryStepId !== null && removedIds.includes(entryStepId)
+    ? null
+    : entryStepId;
+
 export type CanvasHandlers = {
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -125,6 +139,18 @@ export const useCanvasHandlers = ({
       (c) => !("id" in c) || !isSyntheticId(c.id),
     );
     setNodes((nds) => applyNodeChanges(filtered, nds));
+    // Réconciliation de l'entrée : si la node d'entrée est supprimée par le
+    // chemin natif (Delete sur sélection unitaire **ou** au rectangle),
+    // `entryStepId` doit retomber à `null` — sinon il reste orphelin. On lit
+    // l'entrée courante via le setter fonctionnel pour garder ce callback
+    // stable (deps vides). Centralise la réconciliation sur tous les chemins
+    // de suppression (cf. `deleteSelectedStep`).
+    const removedIds = filtered
+      .filter((c) => c.type === "remove")
+      .map((c) => c.id);
+    if (removedIds.length > 0) {
+      setEntryStepId((cur) => entryStepIdAfterRemoval(removedIds, cur));
+    }
   }, []);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {

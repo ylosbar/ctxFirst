@@ -3,6 +3,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
+  type SetStateAction,
 } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -41,6 +43,11 @@ import { useNodeReparenting } from "./template-editor/hooks/useNodeReparenting";
 import { useAutoLayout } from "./template-editor/hooks/useAutoLayout";
 import { useStickyNotes } from "./template-editor/hooks/useStickyNotes";
 import { useGroupTools } from "./template-editor/hooks/useGroupTools";
+import {
+  deriveCanvasModeProps,
+  useCanvasMode,
+  type CanvasMode,
+} from "./template-editor/hooks/useCanvasMode";
 import { useStepMutations } from "./template-editor/hooks/useStepMutations";
 import { useTemplateVariables } from "./template-editor/hooks/useTemplateVariables";
 import { useEdgeDropSuggestions } from "./template-editor/hooks/useEdgeDropSuggestions";
@@ -346,6 +353,34 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     onOverlayPointerUp,
   } = useGroupTools({ setNodes, screenToFlowPosition, layoutAutosave });
 
+  // Outil de canvas (drag/select). Les trois gestes de left-drag sur le pane
+  // (pan / box-selection / dessin de groupe) sont mutuellement exclusifs :
+  // activer la sélection coupe le dessin de groupe et inversement — un seul
+  // bouton actif à la fois (cohérence UX).
+  const { canvasMode, setCanvasMode } = useCanvasMode();
+  const selectCanvasMode = useCallback(
+    (mode: CanvasMode) => {
+      setCanvasMode(mode);
+      if (mode === "select") setGroupDrawingMode(false);
+    },
+    [setCanvasMode, setGroupDrawingMode],
+  );
+  const setGroupDrawingModeExclusive = useCallback<
+    Dispatch<SetStateAction<boolean>>
+  >(
+    (action) => {
+      const next =
+        typeof action === "function" ? action(groupDrawingMode) : action;
+      setGroupDrawingMode(next);
+      if (next) setCanvasMode("drag");
+    },
+    [groupDrawingMode, setGroupDrawingMode, setCanvasMode],
+  );
+  const canvasModeProps = useMemo(
+    () => deriveCanvasModeProps(canvasMode, isViewRun),
+    [canvasMode, isViewRun],
+  );
+
   // ── Notes post-it (données purement présentationnelles, persistées dans le
   // layout via l'autosave debounced — cf. spec template-sticky-notes). ──
   const { addStickyNote, stickyActions } = useStickyNotes({
@@ -570,8 +605,10 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           missingDeps={missingDeps}
           notesVisible={notesVisible}
           setNotesVisible={setNotesVisible}
+          canvasMode={canvasMode}
+          setCanvasMode={selectCanvasMode}
           groupDrawingMode={groupDrawingMode}
-          setGroupDrawingMode={setGroupDrawingMode}
+          setGroupDrawingMode={setGroupDrawingModeExclusive}
           gridSnap={gridSnap}
           isMaximized={isMaximized}
           setIsMaximized={setIsMaximized}
@@ -625,6 +662,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         snapToGrid={gridSnap.enabled}
         snapGrid={snapGrid}
         defaultViewport={initialLayout?.viewport}
+        panOnDrag={canvasModeProps.panOnDrag}
+        selectionOnDrag={canvasModeProps.selectionOnDrag}
+        selectionMode={canvasModeProps.selectionMode}
         handlers={{
           onNodesChange,
           onEdgesChange,
