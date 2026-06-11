@@ -1066,6 +1066,11 @@
         "title": "Duplicate schema",
         "body": "Same structural hash as “{{name}}” ({{ref}}). Ports will treat it as equivalent — you can reference the existing type instead of saving a duplicate."
       },
+      "breaking": {
+        "title": "Breaking change",
+        "overwrite": "Overwrite anyway",
+        "dismiss": "Cancel"
+      },
       "sections": {
         "identity": "Identity",
         "schema": "Schema",

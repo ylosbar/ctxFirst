@@ -526,6 +526,17 @@ const ARTIFACT_TOOLS: ReadonlyArray<ToolDescriptor> = [
         .string()
         .nullish()
         .describe("Gabarit Markdown `{{champ}}` optionnel pour la projection."),
+      allowBreaking: z
+        .boolean()
+        .optional()
+        .describe(
+          "Échappatoire au gate de compatibilité BACKWARD. Réécrire `(id, " +
+            "version)` en place avec un schéma qui rejetterait des payloads " +
+            "valides sous l'ancien (champ requis retiré, type rétréci…) est " +
+            "REFUSÉ par défaut. `true` force l'écrasement malgré le blast " +
+            "radius. Préférer bumper la version — ce flag est pour les " +
+            "refontes cassantes assumées.",
+        ),
     },
     handler: async (engine, args) => {
       const input = args as {
@@ -539,6 +550,7 @@ const ARTIFACT_TOOLS: ReadonlyArray<ToolDescriptor> = [
         sample?: unknown;
         extends?: string | null;
         markdownTemplate?: string | null;
+        allowBreaking?: boolean;
       };
       const payload: SaveUserArtifactSchema = {
         id: input.id,
@@ -551,9 +563,12 @@ const ARTIFACT_TOOLS: ReadonlyArray<ToolDescriptor> = [
         sample: input.sample ?? null,
         extends: (input.extends ?? null) as ArtifactKind | null,
         markdownTemplate: input.markdownTemplate ?? null,
+        allowBreaking: input.allowBreaking || undefined,
       };
       // Validation runtime (id/version/name + JSON Schema) déléguée à
       // makeSaveArtifactSchema ; le registry refuse les collisions builtin/plugin.
+      // Un schéma cassant en place throw `ArtifactSchemaBreakingChangeError`
+      // (message self-contained) sauf si `allowBreaking` est passé.
       await engine.saveArtifactSchema(payload);
       const saved = engine.artifactSchemas.resolve(
         toUserArtifactKind({ id: input.id, version: input.version }),

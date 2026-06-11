@@ -1066,6 +1066,11 @@
         "title": "Schéma en doublon",
         "body": "Hash structurel identique à « {{name}} » ({{ref}}). Les ports le traiteront comme équivalent — tu peux référencer le type existant plutôt qu'en sauvegarder un doublon."
       },
+      "breaking": {
+        "title": "Changement cassant",
+        "overwrite": "Écraser quand même",
+        "dismiss": "Annuler"
+      },
       "sections": {
         "identity": "Identité",
         "schema": "Schéma",

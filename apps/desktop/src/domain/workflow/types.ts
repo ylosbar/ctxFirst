@@ -143,6 +143,14 @@ export type SaveArtifactSchemaDraft = {
    * `specs/typed-kind-rendered-markdown.md`). `null`/omitted ⇒ no projection.
    */
   markdownTemplate?: string | null;
+  /**
+   * Escape hatch for the registry's BACKWARD-compatibility gate. An in-place
+   * overwrite at the same `(id, version)` that would reject payloads valid under
+   * the stored schema is refused unless this is `true`. Set only when the author
+   * has acknowledged the blast radius and chosen to overwrite anyway; bumping the
+   * version is the preferred path. Not persisted — it authorises one save.
+   */
+  allowBreaking?: boolean;
 };
 
 export type ParserMode = "declarative" | "code";
