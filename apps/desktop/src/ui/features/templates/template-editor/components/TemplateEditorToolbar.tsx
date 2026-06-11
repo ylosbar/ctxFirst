@@ -14,6 +14,7 @@ import {
   FileJson,
   Frame,
   Grid3x3,
+  Hand,
   Maximize2,
   Minimize2,
   NotebookPen,
@@ -21,6 +22,7 @@ import {
   RefreshCw,
   Rocket,
   Save,
+  SquareDashedMousePointer,
   StickyNote,
   Trash2,
   X,
@@ -48,6 +50,7 @@ import {
 } from "../../../../../application/use-cases/collect-missing-template-deps";
 import type { StepKindMeta } from "../../../../components/templates/step-kinds";
 import type { LaunchRunControls } from "../hooks/useLaunchRun";
+import type { CanvasMode } from "../hooks/useCanvasMode";
 import type { AutoLayoutMode } from "../graph/auto-layout";
 import type { VariableModalState } from "./variable-modal";
 
@@ -63,6 +66,8 @@ type Props = {
   readonly missingDeps: MissingDeps;
   readonly notesVisible: boolean;
   readonly setNotesVisible: Dispatch<SetStateAction<boolean>>;
+  readonly canvasMode: CanvasMode;
+  readonly setCanvasMode: (mode: CanvasMode) => void;
   readonly groupDrawingMode: boolean;
   readonly setGroupDrawingMode: Dispatch<SetStateAction<boolean>>;
   readonly gridSnap: { readonly enabled: boolean; readonly size: number };
@@ -97,6 +102,8 @@ const TemplateEditorToolbar = ({
   missingDeps,
   notesVisible,
   setNotesVisible,
+  canvasMode,
+  setCanvasMode,
   groupDrawingMode,
   setGroupDrawingMode,
   gridSnap,
@@ -138,6 +145,28 @@ const TemplateEditorToolbar = ({
           }
           onClick={launch ? handleLaunchClose : handleLaunchOpen}
           disabled={!canLaunch}
+        />
+      </div>
+      <div className="flex items-center gap-0.5 border-l pl-2">
+        <ToolbarButton
+          icon={Hand}
+          label="Déplacer / panoramique"
+          onClick={() => setCanvasMode("drag")}
+          className={
+            canvasMode === "drag"
+              ? "bg-accent text-accent-foreground"
+              : undefined
+          }
+        />
+        <ToolbarButton
+          icon={SquareDashedMousePointer}
+          label="Sélection au rectangle — supprimer avec Suppr (Échap pour quitter)"
+          onClick={() => setCanvasMode("select")}
+          className={
+            canvasMode === "select"
+              ? "bg-accent text-accent-foreground"
+              : undefined
+          }
         />
       </div>
       <div className="flex items-center gap-0.5 border-l pl-2">
