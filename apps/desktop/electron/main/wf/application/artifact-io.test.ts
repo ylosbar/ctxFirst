@@ -222,6 +222,59 @@ describe("loadAndParseArtifact — read-time coercion", () => {
     expect(loaded.kind).toBe("user:Brief@v2");
     expect(loaded.payload).toBeNull();
   });
+
+  it("coerces a v1 payload through a 2-hop chain to the v3 target", async () => {
+    // Brief@v1{summary} → v2{abstract} (rename) → v3{title} (rename); a v3-only
+    // port reads a v1 artifact, composing both hops at the single mutation site.
+    const registry = createFakeArtifactSchemaRegistry();
+    await registry.save({
+      id: "Brief",
+      version: "v1",
+      name: "Brief",
+      simplifiedSchema: objSchema({ summary: { type: "string" } }, ["summary"]),
+      sample: { summary: "hello" },
+    });
+    await registry.save({
+      id: "Brief",
+      version: "v2",
+      name: "Brief",
+      simplifiedSchema: objSchema({ abstract: { type: "string" } }, ["abstract"]),
+      sample: { abstract: "hello" },
+      coerceFrom: {
+        fromVersion: "v1",
+        patch: [{ op: "rename", from: "summary", at: "abstract" }],
+      },
+    });
+    await registry.save({
+      id: "Brief",
+      version: "v3",
+      name: "Brief",
+      simplifiedSchema: objSchema({ title: { type: "string" } }, ["title"]),
+      coerceFrom: {
+        fromVersion: "v2",
+        patch: [{ op: "rename", from: "abstract", at: "title" }],
+      },
+    });
+    const store = createFakeArtifactStore();
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
+      summary: "hello",
+    });
+
+    const loaded = await loadAndParseArtifact(
+      store,
+      registry,
+      a.id,
+      "user:Brief@v1",
+      "strict",
+      createSilentLogger(),
+      ["user:Brief@v3"],
+    );
+
+    expect(loaded.kind).toBe("user:Brief@v3");
+    expect(loaded.payload).toEqual({ title: "hello" });
+    // Stored bytes untouched — only the in-memory view is reshaped end-to-end.
+    expect(loaded.content).toBe(JSON.stringify({ summary: "hello" }));
+  });
 });
 
 describe("pickCoercionTarget", () => {
@@ -278,5 +331,55 @@ describe("pickCoercionTarget", () => {
     const r = resolve({ "user:Brief@v2": cf("v1") });
     expect(pickCoercionTarget(r, "user:Brief@v1", undefined)).toBeNull();
     expect(pickCoercionTarget(r, "user:Brief@v1", [])).toBeNull();
+  });
+
+  // ── P4: multi-step chains ──────────────────────────────────────────────
+  const cfP = (
+    fromVersion: string,
+    patch: DeclarativePatch,
+  ): CoerceFrom => ({ fromVersion, patch });
+  const renameAB: DeclarativePatch = [{ op: "rename", from: "summary", at: "abstract" }];
+  const renameBC: DeclarativePatch = [{ op: "rename", from: "abstract", at: "title" }];
+
+  it("walks a 2-hop chain and composes patches in writer→target order", () => {
+    expect(
+      pickCoercionTarget(
+        resolve({
+          "user:Brief@v3": cfP("v2", renameBC),
+          "user:Brief@v2": cfP("v1", renameAB),
+        }),
+        "user:Brief@v1",
+        ["user:Brief@v3"],
+      ),
+    ).toEqual({
+      targetKind: "user:Brief@v3",
+      patch: [...renameAB, ...renameBC],
+    });
+  });
+
+  it("returns null when the chain never reaches the writer", () => {
+    expect(
+      pickCoercionTarget(
+        resolve({
+          "user:Brief@v3": cfP("v2", renameBC),
+          "user:Brief@v2": cfP("v1", renameAB),
+        }),
+        "user:Brief@v0", // not on the chain
+        ["user:Brief@v3"],
+      ),
+    ).toBeNull();
+  });
+
+  it("guards a cycle in the coerceFrom links instead of looping", () => {
+    expect(
+      pickCoercionTarget(
+        resolve({
+          "user:Brief@v2": cfP("v1", renameAB),
+          "user:Brief@v1": cfP("v2", renameBC), // v1 ↔ v2 cycle
+        }),
+        "user:Nope@v9",
+        ["user:Brief@v2"],
+      ),
+    ).toBeNull();
   });
 });

@@ -78,22 +78,70 @@ export type LoadedArtifact<K extends ArtifactKind> = {
   kind: ArtifactKind;
 };
 
+/** Resolves a kind to the minimal descriptor data the chain walk needs. */
+type DescriptorResolver = (
+  kind: ArtifactKind,
+) => { kind: ArtifactKind; coerceFrom: CoerceFrom | null } | null;
+
+/** Bounds a pathological chain past the cycle guard (mirrors the save gate). */
+const MAX_COERCION_CHAIN_DEPTH = 64;
+
 /**
- * Selects a read-time coercion (§2.4, P3) when the consumer port does not
- * directly accept the writer's kind but declares a same-`id` successor version
- * whose descriptor carries a matching {@link CoerceFrom}.
+ * Walks the `coerceFrom` chain backward from a candidate target toward the
+ * writer kind, composing each hop's patch. Returns the writer→target patch when
+ * the chain reaches `writerKind`, or `null` when it ends, cycles, exceeds the
+ * depth cap, or hits an unresolvable / non-versioned intermediate.
+ *
+ * Each hop's `coerceFrom.patch` maps the *predecessor* shape to the *current*
+ * shape, so patches are collected target→writer and reversed to apply
+ * writer→target. The chain is a linked list of `coerceFrom` pointers — no sort
+ * over version strings, no cross-`id` jump (each predecessor kind is rebuilt
+ * from the current kind's own `id` with the version swapped).
+ */
+const composeChainToWriter = (
+  resolveDescriptor: DescriptorResolver,
+  target: { kind: ArtifactKind; coerceFrom: CoerceFrom | null },
+  writerKind: ArtifactKind,
+): DeclarativePatch | null => {
+  const hopPatches: DeclarativePatch[] = []; // target→writer order
+  const seen = new Set<ArtifactKind>([target.kind]);
+  let curKind = target.kind;
+  let cf = target.coerceFrom;
+  for (let depth = 0; cf; depth++) {
+    if (depth >= MAX_COERCION_CHAIN_DEPTH) return null;
+    const at = curKind.lastIndexOf("@");
+    if (at < 0) return null; // non-versioned (built-in) — nothing to bridge
+    const predKind = `${curKind.slice(0, at)}@${cf.fromVersion}` as ArtifactKind;
+    hopPatches.push(cf.patch);
+    if (predKind === writerKind) {
+      // Reached the writer; apply hops writer→target (reverse of collection).
+      return hopPatches.reverse().flat();
+    }
+    if (seen.has(predKind)) return null; // cycle
+    seen.add(predKind);
+    const pred = resolveDescriptor(predKind);
+    if (!pred) return null; // predecessor not registered — chain can't continue
+    curKind = pred.kind;
+    cf = pred.coerceFrom;
+  }
+  return null; // chain ended without reaching the writer
+};
+
+/**
+ * Selects a read-time coercion (§2.4) when the consumer port does not directly
+ * accept the writer's kind but a declared `coerceFrom` chain bridges the writer
+ * to one of the port's target kinds.
  *
  * Strict fallback: returns `null` whenever the port already accepts the writer
  * kind (literal or `"*"` wildcard) — those parse against their own schema as
- * before. The match is exact and version-ordering-free: a target only coerces
- * the single predecessor kind reconstructed from its own kind string with the
- * version swapped to `coerceFrom.fromVersion`, so no cross-`id` or non-adjacent
- * jump can ever fire.
+ * before. Otherwise each candidate target's {@link CoerceFrom} chain is walked
+ * back toward the writer (P4): a single adjacent step is the length-1 case; a
+ * multi-step chain composes each hop's patch. Order-free and cross-`id`-safe by
+ * construction — every predecessor kind is reconstructed from the current
+ * kind's own `id`. The save-time chain gate proves any authored chain is sound.
  */
 export const pickCoercionTarget = (
-  resolveDescriptor: (
-    kind: ArtifactKind,
-  ) => { kind: ArtifactKind; coerceFrom: CoerceFrom | null } | null,
+  resolveDescriptor: DescriptorResolver,
   writerKind: ArtifactKind,
   candidateKinds: ReadonlyArray<ArtifactKind | "*"> | undefined,
 ): { targetKind: ArtifactKind; patch: DeclarativePatch } | null => {
@@ -104,14 +152,9 @@ export const pickCoercionTarget = (
   for (const candidate of candidateKinds) {
     if (candidate === "*") continue;
     const desc = resolveDescriptor(candidate);
-    const cf = desc?.coerceFrom;
-    if (!cf) continue;
-    const at = desc.kind.lastIndexOf("@");
-    if (at < 0) continue; // non-versioned (built-in) target — nothing to bridge
-    const declaredWriter = `${desc.kind.slice(0, at)}@${cf.fromVersion}`;
-    if (declaredWriter === writerKind) {
-      return { targetKind: desc.kind, patch: cf.patch };
-    }
+    if (!desc?.coerceFrom) continue;
+    const patch = composeChainToWriter(resolveDescriptor, desc, writerKind);
+    if (patch) return { targetKind: desc.kind, patch };
   }
   return null;
 };
