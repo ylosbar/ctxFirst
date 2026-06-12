@@ -47,7 +47,10 @@ import {
 } from "../../domain/artifact-schema-hash";
 import {
   ArtifactSchemaBreakingChangeError,
+  ArtifactSchemaChainUnsoundError,
   classifyChange,
+  classifyCoercionChain,
+  type CoercionChainNode,
 } from "../../domain/artifact-schema-compat";
 import { plainFallback } from "../../domain/artifact-serializer";
 import type {
@@ -497,6 +500,38 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
               verdict.breaking,
             );
           }
+        }
+      }
+      // Mirror the SQLite adapter's BACKWARD_TRANSITIVE chain gate (§2.6 P4) via
+      // the same pure classifier, so use-case tests match the adapter exactly.
+      if (!type.allowBreaking && type.coerceFrom != null) {
+        const resolveAncestor = (version: string): CoercionChainNode | null => {
+          const anc = userRecords.get(`user:${type.id}@${version}`);
+          return anc
+            ? {
+                version: anc.version,
+                simplifiedSchema: anc.simplifiedSchema,
+                schema: anc.schema,
+                sample: anc.sample,
+                coerceFrom: anc.coerceFrom,
+              }
+            : null;
+        };
+        const verdict = classifyCoercionChain(
+          {
+            version: type.version,
+            simplifiedSchema,
+            schema: z.fromJSONSchema(simplifiedSchema as never),
+            sample: type.sample ?? null,
+            coerceFrom: type.coerceFrom,
+          },
+          resolveAncestor,
+        );
+        if (verdict.broken.length > 0) {
+          throw new ArtifactSchemaChainUnsoundError(
+            { id: type.id, version: type.version, name: type.name },
+            verdict.broken,
+          );
         }
       }
       let schema: z.ZodTypeAny;

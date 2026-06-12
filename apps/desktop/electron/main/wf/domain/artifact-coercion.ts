@@ -216,3 +216,94 @@ export const parseCoerceFromColumn = (json: string | null): CoerceFrom | null =>
     return null;
   }
 };
+
+/**
+ * JSON-Schema-level projection of a {@link DeclarativePatch}, used by the
+ * save-time chain-soundness gate (§2.3/§2.6 P4) to predict — *without* a sample
+ * payload — the shape a patched payload would take. A structural approximation
+ * of {@link applyDeclarativePatch}: it folds the four ops over a JSON Schema's
+ * `properties`/`required` so {@link classifyChange} can then ask "does the
+ * post-patch shape still validate against the target version's schema?". Kept
+ * next to `applyDeclarativePatch` so the two encodings of patch semantics stay
+ * in sight (an agreement test pins them together).
+ *
+ * Conservative by construction: anything it cannot model exactly — a non-object
+ * schema, a missing `properties` map, a dotted/nested path — yields a
+ * `degraded` result rather than a guessed delta, so the gate falls back to the
+ * sample dry-run instead of risking a false (over-gating) verdict.
+ */
+export type SchemaSimResult =
+  | { degraded: false; schema: Record<string, unknown> }
+  | { degraded: true; reason: string };
+
+/** Coarse JSON-Schema type for a literal `value` written by `set`/`setIfMissing`. */
+const inferTypeSchema = (value: unknown): Record<string, unknown> => {
+  if (typeof value === "string") return { type: "string" };
+  if (typeof value === "number") return { type: "number" };
+  if (typeof value === "boolean") return { type: "boolean" };
+  if (value === null) return { type: "null" };
+  if (Array.isArray(value)) return { type: "array" };
+  return { type: "object" };
+};
+
+export const simulatePatchOnSchema = (
+  simplifiedSchema: unknown,
+  patch: DeclarativePatch,
+): SchemaSimResult => {
+  if (
+    !isRecord(simplifiedSchema) ||
+    simplifiedSchema.type !== "object" ||
+    !isRecord(simplifiedSchema.properties)
+  ) {
+    return { degraded: true, reason: "target schema is not a plain object schema" };
+  }
+  // Nested/dotted paths are beyond the flat structural model — defer to the
+  // sample dry-run rather than mis-model a deep reshape.
+  for (const op of patch) {
+    if (op.at.includes(".")) {
+      return { degraded: true, reason: `op writes a nested path \`${op.at}\`` };
+    }
+    if (op.op === "rename" && op.from.includes(".")) {
+      return { degraded: true, reason: `rename reads a nested path \`${op.from}\`` };
+    }
+  }
+  const schema = clone(simplifiedSchema);
+  const props = schema.properties as Record<string, unknown>;
+  const required = new Set(
+    Array.isArray(schema.required)
+      ? schema.required.filter((x): x is string => typeof x === "string")
+      : [],
+  );
+  for (const op of patch) {
+    if (op.op === "rename") {
+      // A rename of an absent source is a runtime no-op (see applyDeclarativePatch);
+      // mirror that here so the simulated shape matches what a read would produce.
+      if (op.from in props) {
+        const moved = props[op.from];
+        const wasRequired = required.has(op.from);
+        delete props[op.from];
+        required.delete(op.from);
+        props[op.at] = moved;
+        if (wasRequired) required.add(op.at);
+      }
+      continue;
+    }
+    if (op.op === "unset") {
+      delete props[op.at];
+      required.delete(op.at);
+      continue;
+    }
+    if (op.op === "set") {
+      props[op.at] = inferTypeSchema(op.value);
+      required.add(op.at); // `set` always produces the field
+      continue;
+    }
+    // setIfMissing: post-op the field is always present. Keep an already-declared
+    // field's schema (its values are unchanged when present); model from the
+    // default only when the field is new.
+    if (!(op.at in props)) props[op.at] = inferTypeSchema(op.value);
+    required.add(op.at);
+  }
+  schema.required = [...required];
+  return { degraded: false, schema };
+};

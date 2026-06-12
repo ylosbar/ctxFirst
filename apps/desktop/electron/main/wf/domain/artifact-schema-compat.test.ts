@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   ArtifactSchemaBreakingChangeError,
+  ArtifactSchemaChainUnsoundError,
   classifyChange,
+  classifyCoercionChain,
+  type CoercionChainNode,
   type SchemaDeltaKind,
 } from "./artifact-schema-compat";
+import type { CoerceFrom } from "./artifact-coercion";
 
 /** Object schema in the shape `z.toJSONSchema(z.object(...))` produces. */
 const obj = (
@@ -374,6 +379,181 @@ describe("ArtifactSchemaBreakingChangeError", () => {
     );
     expect(err.message).toContain("Brief (Brief@v1)");
     expect(err.message).toContain("`b` removed");
+    expect(err.message).toContain("allow breaking change");
+  });
+});
+
+describe("classifyCoercionChain", () => {
+  const node = (
+    version: string,
+    simplifiedSchema: unknown,
+    opts: { sample?: unknown; coerceFrom?: CoerceFrom } = {},
+  ): CoercionChainNode => ({
+    version,
+    simplifiedSchema,
+    schema: z.fromJSONSchema(simplifiedSchema as never),
+    sample: opts.sample ?? null,
+    coerceFrom: opts.coerceFrom ?? null,
+  });
+
+  /** Build a resolver over a fixed set of ancestor nodes (id is implicit). */
+  const ancestors =
+    (...nodes: CoercionChainNode[]) =>
+    (version: string): CoercionChainNode | null =>
+      nodes.find((n) => n.version === version) ?? null;
+
+  const incomingOf = (n: CoercionChainNode) => ({
+    version: n.version,
+    simplifiedSchema: n.simplifiedSchema,
+    schema: n.schema,
+    sample: n.sample,
+    coerceFrom: n.coerceFrom,
+  });
+
+  const rename = (from: string, at: string): CoerceFrom["patch"] => [
+    { op: "rename", from, at },
+  ];
+
+  it("passes a sound single hop (the common bump-with-coercion case)", () => {
+    const v1 = node("v1", obj({ summary: { type: "string" } }, ["summary"]), {
+      sample: { summary: "x" },
+    });
+    const v2 = node("v2", obj({ abstract: { type: "string" } }, ["abstract"]), {
+      coerceFrom: { fromVersion: "v1", patch: rename("summary", "abstract") },
+    });
+    const verdict = classifyCoercionChain(incomingOf(v2), ancestors(v1));
+    expect(verdict.broken).toHaveLength(0);
+    expect(verdict.hops.map((h) => h.status)).toEqual(["ok"]);
+  });
+
+  it("passes a sound 3-version chain (rename then rename)", () => {
+    const v1 = node("v1", obj({ a: { type: "string" } }, ["a"]), { sample: { a: "x" } });
+    const v2 = node("v2", obj({ b: { type: "string" } }, ["b"]), {
+      sample: { b: "x" },
+      coerceFrom: { fromVersion: "v1", patch: rename("a", "b") },
+    });
+    const v3 = node("v3", obj({ c: { type: "string" } }, ["c"]), {
+      coerceFrom: { fromVersion: "v2", patch: rename("b", "c") },
+    });
+    const verdict = classifyCoercionChain(incomingOf(v3), ancestors(v1, v2));
+    expect(verdict.broken).toHaveLength(0);
+  });
+
+  it("rejects a hop whose patch fails to produce the target's required field", () => {
+    const v1 = node("v1", obj({ summary: { type: "string" } }, ["summary"]), {
+      sample: { summary: "x" },
+    });
+    // @v2 requires `abstract` but the patch is a no-op that never produces it.
+    const v2 = node("v2", obj({ abstract: { type: "string" } }, ["abstract"]), {
+      coerceFrom: { fromVersion: "v1", patch: [{ op: "set", at: "noop", value: 1 }] },
+    });
+    const verdict = classifyCoercionChain(incomingOf(v2), ancestors(v1));
+    expect(verdict.broken).toHaveLength(1);
+    expect(verdict.broken[0].fromVersion).toBe("v1");
+  });
+
+  it("catches the lossy composition (rename then unset drops data the target needs)", () => {
+    // skeptic #3: v1{a} --rename a→b--> v2 --unset b--> v3, but v3 requires `title`.
+    // Reading a v1 (or v2) artifact as v3 composes to {} → fails the v3 schema.
+    const v1 = node("v1", obj({ a: { type: "string" } }, ["a"]), { sample: { a: "x" } });
+    const v2 = node("v2", obj({ b: { type: "string" } }, ["b"]), {
+      sample: { b: "x" },
+      coerceFrom: { fromVersion: "v1", patch: rename("a", "b") },
+    });
+    const v3 = node("v3", obj({ title: { type: "string" } }, ["title"]), {
+      coerceFrom: { fromVersion: "v2", patch: [{ op: "unset", at: "b" }] },
+    });
+    const verdict = classifyCoercionChain(incomingOf(v3), ancestors(v1, v2));
+    expect(verdict.broken.length).toBeGreaterThan(0);
+    // The direct culprit hop (v2 → v3) is reported.
+    expect(verdict.broken.some((h) => h.fromVersion === "v2")).toBe(true);
+  });
+
+  it("blocks on a provable schema hole even with no stored sample", () => {
+    const v1 = node("v1", obj({ summary: { type: "string" } }, ["summary"])); // no sample
+    const v2 = node("v2", obj({ abstract: { type: "string" } }, ["abstract"]), {
+      coerceFrom: { fromVersion: "v1", patch: [] }, // empty patch — summary never becomes abstract
+    });
+    const verdict = classifyCoercionChain(incomingOf(v2), ancestors(v1));
+    expect(verdict.broken).toHaveLength(1);
+  });
+
+  it("degrades (does not block) when a clean chain has no sample to dry-run", () => {
+    const v1 = node("v1", obj({ summary: { type: "string" } }, ["summary"])); // no sample
+    const v2 = node("v2", obj({ abstract: { type: "string" } }, ["abstract"]), {
+      coerceFrom: { fromVersion: "v1", patch: rename("summary", "abstract") },
+    });
+    const verdict = classifyCoercionChain(incomingOf(v2), ancestors(v1));
+    expect(verdict.broken).toHaveLength(0);
+    expect(verdict.degraded).toHaveLength(1);
+  });
+
+  it("degrades on a stale sample (invalid under its own schema), never false-passing", () => {
+    const v1 = node("v1", obj({ summary: { type: "string" } }, ["summary"]), {
+      sample: { wrong: 1 }, // does not validate under v1's own schema
+    });
+    const v2 = node("v2", obj({ abstract: { type: "string" } }, ["abstract"]), {
+      coerceFrom: { fromVersion: "v1", patch: rename("summary", "abstract") },
+    });
+    const verdict = classifyCoercionChain(incomingOf(v2), ancestors(v1));
+    // Stale sample is ignored; schema-sim is clean → degraded, not broken.
+    expect(verdict.broken).toHaveLength(0);
+    expect(verdict.degraded).toHaveLength(1);
+  });
+
+  it("aborts a cycle instead of looping", () => {
+    const v1 = node("v1", obj({ a: { type: "string" } }, ["a"]), {
+      coerceFrom: { fromVersion: "v2", patch: rename("b", "a") },
+    });
+    const v2incoming = {
+      version: "v2",
+      simplifiedSchema: obj({ b: { type: "string" } }, ["b"]),
+      schema: z.fromJSONSchema(obj({ b: { type: "string" } }, ["b"]) as never),
+      sample: null,
+      coerceFrom: { fromVersion: "v1", patch: rename("a", "b") },
+    };
+    const verdict = classifyCoercionChain(v2incoming, ancestors(v1));
+    expect(verdict.broken.some((h) => /cycle/i.test(h.reason))).toBe(true);
+  });
+
+  it("degrades (does not block) on a missing declared predecessor", () => {
+    // A single adjacent coercion still fires at read time without the
+    // predecessor's schema, so an unregistered predecessor is unverifiable, not
+    // unsound — degrade rather than over-gate.
+    const v2 = node("v2", obj({ abstract: { type: "string" } }, ["abstract"]), {
+      coerceFrom: { fromVersion: "v1", patch: rename("summary", "abstract") },
+    });
+    const verdict = classifyCoercionChain(incomingOf(v2), ancestors()); // no v1
+    expect(verdict.broken).toHaveLength(0);
+    expect(verdict.degraded).toHaveLength(1);
+    expect(verdict.degraded[0].reason).toMatch(/not registered/);
+  });
+
+  it("returns no hops when nothing declares a coercion", () => {
+    const v2 = node("v2", obj({ abstract: { type: "string" } }, ["abstract"]));
+    expect(classifyCoercionChain(incomingOf(v2), ancestors())).toEqual({
+      hops: [],
+      broken: [],
+      degraded: [],
+    });
+  });
+});
+
+describe("ArtifactSchemaChainUnsoundError", () => {
+  it("lists each broken hop and the remediation, IPC-safe", () => {
+    const err = new ArtifactSchemaChainUnsoundError(
+      { id: "Brief", version: "v2", name: "Brief" },
+      [
+        {
+          fromVersion: "v1",
+          toVersion: "v2",
+          status: "broken",
+          reason: "a @v1 payload coerced to @v2 no longer validates against the @v2 schema",
+        },
+      ],
+    );
+    expect(err.message).toContain("Brief (Brief@v2)");
+    expect(err.message).toContain("Brief@v1 → @v2");
     expect(err.message).toContain("allow breaking change");
   });
 });

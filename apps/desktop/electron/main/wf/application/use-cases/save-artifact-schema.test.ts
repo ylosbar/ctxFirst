@@ -192,3 +192,117 @@ describe("saveArtifactSchema — BACKWARD gate", () => {
     expect(artifactSchemas.resolve("user:Foo@v2")).not.toBeNull();
   });
 });
+
+describe("saveArtifactSchema — BACKWARD_TRANSITIVE chain gate", () => {
+  const objSchema = (
+    properties: Record<string, unknown>,
+    required: string[] = [],
+  ) => ({ type: "object", properties, required, additionalProperties: false });
+
+  const saveBrief = async (
+    save: ReturnType<typeof buildDeps>["save"],
+    over: Parameters<typeof validInput>[0],
+  ) => save(validInput({ id: "Brief", name: "Brief", ...over }));
+
+  it("admits a bump whose declared coercion chain is sound", async () => {
+    const { artifactSchemas, save } = buildDeps();
+    await saveBrief(save, {
+      version: "v1",
+      simplifiedSchema: objSchema({ summary: { type: "string" } }, ["summary"]),
+      sample: { summary: "hello" },
+    });
+    await expect(
+      saveBrief(save, {
+        version: "v2",
+        simplifiedSchema: objSchema({ abstract: { type: "string" } }, ["abstract"]),
+        coerceFrom: {
+          fromVersion: "v1",
+          patch: [{ op: "rename", from: "summary", at: "abstract" }],
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(artifactSchemas.resolve("user:Brief@v2")?.coerceFrom).toEqual({
+      fromVersion: "v1",
+      patch: [{ op: "rename", from: "summary", at: "abstract" }],
+    });
+  });
+
+  it("rejects a bump whose coercion patch can't produce the new required field", async () => {
+    const { save } = buildDeps();
+    await saveBrief(save, {
+      version: "v1",
+      simplifiedSchema: objSchema({ summary: { type: "string" } }, ["summary"]),
+      sample: { summary: "hello" },
+    });
+    // @v2 requires `abstract`, but the patch never produces it.
+    await expect(
+      saveBrief(save, {
+        version: "v2",
+        simplifiedSchema: objSchema({ abstract: { type: "string" } }, ["abstract"]),
+        coerceFrom: {
+          fromVersion: "v1",
+          patch: [{ op: "set", at: "noop", value: 1 }],
+        },
+      }),
+    ).rejects.toThrow(/coercion chain that cannot read prior data/);
+  });
+
+  it("rejects the lossy rename-then-unset composition over 3 versions", async () => {
+    const { save } = buildDeps();
+    await saveBrief(save, {
+      version: "v1",
+      simplifiedSchema: objSchema({ a: { type: "string" } }, ["a"]),
+      sample: { a: "x" },
+    });
+    await saveBrief(save, {
+      version: "v2",
+      simplifiedSchema: objSchema({ b: { type: "string" } }, ["b"]),
+      sample: { b: "x" },
+      coerceFrom: { fromVersion: "v1", patch: [{ op: "rename", from: "a", at: "b" }] },
+    });
+    // @v3 requires `title`; unset b drops everything, so reading v1/v2 as v3 fails.
+    await expect(
+      saveBrief(save, {
+        version: "v3",
+        simplifiedSchema: objSchema({ title: { type: "string" } }, ["title"]),
+        coerceFrom: { fromVersion: "v2", patch: [{ op: "unset", at: "b" }] },
+      }),
+    ).rejects.toThrow(/cannot read prior data/);
+  });
+
+  it("allowBreaking bypasses the chain gate", async () => {
+    const { save } = buildDeps();
+    await saveBrief(save, {
+      version: "v1",
+      simplifiedSchema: objSchema({ summary: { type: "string" } }, ["summary"]),
+      sample: { summary: "hello" },
+    });
+    await expect(
+      saveBrief(save, {
+        version: "v2",
+        simplifiedSchema: objSchema({ abstract: { type: "string" } }, ["abstract"]),
+        coerceFrom: {
+          fromVersion: "v1",
+          patch: [{ op: "set", at: "noop", value: 1 }],
+        },
+        allowBreaking: true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not gate a plain bump that has no coerceFrom (anti-over-gating)", async () => {
+    // The invariant that keeps this Framing-A, not Framing-B: a clean redesign
+    // bump with NO coercion is never transitively gated.
+    const { save } = buildDeps();
+    await saveBrief(save, {
+      version: "v1",
+      simplifiedSchema: objSchema({ a: { type: "string" } }, ["a"]),
+    });
+    await expect(
+      saveBrief(save, {
+        version: "v2",
+        simplifiedSchema: objSchema({ totally: { type: "string" } }, ["totally"]),
+      }),
+    ).resolves.toBeUndefined();
+  });
+});

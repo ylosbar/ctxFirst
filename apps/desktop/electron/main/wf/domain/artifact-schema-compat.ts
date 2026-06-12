@@ -22,6 +22,12 @@
  * identity and cannot break existing data, so it is never classified here.
  */
 import { canonicalJson } from "./artifact-schema-hash";
+import {
+  applyDeclarativePatch,
+  simulatePatchOnSchema,
+  type CoerceFrom,
+  type DeclarativePatch,
+} from "./artifact-coercion";
 
 export type SchemaDeltaKind =
   | "field-added-required"
@@ -523,5 +529,245 @@ export class ArtifactSchemaBreakingChangeError extends Error {
         `Bump to a new version, or re-save with "allow breaking change" to overwrite in place.`,
     );
     this.name = "ArtifactSchemaBreakingChangeError";
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// BACKWARD_TRANSITIVE chain-soundness gate (§2.6 P4)
+//
+// In a content-addressed substrate a pinned `id@vPrev` record never reaches a
+// `vN` consumer as raw bytes — it reaches it ONLY through a declared
+// `coerceFrom` chain (`pickCoercionTarget` → the read-time patch). So the
+// transitive obligation a save creates is exactly: **the coerceFrom chain
+// hanging off `vN` is sound** — every ancestor reachable by following
+// `coerceFrom.fromVersion` links, when a representative payload is run through
+// the composed patch up to `vN`, still validates against `vN`. This is the
+// runtime semantic the multi-step chain performs (writer→target composed once),
+// classified statically at save time. Order-free: the chain is a linked list of
+// `coerceFrom` pointers, never a sort over the (unordered) version strings.
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Minimal validator surface the chain gate needs (Zod `safeParse`, structurally). */
+type SchemaValidator = { safeParse: (value: unknown) => { success: boolean } };
+
+/** The per-version descriptor data the chain gate reads for one ancestor. */
+export type CoercionChainNode = {
+  version: string;
+  simplifiedSchema: unknown;
+  schema: SchemaValidator;
+  /** Stored representative payload, or `null` when none was authored. */
+  sample: unknown | null;
+  /** This version's own predecessor link, for walking further up the chain. */
+  coerceFrom: CoerceFrom | null;
+};
+
+export type CoercionChainHopStatus = "ok" | "broken" | "degraded";
+
+export type CoercionChainHop = {
+  /** Ancestor (writer) version the obligation is checked from. */
+  fromVersion: string;
+  /** The version being saved (the chain target). */
+  toVersion: string;
+  status: CoercionChainHopStatus;
+  /** Author-facing sentence; folded into {@link ArtifactSchemaChainUnsoundError}. */
+  reason: string;
+  /** Breaking deltas, when the structural-simulation check is what failed. */
+  deltas?: ReadonlyArray<SchemaDelta>;
+};
+
+export type CoercionChainVerdict = {
+  /** Every classified hop, in walk order. */
+  hops: ReadonlyArray<CoercionChainHop>;
+  /** The `broken` subset — non-empty ⇒ the gate rejects the save. */
+  broken: ReadonlyArray<CoercionChainHop>;
+  /** The `degraded` subset — verified with reduced confidence; never blocks. */
+  degraded: ReadonlyArray<CoercionChainHop>;
+};
+
+/** Belt-and-suspenders bound past the cycle guard, for pathological chains. */
+const MAX_COERCION_CHAIN_DEPTH = 64;
+
+/**
+ * Classifies one ancestor's obligation: a `node`-valid payload, run through the
+ * `composed` patch (ancestor → target), must validate against the target. The
+ * stored sample drives the high-confidence check (real data through the real
+ * {@link applyDeclarativePatch} and target schema); schema-simulation is the
+ * structural backstop when no usable sample exists. Precision-first: a `broken`
+ * verdict requires a high-confidence failure, so a legitimate save is never
+ * over-gated by an approximate simulation.
+ */
+const classifyAncestorHop = (
+  node: CoercionChainNode,
+  target: string,
+  composed: DeclarativePatch,
+  incoming: { simplifiedSchema: unknown; schema: SchemaValidator },
+): CoercionChainHop => {
+  const base = { fromVersion: node.version, toVersion: target };
+  const usableSample =
+    node.sample != null && node.schema.safeParse(node.sample).success;
+
+  if (usableSample) {
+    let result: unknown;
+    try {
+      result = applyDeclarativePatch(node.sample, composed);
+    } catch (err) {
+      return {
+        ...base,
+        status: "broken",
+        reason: `coercing a @${node.version} sample to @${target} fails structurally: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      };
+    }
+    if (!incoming.schema.safeParse(result).success) {
+      return {
+        ...base,
+        status: "broken",
+        reason: `a @${node.version} payload coerced to @${target} no longer validates against the @${target} schema`,
+      };
+    }
+    return { ...base, status: "ok", reason: "sample dry-run passes" };
+  }
+
+  const sim = simulatePatchOnSchema(node.simplifiedSchema, composed);
+  if (sim.degraded) {
+    return {
+      ...base,
+      status: "degraded",
+      reason: `no usable @${node.version} sample and the patch is not statically modellable (${sim.reason})`,
+    };
+  }
+  const verdict = classifyChange(sim.schema, incoming.simplifiedSchema);
+  if (verdict.breaking.length > 0) {
+    return {
+      ...base,
+      status: "broken",
+      reason: `a @${node.version} payload, coerced to @${target}, would not satisfy the @${target} schema`,
+      deltas: verdict.breaking,
+    };
+  }
+  return {
+    ...base,
+    status: "degraded",
+    reason: `verified structurally only (no stored @${node.version} sample to dry-run)`,
+  };
+};
+
+/**
+ * Walks the `coerceFrom` chain hanging off the version being saved and verifies
+ * each ancestor can be coerced forward to the target soundly. Pure: the only
+ * outside data is `resolveAncestor`, injected by the adapter (mirrors
+ * `resolveParentHash`) — the domain never reads the DB. Aborts the walk on a
+ * cycle, a missing predecessor, or an over-deep chain, surfacing each as a
+ * `broken` hop. Returns all hops (so an author fixing a chain sees every bad
+ * link at once, like {@link classifyChange} collecting all deltas).
+ */
+export const classifyCoercionChain = (
+  incoming: {
+    version: string;
+    simplifiedSchema: unknown;
+    schema: SchemaValidator;
+    sample: unknown | null;
+    coerceFrom: CoerceFrom | null;
+  },
+  resolveAncestor: (version: string) => CoercionChainNode | null,
+): CoercionChainVerdict => {
+  const hops: CoercionChainHop[] = [];
+  const target = incoming.version;
+  if (!incoming.coerceFrom) return { hops, broken: [], degraded: [] };
+
+  // 1. Build the chain: collect each ancestor with the patch mapping it to its
+  //    immediate child (the child's `coerceFrom.patch`). Walk-failures abort.
+  const links: Array<{ node: CoercionChainNode; patch: DeclarativePatch }> = [];
+  const seen = new Set<string>([target]);
+  let cursor: { coerceFrom: CoerceFrom | null } = incoming;
+  while (cursor.coerceFrom) {
+    const prevVersion = cursor.coerceFrom.fromVersion;
+    const patch = cursor.coerceFrom.patch;
+    if (seen.has(prevVersion)) {
+      hops.push({
+        fromVersion: prevVersion,
+        toVersion: target,
+        status: "broken",
+        reason: `coercion chain cycles back to @${prevVersion}`,
+      });
+      break;
+    }
+    if (links.length >= MAX_COERCION_CHAIN_DEPTH) {
+      hops.push({
+        fromVersion: prevVersion,
+        toVersion: target,
+        status: "broken",
+        reason: `coercion chain exceeds the maximum depth of ${MAX_COERCION_CHAIN_DEPTH}`,
+      });
+      break;
+    }
+    const ancestor = resolveAncestor(prevVersion);
+    if (!ancestor) {
+      // The predecessor schema isn't registered, so the chain can't be verified
+      // past here. Not `broken`: a single adjacent coercion still fires at read
+      // time (`pickCoercionTarget` matches the writer kind string without
+      // resolving the predecessor's schema), so blocking would over-gate a valid
+      // declaration. Surface reduced confidence and stop walking.
+      hops.push({
+        fromVersion: prevVersion,
+        toVersion: target,
+        status: "degraded",
+        reason: `declared predecessor @${prevVersion} is not registered; chain not verified past it`,
+      });
+      break;
+    }
+    links.push({ node: ancestor, patch });
+    seen.add(prevVersion);
+    cursor = ancestor;
+  }
+
+  // 2. Per ancestor, verify the COMPOSED patch (writer→target) — exactly what
+  //    the runtime chain applies once. `links[0]` is the target's own incoming
+  //    hop; ancestor `i`'s composed patch is links[i..0] in writer→target order.
+  for (let i = 0; i < links.length; i++) {
+    const composed: DeclarativePatch = links
+      .slice(0, i + 1)
+      .map((link) => link.patch)
+      .reverse()
+      .flat();
+    hops.push(classifyAncestorHop(links[i].node, target, composed, incoming));
+  }
+
+  return {
+    hops,
+    broken: hops.filter((h) => h.status === "broken"),
+    degraded: hops.filter((h) => h.status === "degraded"),
+  };
+};
+
+/**
+ * Raised by the registry's save gate when a declared `coerceFrom` chain cannot
+ * read prior-version data forward into the version being saved (§2.6 P4). Like
+ * {@link ArtifactSchemaBreakingChangeError}, the message is self-contained so it
+ * stays actionable across the IPC boundary; it lists one block per broken hop.
+ */
+export class ArtifactSchemaChainUnsoundError extends Error {
+  constructor(
+    readonly ref: { id: string; version: string; name?: string },
+    readonly hops: ReadonlyArray<CoercionChainHop>,
+  ) {
+    const label = ref.name
+      ? `${ref.name} (${ref.id}@${ref.version})`
+      : `${ref.id}@${ref.version}`;
+    const blocks = hops.map((h) => {
+      const detail =
+        h.deltas && h.deltas.length > 0
+          ? `\n` + h.deltas.map((d) => `      • ${d.detail}`).join("\n")
+          : ` — ${h.reason}`;
+      return `  ${ref.id}@${h.fromVersion} → @${h.toVersion}:${detail}`;
+    });
+    super(
+      `Saving ${label} declares a coercion chain that cannot read prior data:\n` +
+        blocks.join("\n") +
+        `\nA payload written under an earlier version, coerced forward, would no longer validate. ` +
+        `Fix the \`coerceFrom\` patch, bump to a fresh version, or re-save with "allow breaking change".`,
+    );
+    this.name = "ArtifactSchemaChainUnsoundError";
   }
 }

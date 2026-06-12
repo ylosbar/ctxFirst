@@ -414,7 +414,7 @@ export const buildWfEngine = async ({
   // contributions are pushed in later by the loader; until then validation
   // only knows about built-ins and user-defined rows, which matches the
   // visibility of `parseArtifact`.
-  const artifactSchemas = createSqliteArtifactSchemaRegistry({ db, channels });
+  const artifactSchemas = createSqliteArtifactSchemaRegistry({ db, channels, logger });
   const artifactStore = createFsArtifactStore({
     rootDir: path.join(artifactsDir),
     clock,

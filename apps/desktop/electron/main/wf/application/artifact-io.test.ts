@@ -44,7 +44,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
   it("coerces a v1 payload to the consumer's v2 target", async () => {
     const registry = await briefRegistry();
     const store = createFakeArtifactStore();
-    const a = await putArtifactPayload(store, "user:Brief@v1" as ArtifactKind, {
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
       summary: "hello",
     });
 
@@ -52,10 +52,10 @@ describe("loadAndParseArtifact — read-time coercion", () => {
       store,
       registry,
       a.id,
-      "user:Brief@v1" as ArtifactKind, // orchestrator passes the writer's own kind
+      "user:Brief@v1", // orchestrator passes the writer's own kind
       "strict",
       createSilentLogger(),
-      ["user:Brief@v2" as ArtifactKind], // consumer port declares only @v2
+      ["user:Brief@v2"], // consumer port declares only @v2
     );
 
     expect(loaded.kind).toBe("user:Brief@v2");
@@ -67,7 +67,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
   it("does NOT coerce when the port already accepts the writer kind", async () => {
     const registry = await briefRegistry();
     const store = createFakeArtifactStore();
-    const a = await putArtifactPayload(store, "user:Brief@v1" as ArtifactKind, {
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
       summary: "hello",
     });
 
@@ -75,7 +75,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
       store,
       registry,
       a.id,
-      "user:Brief@v1" as ArtifactKind,
+      "user:Brief@v1",
       "strict",
       createSilentLogger(),
       ["user:Brief@v1", "user:Brief@v2"] as ArtifactKind[],
@@ -88,7 +88,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
   it("does NOT coerce without coerceTargets (back-compat)", async () => {
     const registry = await briefRegistry();
     const store = createFakeArtifactStore();
-    const a = await putArtifactPayload(store, "user:Brief@v1" as ArtifactKind, {
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
       summary: "hello",
     });
 
@@ -96,7 +96,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
       store,
       registry,
       a.id,
-      "user:Brief@v1" as ArtifactKind,
+      "user:Brief@v1",
       "strict",
       createSilentLogger(),
     );
@@ -108,7 +108,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
   it("does NOT coerce a wildcard port", async () => {
     const registry = await briefRegistry();
     const store = createFakeArtifactStore();
-    const a = await putArtifactPayload(store, "user:Brief@v1" as ArtifactKind, {
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
       summary: "hello",
     });
 
@@ -116,7 +116,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
       store,
       registry,
       a.id,
-      "user:Brief@v1" as ArtifactKind,
+      "user:Brief@v1",
       "strict",
       createSilentLogger(),
       ["*"],
@@ -128,7 +128,7 @@ describe("loadAndParseArtifact — read-time coercion", () => {
   it("does NOT coerce in 'off' mode (the rollback)", async () => {
     const registry = await briefRegistry();
     const store = createFakeArtifactStore();
-    const a = await putArtifactPayload(store, "user:Brief@v1" as ArtifactKind, {
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
       summary: "hello",
     });
 
@@ -136,10 +136,10 @@ describe("loadAndParseArtifact — read-time coercion", () => {
       store,
       registry,
       a.id,
-      "user:Brief@v1" as ArtifactKind,
+      "user:Brief@v1",
       "off",
       createSilentLogger(),
-      ["user:Brief@v2" as ArtifactKind],
+      ["user:Brief@v2"],
     );
 
     expect(loaded.kind).toBe("user:Brief@v1");
@@ -164,9 +164,13 @@ describe("loadAndParseArtifact — read-time coercion", () => {
         fromVersion: "v1",
         patch: [{ op: "set", at: "noop", value: 1 }],
       },
+      // Deliberately unsound coercion — persisted via allowBreaking so this test
+      // can exercise the READ path's strict-mode failure (the save-time chain
+      // gate would otherwise reject it).
+      allowBreaking: true,
     });
     const store = createFakeArtifactStore();
-    const a = await putArtifactPayload(store, "user:Brief@v1" as ArtifactKind, {
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
       summary: "hello",
     });
 
@@ -175,10 +179,10 @@ describe("loadAndParseArtifact — read-time coercion", () => {
         store,
         registry,
         a.id,
-        "user:Brief@v1" as ArtifactKind,
+        "user:Brief@v1",
         "strict",
         createSilentLogger(),
-        ["user:Brief@v2" as ArtifactKind],
+        ["user:Brief@v2"],
       ),
     ).rejects.toBeInstanceOf(ArtifactSchemaError);
   });
@@ -197,9 +201,12 @@ describe("loadAndParseArtifact — read-time coercion", () => {
       name: "Brief",
       simplifiedSchema: objSchema({ abstract: { type: "string" } }, ["abstract"]),
       coerceFrom: { fromVersion: "v1", patch: [] },
+      // Deliberately unsound (empty patch can't fill `abstract`) — persisted via
+      // allowBreaking so this test can exercise the READ path's log-only path.
+      allowBreaking: true,
     });
     const store = createFakeArtifactStore();
-    const a = await putArtifactPayload(store, "user:Brief@v1" as ArtifactKind, {
+    const a = await putArtifactPayload(store, "user:Brief@v1", {
       summary: "hello",
     });
 
@@ -207,10 +214,10 @@ describe("loadAndParseArtifact — read-time coercion", () => {
       store,
       registry,
       a.id,
-      "user:Brief@v1" as ArtifactKind,
+      "user:Brief@v1",
       "log-only",
       createSilentLogger(),
-      ["user:Brief@v2" as ArtifactKind],
+      ["user:Brief@v2"],
     );
     expect(loaded.kind).toBe("user:Brief@v2");
     expect(loaded.payload).toBeNull();
@@ -231,8 +238,8 @@ describe("pickCoercionTarget", () => {
     expect(
       pickCoercionTarget(
         resolve({ "user:Brief@v2": cf("v1") }),
-        "user:Brief@v1" as ArtifactKind,
-        ["user:Brief@v2" as ArtifactKind],
+        "user:Brief@v1",
+        ["user:Brief@v2"],
       ),
     ).toEqual({ targetKind: "user:Brief@v2", patch: renamePatch });
   });
@@ -241,7 +248,7 @@ describe("pickCoercionTarget", () => {
     expect(
       pickCoercionTarget(
         resolve({ "user:Brief@v2": cf("v1") }),
-        "user:Brief@v1" as ArtifactKind,
+        "user:Brief@v1",
         ["user:Brief@v1", "user:Brief@v2"] as ArtifactKind[],
       ),
     ).toBeNull();
@@ -251,8 +258,8 @@ describe("pickCoercionTarget", () => {
     expect(
       pickCoercionTarget(
         resolve({ "user:Brief@v3": cf("v2") }),
-        "user:Brief@v1" as ArtifactKind,
-        ["user:Brief@v3" as ArtifactKind],
+        "user:Brief@v1",
+        ["user:Brief@v3"],
       ),
     ).toBeNull();
   });
@@ -261,15 +268,15 @@ describe("pickCoercionTarget", () => {
     expect(
       pickCoercionTarget(
         resolve({ "user:Other@v2": cf("v1") }),
-        "user:Brief@v1" as ArtifactKind,
-        ["user:Other@v2" as ArtifactKind],
+        "user:Brief@v1",
+        ["user:Other@v2"],
       ),
     ).toBeNull();
   });
 
   it("returns null for an undefined/empty candidate set", () => {
     const r = resolve({ "user:Brief@v2": cf("v1") });
-    expect(pickCoercionTarget(r, "user:Brief@v1" as ArtifactKind, undefined)).toBeNull();
-    expect(pickCoercionTarget(r, "user:Brief@v1" as ArtifactKind, [])).toBeNull();
+    expect(pickCoercionTarget(r, "user:Brief@v1", undefined)).toBeNull();
+    expect(pickCoercionTarget(r, "user:Brief@v1", [])).toBeNull();
   });
 });

@@ -16,6 +16,7 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { ChannelContext } from "../../application/ports/outbound/channel-context";
+import type { LoggerPort } from "../../application/ports/outbound/logger";
 import type {
   ArtifactSchemaRegistry,
   PluginArtifactSchemaContribution,
@@ -50,7 +51,10 @@ import {
 } from "../../domain/artifact-schema-hash";
 import {
   ArtifactSchemaBreakingChangeError,
+  ArtifactSchemaChainUnsoundError,
   classifyChange,
+  classifyCoercionChain,
+  type CoercionChainNode,
 } from "../../domain/artifact-schema-compat";
 import { parseCoerceFromColumn } from "../../domain/artifact-coercion";
 import { parseArtifact } from "../../domain/parse-artifact";
@@ -65,7 +69,12 @@ import {
 } from "../../domain/artifact-schema";
 import { bindChannel, channelScopeWhere } from "../_shared/channel-scope";
 
-type Deps = { db: Database.Database; channels: ChannelContext };
+type Deps = {
+  db: Database.Database;
+  channels: ChannelContext;
+  /** Optional: surfaces `degraded` (non-blocking, low-confidence) chain-gate hops. */
+  logger?: LoggerPort;
+};
 
 type Row = {
   id: string;
@@ -170,7 +179,7 @@ const pluginContribToRecord = (
 };
 
 export const createSqliteArtifactSchemaRegistry = (
-  { db, channels }: Deps,
+  { db, channels, logger }: Deps,
 ): ArtifactSchemaRegistry => {
   // `selectAll` here is channel-scoped: it powers user listings, never lookup.
   // The `findUserRecord` / `findUserRow` paths use the same query so plugin
@@ -721,6 +730,54 @@ export const createSqliteArtifactSchemaRegistry = (
               verdict.breaking,
             );
           }
+        }
+      }
+      // BACKWARD_TRANSITIVE chain gate (§2.6 P4): when this version declares a
+      // `coerceFrom`, the read path will later coerce older-version payloads
+      // forward through the chain hanging off it. Verify that chain is sound at
+      // save time — every ancestor reachable via `coerceFrom` links, coerced up
+      // to this version, still validates — rather than letting an unsound or
+      // dead declaration silently no-op (or lose data) at read time. Keys on
+      // `coerceFrom` presence, so a plain bump declares no obligation and stays
+      // ungated (preserving the "a bump is never gated" invariant). Shares the
+      // `allowBreaking` escape hatch with the in-place gate above.
+      if (!type.allowBreaking && type.coerceFrom != null) {
+        const resolveAncestor = (version: string): CoercionChainNode | null => {
+          const desc = findUserRecord({ id: type.id, version });
+          return desc
+            ? {
+                version: desc.version,
+                simplifiedSchema: desc.simplifiedSchema,
+                schema: desc.schema,
+                sample: desc.sample,
+                coerceFrom: desc.coerceFrom,
+              }
+            : null;
+        };
+        const verdict = classifyCoercionChain(
+          {
+            version: type.version,
+            simplifiedSchema: type.simplifiedSchema,
+            schema: z.fromJSONSchema(type.simplifiedSchema as never),
+            sample: type.sample ?? null,
+            coerceFrom: type.coerceFrom,
+          },
+          resolveAncestor,
+        );
+        if (verdict.broken.length > 0) {
+          throw new ArtifactSchemaChainUnsoundError(
+            { id: type.id, version: type.version, name: type.name },
+            verdict.broken,
+          );
+        }
+        // Degraded hops verified with reduced confidence (no/stale sample, or an
+        // un-modellable patch) — never block; surface as a log line if a logger
+        // was injected. A richer author-facing surfacing is a follow-up.
+        if (verdict.degraded.length > 0) {
+          logger?.warn(
+            `[wf:artifact] coercion chain for ${type.id}@${type.version} verified with reduced confidence: ` +
+              verdict.degraded.map((h) => `@${h.fromVersion} (${h.reason})`).join("; "),
+          );
         }
       }
       const extendsKind: ArtifactKind | null = type.extends ?? null;
