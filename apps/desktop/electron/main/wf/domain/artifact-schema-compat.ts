@@ -136,7 +136,7 @@ const discriminantKey = (variants: JsonObj[]): string | null => {
   const shared = variants.reduce<Set<string> | null>((acc, v) => {
     const props = isObj(v.properties) ? v.properties : {};
     const keys = Object.keys(props).filter(
-      (k) => isObj(props[k]) && "const" in (props[k] as JsonObj),
+      (k) => isObj(props[k]) && "const" in props[k],
     );
     return acc === null ? new Set(keys) : new Set([...acc].filter((k) => keys.includes(k)));
   }, null);

@@ -265,6 +265,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     inst: InstanceState,
     portName: string,
     variableName: string,
+    portKinds: PortSpec["kinds"],
   ): Promise<{ input: RunContextInput; artifactId: ArtifactId } | null> => {
     const artifactId = inst.variables.get(variableName);
     if (!artifactId) return null;
@@ -276,11 +277,12 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       meta.kind,
       validationMode,
       deps.logger,
+      portKinds,
     );
     return {
       input: {
         port: portName,
-        kind: loaded.meta.kind,
+        kind: loaded.kind,
         content: loaded.content,
         payload: loaded.payload,
         artifactId,
@@ -333,7 +335,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     // 1. Variable (readsFrom) — prepended on isList, exclusive on mono.
     const variableName = step.readsFrom?.[port.name];
     const fromVar = variableName
-      ? await loadVariableInput(inst, port.name, variableName)
+      ? await loadVariableInput(inst, port.name, variableName, port.kinds)
       : null;
 
     // 2. Collect incoming non-loop transitions targeting this port. A
@@ -392,6 +394,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
               template,
               edge,
               port.name,
+              port.kinds,
               rec.iterationKey,
             );
             if (loaded) {
@@ -407,6 +410,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
             template,
             edge,
             port.name,
+            port.kinds,
             iterationKey,
           );
           if (loaded) {
@@ -457,6 +461,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       template,
       incoming[0].edge,
       port.name,
+      port.kinds,
       iterationKey,
     );
     if (!loaded) return { inputs: [], inputIds: [] };
@@ -484,6 +489,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     template: WorkflowTemplate,
     edge: Transition,
     portName: string,
+    portKinds: PortSpec["kinds"],
     iterationKey?: string,
   ): Promise<{ input: RunContextInput; artifactId: ArtifactId } | null> => {
     const upstream = resolveTransitionUpstreamData(template, edge);
@@ -502,11 +508,12 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         (await deps.artifactStore.get(record.itemArtifactId)).meta.kind,
         validationMode,
         deps.logger,
+        portKinds,
       );
       return {
         input: {
           port: portName,
-          kind: loaded.meta.kind,
+          kind: loaded.kind,
           content: loaded.content,
           payload: loaded.payload,
           artifactId: record.itemArtifactId,
@@ -562,11 +569,12 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       meta.kind,
       validationMode,
       deps.logger,
+      portKinds,
     );
     return {
       input: {
         port: portName,
-        kind: loaded.meta.kind,
+        kind: loaded.kind,
         content: loaded.content,
         payload: loaded.payload,
         artifactId,

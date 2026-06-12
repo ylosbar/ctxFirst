@@ -138,6 +138,36 @@ describe("saveArtifactSchema — BACKWARD gate", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("persists a valid coerceFrom and rejects a malformed patch", async () => {
+    const { artifactSchemas, save } = buildDeps();
+    await save(
+      validInput({
+        version: "v2",
+        coerceFrom: {
+          fromVersion: "v1",
+          patch: [{ op: "rename", from: "summary", at: "abstract" }],
+        },
+      }),
+    );
+    expect(artifactSchemas.resolve("user:Foo@v2")?.coerceFrom).toEqual({
+      fromVersion: "v1",
+      patch: [{ op: "rename", from: "summary", at: "abstract" }],
+    });
+
+    await expect(
+      save(
+        validInput({
+          version: "v3",
+          coerceFrom: {
+            fromVersion: "v1",
+            // Deliberately malformed op — the use-case must reject it at save.
+            patch: [{ op: "bogus" as never, at: "a" }],
+          },
+        }),
+      ),
+    ).rejects.toThrow(/must be one of/);
+  });
+
   it("does not gate a bump to a new version (fresh identity)", async () => {
     const { artifactSchemas, save } = buildDeps();
     await save(

@@ -729,4 +729,17 @@ export const migrations: Migration[] = [
       ALTER TABLE wf_runs ADD COLUMN cache_read   INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 31,
+    // Read-time coercion (cf. `specs/techstrategy-artifact-types-solution.md`
+    // §2.4, P3) — adds a nullable `coerce_from_json` column to user-stored
+    // artifact schemas. Holds a serialised `{ fromVersion, patch }` declaring a
+    // same-`id` predecessor version and a declarative reshape applied at read
+    // time. NULL on existing rows (no coercion); no backfill. Orthogonal to
+    // `structural_hash` — a coercion declaration is read-side metadata, never
+    // part of the type's identity.
+    sql: `
+      ALTER TABLE wf_artifact_schemas ADD COLUMN coerce_from_json TEXT;
+    `,
+  },
 ];

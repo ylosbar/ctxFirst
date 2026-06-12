@@ -52,6 +52,7 @@ import {
   ArtifactSchemaBreakingChangeError,
   classifyChange,
 } from "../../domain/artifact-schema-compat";
+import { parseCoerceFromColumn } from "../../domain/artifact-coercion";
 import { parseArtifact } from "../../domain/parse-artifact";
 import { plainFallback } from "../../domain/artifact-serializer";
 import {
@@ -78,6 +79,7 @@ type Row = {
   extends_kind: string | null;
   structural_hash: string | null;
   markdown_template: string | null;
+  coerce_from_json: string | null;
 };
 
 /**
@@ -129,6 +131,7 @@ const rowToRecord = (
     markdownProjection: row.markdown_template
       ? { kind: "template", template: row.markdown_template }
       : null,
+    coerceFrom: parseCoerceFromColumn(row.coerce_from_json),
   };
 };
 
@@ -159,6 +162,10 @@ const pluginContribToRecord = (
     markdownProjection: t.markdownTemplate
       ? { kind: "template", template: t.markdownTemplate }
       : null,
+    // Plugin contributions don't yet declare coercion (first-party user types
+    // are the wired write path in P3); the field stays `null` until the
+    // manifest schema carries it.
+    coerceFrom: null,
   };
 };
 
@@ -170,7 +177,7 @@ export const createSqliteArtifactSchemaRegistry = (
   // and built-in resolution still bypass the channel filter (those records
   // don't live in DB anyway).
   const selectAll = db.prepare(
-    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template
+    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template, coerce_from_json
        FROM wf_artifact_schemas
       WHERE ${channelScopeWhere}
       ORDER BY id ASC, version ASC`,
@@ -178,7 +185,7 @@ export const createSqliteArtifactSchemaRegistry = (
   // `selectAllUnscoped` is used by `resolve`/`getSchema` lookups: a step that
   // references a user type from another channel must still resolve.
   const selectAllUnscoped = db.prepare(
-    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template
+    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template, coerce_from_json
        FROM wf_artifact_schemas
       ORDER BY id ASC, version ASC`,
   );
@@ -186,11 +193,11 @@ export const createSqliteArtifactSchemaRegistry = (
     `INSERT INTO wf_artifact_schemas (
        id, version, name, description, raw_schema_json,
        simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash,
-       markdown_template, channel_id, created_at
+       markdown_template, coerce_from_json, channel_id, created_at
      ) VALUES (
        @id, @version, @name, @description, @raw_schema_json,
        @simplified_schema_json, @sample_raw, @sample_json, @extends_kind, @structural_hash,
-       @markdown_template, @channel_id, @now
+       @markdown_template, @coerce_from_json, @channel_id, @now
      )
      ON CONFLICT(id, version) DO UPDATE SET
        name                   = excluded.name,
@@ -201,7 +208,8 @@ export const createSqliteArtifactSchemaRegistry = (
        sample_json            = excluded.sample_json,
        extends_kind           = excluded.extends_kind,
        structural_hash        = excluded.structural_hash,
-       markdown_template      = excluded.markdown_template`,
+       markdown_template      = excluded.markdown_template,
+       coerce_from_json       = excluded.coerce_from_json`,
   );
   const updateHash = db.prepare(
     `UPDATE wf_artifact_schemas SET structural_hash = ?
@@ -360,6 +368,9 @@ export const createSqliteArtifactSchemaRegistry = (
       // Synthesised kinds carry no explicit projection; `render.markdown`
       // falls back to the generic chain (each element's `body` / JSON).
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -413,6 +424,9 @@ export const createSqliteArtifactSchemaRegistry = (
         variantDescriptors.map((d) => d.structuralHash),
       ),
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -456,6 +470,9 @@ export const createSqliteArtifactSchemaRegistry = (
         innerDescriptor.structuralHash,
       ),
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -494,6 +511,9 @@ export const createSqliteArtifactSchemaRegistry = (
         innerDescriptor.structuralHash,
       ),
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -726,6 +746,8 @@ export const createSqliteArtifactSchemaRegistry = (
         extends_kind: type.extends ?? null,
         structural_hash: structuralHash,
         markdown_template: type.markdownTemplate ?? null,
+        coerce_from_json:
+          type.coerceFrom == null ? null : JSON.stringify(type.coerceFrom),
         channel_id: channels.getActive(),
         now: new Date().toISOString(),
       });

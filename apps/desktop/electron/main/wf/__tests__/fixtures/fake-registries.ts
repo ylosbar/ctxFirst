@@ -204,6 +204,7 @@ const pluginContribToDescriptor = (
     markdownProjection: t.markdownTemplate
       ? { kind: "template", template: t.markdownTemplate }
       : null,
+    coerceFrom: null,
   };
 };
 
@@ -267,6 +268,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
       extends: null,
       structuralHash: composeListStructuralHash(innerDesc.structuralHash),
       markdownProjection: null,
+      coerceFrom: null,
     };
   };
 
@@ -303,6 +305,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
         variantDescriptors.map((d) => d.structuralHash),
       ),
       markdownProjection: null,
+      coerceFrom: null,
     };
   };
 
@@ -338,6 +341,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
         innerDesc.structuralHash,
       ),
       markdownProjection: null,
+      coerceFrom: null,
     };
   };
 
@@ -523,6 +527,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
         markdownProjection: type.markdownTemplate
           ? { kind: "template", template: type.markdownTemplate }
           : null,
+        coerceFrom: type.coerceFrom ?? null,
       });
       recomputeDependentHashes(kind);
       synthesizedCache.clear();
