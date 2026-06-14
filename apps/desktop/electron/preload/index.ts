@@ -15,6 +15,8 @@ type WfStartArgs = {
   seeds: ReadonlyArray<{ kind: string; content: string }>;
   /** Répertoire de travail initial pour les side-effects natifs du run (cwd CLI). */
   cwd?: string;
+  /** Valeurs des variables `promptAtLaunch` saisies au lancement (launch-input-variables.md). */
+  variableValues?: ReadonlyArray<{ name: string; content: string }>;
 };
 /** Identifie l'étape d'instance ciblée par une décision utilisateur. */
 type WfDecisionArgs = { instanceId: string; stepExecId: string };

@@ -30,6 +30,8 @@ type StartArgs = {
   templateRef: string;
   seeds: ReadonlyArray<{ kind: ArtifactKind; content: string }>;
   cwd?: string;
+  /** Values for the template's `promptAtLaunch` variables (launch-input-variables.md). */
+  variableValues?: ReadonlyArray<{ name: string; content: string }>;
 };
 
 type DecisionArgs = { instanceId: string; stepExecId: string };
@@ -58,7 +60,7 @@ const short = (s: string | undefined, n = 8) => (s ? s.slice(0, n) : "-");
 export const registerWfHandlers = (win: BrowserWindow, engine: WfEngine) => {
   ipcMain.handle("wf:startInstance", async (_e: IpcMainInvokeEvent, args: StartArgs) => {
     console.log(
-      `[wf:ipc] startInstance template=${args.templateRef} seeds=${args.seeds.length} cwd=${args.cwd ?? "-"}`,
+      `[wf:ipc] startInstance template=${args.templateRef} seeds=${args.seeds.length} cwd=${args.cwd ?? "-"} vars=${args.variableValues?.length ?? 0}`,
     );
     try {
       const { instanceId } = await engine.startInstance(args);
