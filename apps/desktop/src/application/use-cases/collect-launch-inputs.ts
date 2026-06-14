@@ -22,7 +22,7 @@ export type LaunchInput = {
  * template in the editor.
  */
 export const collectLaunchInputs = (
-  template: TemplateView | TemplateDraft,
+  template: Pick<TemplateView | TemplateDraft, "variables">,
 ): ReadonlyArray<LaunchInput> =>
   template.variables
     .filter((v) => v.promptAtLaunch === true)

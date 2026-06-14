@@ -700,7 +700,7 @@ export const buildWfEngine = async ({
       validateBuiltinSeeds(BUILTIN_TEMPLATE_SEEDS, runners, artifactSchemas),
     scheduler,
     listSchedules: makeListSchedules({ registry: scheduleRegistry }),
-    saveSchedule: makeSaveSchedule({ registry: scheduleRegistry, scheduler }),
+    saveSchedule: makeSaveSchedule({ registry: scheduleRegistry, templates, scheduler }),
     setScheduleEnabled: makeSetScheduleEnabled({
       registry: scheduleRegistry,
       scheduler,

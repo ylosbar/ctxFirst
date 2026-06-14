@@ -28,11 +28,15 @@ const NewRunDialog = ({ open, onClose }: Props) => {
     seedKind: ArtifactKind;
     content: string;
     cwd?: string;
+    variableValues?: ReadonlyArray<{ name: string; content: string }>;
   }) => {
     const result = await startWorkflow({
       templateRef: input.templateRef,
       seeds: [{ kind: input.seedKind, content: input.content }],
       cwd: input.cwd,
+      ...(input.variableValues?.length
+        ? { variableValues: input.variableValues }
+        : {}),
     });
     if (result) navigate(`/runs/${result.instanceId}`, { replace: true });
   };

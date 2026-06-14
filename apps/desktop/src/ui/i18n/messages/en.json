@@ -249,7 +249,9 @@
       "seedPlaceholder": "{{kind}} content…",
       "noSeedMessage": "This template requires no user input — the first step runs directly with its configuration.",
       "starting": "Starting…",
-      "start": "Start"
+      "start": "Start",
+      "inputsHeading": "Launch variables",
+      "requiredBadge": "required"
     },
     "missingDeps": {
       "sectionHeader": "{{title}} ({{count}})",
@@ -1688,7 +1690,8 @@
       "cwdPlaceholder": "(default: Electron process cwd)",
       "saving": "Saving…",
       "seedLabel": "Seed ({{kind}})",
-      "seedPlaceholder": "# Title\n\n…"
+      "seedPlaceholder": "# Title\n\n…",
+      "requiredLaunchInput": "This template has required launch variable(s) ({{names}}) with no default — it can't be scheduled. Give each a default value to make it schedulable."
     },
     "leafMenu": {
       "disable": "Disable",

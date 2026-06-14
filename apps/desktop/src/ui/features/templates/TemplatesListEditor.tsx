@@ -42,6 +42,10 @@ import type {
 import type { WorkbenchApi } from "../../workbench/types";
 import { runUriFor } from "../runs/run-uri";
 import {
+  collectLaunchInputs,
+  type LaunchInput,
+} from "../../../application/use-cases/collect-launch-inputs";
+import {
   NEW_TEMPLATE_URI,
   templateUriFor,
 } from "./template-uri";
@@ -74,6 +78,8 @@ const templateRequiresSeed = (tpl: TemplateView): boolean => {
 type LaunchState = {
   templateRef: string;
   text: string;
+  /** Current value per `promptAtLaunch` variable name (pre-filled from defaults). */
+  values: Record<string, string>;
   busy: boolean;
   error: string | null;
 };
@@ -118,9 +124,13 @@ const TemplatesListEditor = ({ api }: Props) => {
   }, [templates, query]);
 
   const openLauncher = (tpl: TemplateView) => {
+    const values = Object.fromEntries(
+      collectLaunchInputs(tpl).map((i) => [i.name, i.defaultValue ?? ""]),
+    );
     setLaunch({
       templateRef: `${tpl.id}@${tpl.version}`,
       text: "",
+      values,
       busy: false,
       error: null,
     });
@@ -167,6 +177,11 @@ const TemplatesListEditor = ({ api }: Props) => {
     if (!launch) return;
     const needsSeed = templateRequiresSeed(tpl);
     if (needsSeed && launch.text.trim().length === 0) return;
+    const inputs = collectLaunchInputs(tpl);
+    const missingRequired = inputs.some(
+      (i) => i.required && (launch.values[i.name] ?? "").trim().length === 0,
+    );
+    if (missingRequired) return;
     let seeds: ReadonlyArray<{ kind: ArtifactKind; content: string }> = [];
     if (needsSeed) {
       if (!byKind) {
@@ -186,11 +201,16 @@ const TemplatesListEditor = ({ api }: Props) => {
       }
       seeds = [{ kind: seedKind, content: launch.text }];
     }
+    const variableValues = inputs.map((i) => ({
+      name: i.name,
+      content: launch.values[i.name] ?? "",
+    }));
     setLaunch({ ...launch, busy: true, error: null });
     try {
       const result = await services.startWorkflow({
         templateRef: launch.templateRef,
         seeds,
+        ...(variableValues.length ? { variableValues } : {}),
       });
       api.activateActivity("explorer");
       api.openEditor(runUriFor(result.instanceId), { focus: true });
@@ -250,6 +270,9 @@ const TemplatesListEditor = ({ api }: Props) => {
   const launchNeedsSeed = launchTpl ? templateRequiresSeed(launchTpl) : false;
   const launchSeedKind =
     launchTpl && byKind ? seedKindFor(launchTpl, byKind) : null;
+  const launchInputs: ReadonlyArray<LaunchInput> = launchTpl
+    ? collectLaunchInputs(launchTpl)
+    : [];
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -539,6 +562,13 @@ const TemplatesListEditor = ({ api }: Props) => {
         text={launch?.text ?? ""}
         busy={launch?.busy ?? false}
         error={launch?.error ?? null}
+        launchInputs={launchInputs}
+        values={launch?.values ?? {}}
+        onValueChange={(name, value) =>
+          setLaunch((prev) =>
+            prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev,
+          )
+        }
         onTextChange={(text) =>
           setLaunch((prev) => (prev ? { ...prev, text } : prev))
         }

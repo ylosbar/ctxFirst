@@ -406,6 +406,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     launch,
     launchNeedsSeed,
     launchSeedKind,
+    launchInputs,
     canLaunch,
     setLaunch,
     handleLaunchOpen,
@@ -638,6 +639,13 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         text={launch?.text ?? ""}
         busy={launch?.busy ?? false}
         error={launch?.error ?? null}
+        launchInputs={launchInputs}
+        values={launch?.values ?? {}}
+        onValueChange={(name, value) =>
+          setLaunch((prev) =>
+            prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev,
+          )
+        }
         onTextChange={(text) =>
           setLaunch((prev) => (prev ? { ...prev, text } : prev))
         }

@@ -249,7 +249,9 @@
       "seedPlaceholder": "Contenu {{kind}}…",
       "noSeedMessage": "Ce template ne nécessite pas d'entrée utilisateur — la première étape se lance directement avec sa configuration.",
       "starting": "Démarrage…",
-      "start": "Démarrer"
+      "start": "Démarrer",
+      "inputsHeading": "Variables de lancement",
+      "requiredBadge": "requis"
     },
     "missingDeps": {
       "sectionHeader": "{{title}} ({{count}})",
@@ -1688,7 +1690,8 @@
       "cwdPlaceholder": "(par défaut : cwd du process Electron)",
       "saving": "Enregistrement…",
       "seedLabel": "Seed ({{kind}})",
-      "seedPlaceholder": "# Titre\n\n…"
+      "seedPlaceholder": "# Titre\n\n…",
+      "requiredLaunchInput": "Ce template a une ou des variables de lancement requises ({{names}}) sans valeur par défaut — il n'est pas planifiable. Donne une valeur par défaut à chacune pour le rendre planifiable."
     },
     "leafMenu": {
       "disable": "Désactiver",
