@@ -165,6 +165,7 @@ const VariableEditorModal = ({
   const [role, setRole] = useState<"input" | "output" | "internal">("internal");
   const [description, setDescription] = useState("");
   const [defaultValue, setDefaultValue] = useState("");
+  const [promptAtLaunch, setPromptAtLaunch] = useState(false);
   const [defaultValueError, setDefaultValueError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +196,7 @@ const VariableEditorModal = ({
       setRole("internal");
       setDescription("");
       setDefaultValue("");
+      setPromptAtLaunch(false);
     } else {
       const decomposed = decomposeKind(mode.variable.kind);
       setName(mode.variable.name);
@@ -203,6 +205,7 @@ const VariableEditorModal = ({
       setRole(mode.variable.role ?? "internal");
       setDescription(mode.variable.description ?? "");
       setDefaultValue(mode.variable.defaultValue ?? "");
+      setPromptAtLaunch(mode.variable.promptAtLaunch === true);
     }
     setError(null);
     setDefaultValueError(null);
@@ -250,6 +253,13 @@ const VariableEditorModal = ({
     return collectReferences(steps, previousName ?? "");
   }, [isEdit, steps, previousName]);
 
+  // Gate 1 (launch-input-variables.md §Contrainte) reflected before save: a
+  // variable written by a step cannot be a launch input — last-writer-wins would
+  // clobber the entered value. Disable the toggle and force the flag off so the
+  // engine gate can never fire from here.
+  const hasProducer = refs.producers.length > 0;
+  const promptAtLaunchEffective = promptAtLaunch && !hasProducer;
+
   const trimmedName = name.trim();
   const canSubmit = trimmedName.length > 0 && defaultValueError === null;
 
@@ -292,6 +302,8 @@ const VariableEditorModal = ({
         role: role === "internal" ? undefined : role,
         description: description.trim() || undefined,
         defaultValue: trimmedDefault || undefined,
+        // Stored only when on (absent ⇒ false), and never alongside a producer.
+        promptAtLaunch: promptAtLaunchEffective || undefined,
       },
       previousName,
     );
@@ -481,6 +493,35 @@ const VariableEditorModal = ({
                   {t("templates.variableEditor.validating")}
                 </p>
               ) : null}
+            </FormField>
+
+            <FormField label={t("templates.variableEditor.promptAtLaunchLabel")}>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Checkbox
+                  checked={promptAtLaunchEffective}
+                  disabled={hasProducer}
+                  onCheckedChange={(c) => setPromptAtLaunch(c)}
+                />
+                <span>{t("templates.variableEditor.promptAtLaunchToggle")}</span>
+              </label>
+              {hasProducer ? (
+                <p className="mt-1 text-2xs text-amber-600 dark:text-amber-400">
+                  {t("templates.variableEditor.promptAtLaunchProducerHint", {
+                    producers: refs.producers.join(", "),
+                  })}
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 text-2xs text-muted-foreground">
+                    {t("templates.variableEditor.promptAtLaunchHint")}
+                  </p>
+                  {promptAtLaunchEffective && defaultValue.trim().length === 0 ? (
+                    <p className="mt-1 text-2xs text-amber-600 dark:text-amber-400">
+                      {t("templates.variableEditor.promptAtLaunchRequiredNote")}
+                    </p>
+                  ) : null}
+                </>
+              )}
             </FormField>
 
             {error ? (
