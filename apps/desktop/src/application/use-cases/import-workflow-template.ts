@@ -96,11 +96,13 @@ const parseVariable = (raw: unknown, idx: number): TemplateVariableDraft => {
   const kind = requireString(raw, "kind", `template.variables[${idx}].kind`);
   const description = isString(raw["description"]) ? raw["description"] : undefined;
   const defaultValue = isString(raw["defaultValue"]) ? raw["defaultValue"] : undefined;
+  const promptAtLaunch = raw["promptAtLaunch"] === true ? true : undefined;
   return {
     name,
     kind: kind as TemplateVariableDraft["kind"],
     ...(description !== undefined ? { description } : {}),
     ...(defaultValue !== undefined ? { defaultValue } : {}),
+    ...(promptAtLaunch !== undefined ? { promptAtLaunch } : {}),
   };
 };
 

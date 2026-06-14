@@ -29,6 +29,7 @@
 import { portAccepts, type RefinementParentResolver } from "@shared/wf/port-accepts";
 import type { StepId } from "../ids";
 import {
+  requiredLaunchInputs,
   type StepDef,
   type TemplateVariable,
   type WorkflowTemplate,
@@ -130,6 +131,21 @@ const validateInvokeBindings = (
   if (child.status !== "published") {
     throw new TemplateInvokeError(
       `template.invoke "${invoke.id}" references ${child.id}@${child.version}, which is not published`,
+    );
+  }
+
+  // Gate 2 (`launch-input-variables.md` §Contrainte): a required launch input
+  // (promptAtLaunch, no defaultValue, not role:"input") can only be satisfied at
+  // the root launch dialog. Spawned as a child instance here it is never
+  // prompted, so it would resolve empty at runtime. Reject the invoke so the
+  // author seeds it (give it a defaultValue, or tag it role:"input" and bind it
+  // via readsFrom).
+  const required = requiredLaunchInputs(child);
+  if (required.length > 0) {
+    throw new TemplateInvokeError(
+      `template.invoke "${invoke.id}" references ${child.id}@${child.version}, which exposes required launch input(s) ` +
+        `[${required.map((v) => v.name).join(", ")}] that cannot be seeded as a sub-workflow — give each a defaultValue, ` +
+        `or tag it role:"input" and bind it via readsFrom`,
     );
   }
 

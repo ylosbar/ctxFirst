@@ -533,6 +533,13 @@ export type TemplateVariableDraft = {
    * before any step runs. Validated against `kind` by `start-instance`.
    */
   defaultValue?: string;
+  /**
+   * Opt-in (`launch-input-variables.md`): the run-launch dialog renders a field
+   * for this variable (pre-filled from `defaultValue`, otherwise required) and
+   * injects the entered value before the first step. Mirror of the engine-side
+   * `TemplateVariable.promptAtLaunch`.
+   */
+  promptAtLaunch?: boolean;
 };
 
 export type ActorRole = "PO" | "Developer" | "LLMAgent";

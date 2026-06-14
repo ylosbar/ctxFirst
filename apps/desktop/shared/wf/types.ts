@@ -79,4 +79,9 @@ export type TemplateVariableView = {
    * Mirror of the engine-side `TemplateVariable.defaultValue`.
    */
   defaultValue?: string;
+  /**
+   * Opt-in to be asked in the run-launch dialog. Mirror of the engine-side
+   * `TemplateVariable.promptAtLaunch` (`launch-input-variables.md`).
+   */
+  promptAtLaunch?: boolean;
 };
