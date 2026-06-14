@@ -56,6 +56,15 @@ export type StartInstanceInput = {
   /** Initial inputs for the first step (e.g. a pasted Markdown spec). */
   seeds: ReadonlyArray<{ kind: ArtifactKind; content: string }>;
   /**
+   * Values collected at the run-launch dialog for the template's
+   * `promptAtLaunch` variables (`launch-input-variables.md` §P1). Each `name`
+   * must reference a declared, `promptAtLaunch` variable; the entered `content`
+   * **overrides** that variable's `defaultValue`. A required launch input (no
+   * value here *and* no `defaultValue`) makes the start fail. Omitted ⇒ every
+   * launch input falls back to its `defaultValue` (legacy behaviour).
+   */
+  variableValues?: ReadonlyArray<{ name: string; content: string }>;
+  /**
    * Initial working directory for native side-effects of the run (currently
    * the cwd of the spawned Claude CLI). Mutable later via `workspace.set`.
    */
@@ -117,7 +126,7 @@ const resolveEffectiveTemplate = async (
  */
 export const makeStartInstance =
   (deps: Deps): StartInstance =>
-  async ({ templateRef, seeds, cwd, channelId }) => {
+  async ({ templateRef, seeds, cwd, channelId, variableValues }) => {
     const template = await deps.templates.resolveRef(templateRef);
     // Flatten any `workflow.call` into the effective graph and pin it on the
     // instance (§6). `undefined` when the template has no sub-workflows.
@@ -131,14 +140,42 @@ export const makeStartInstance =
       const a = await deps.artifactStore.put(s.kind, s.content, { role: "seed" });
       seedIds.push(a.id);
     }
-    // Materialize each variable's `defaultValue` into an artifact so it can be
-    // pre-assigned in the instance before any step runs. `put` validates the
-    // content against the kind and throws on a malformed default — surfacing
-    // the error at launch rather than silently leaving the slot empty.
+    // Index the launch-dialog values by variable name. Each must target a
+    // declared, `promptAtLaunch` variable (`launch-input-variables.md` §P1) —
+    // anything else is a caller bug and fails fast before any artifact is
+    // written. The entered value overrides the variable's `defaultValue` below.
+    const launchValueByName = new Map<string, string>();
+    for (const val of variableValues ?? []) {
+      const variable = runTemplate.variables.find((v) => v.name === val.name);
+      if (!variable) {
+        throw new Error(
+          `launch input "${val.name}" does not match any declared template variable`,
+        );
+      }
+      if (variable.promptAtLaunch !== true) {
+        throw new Error(
+          `launch input "${val.name}" targets a variable that is not promptAtLaunch`,
+        );
+      }
+      launchValueByName.set(val.name, val.content);
+    }
+    // Materialize each variable's effective launch content into an artifact so
+    // it can be pre-assigned in the instance before any step runs: the launch
+    // value when provided, otherwise the `defaultValue`. `put` validates the
+    // content against the kind and throws on malformed content — surfacing the
+    // error at launch rather than silently leaving the slot empty. A
+    // `promptAtLaunch` variable with neither a value nor a default is a required
+    // input left unfilled → refuse to start (no misleading empty slot).
     const variableDefaults: { name: string; artifactId: ArtifactId }[] = [];
     for (const v of runTemplate.variables) {
-      if (v.defaultValue === undefined) continue;
-      const a = await deps.artifactStore.put(v.kind, v.defaultValue, { role: "seed" });
+      const content = launchValueByName.get(v.name) ?? v.defaultValue;
+      if (v.promptAtLaunch === true && content === undefined) {
+        throw new Error(
+          `required launch input "${v.name}" was not provided (no value and no defaultValue)`,
+        );
+      }
+      if (content === undefined) continue;
+      const a = await deps.artifactStore.put(v.kind, content, { role: "seed" });
       variableDefaults.push({ name: v.name, artifactId: asArtifactId(a.id) });
     }
     // §7: freeze the transitive `template.invoke` sub-template closure at root
