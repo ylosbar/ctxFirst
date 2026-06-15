@@ -6,6 +6,13 @@ export type StartWorkflowInput = {
   seeds: ReadonlyArray<{ kind: ArtifactKind; content: string }>;
   /** Optional initial working directory for native side-effects of the run. */
   cwd?: string;
+  /**
+   * Values for the template's `promptAtLaunch` variables, collected by the
+   * run-launch dialog (`launch-input-variables.md` §P2/§P3). Each `name`
+   * references a declared, `promptAtLaunch` variable; `content` overrides its
+   * `defaultValue` at start.
+   */
+  variableValues?: ReadonlyArray<{ name: string; content: string }>;
 };
 
 export const makeStartWorkflow =

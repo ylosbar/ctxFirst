@@ -16,6 +16,7 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { ChannelContext } from "../../application/ports/outbound/channel-context";
+import type { LoggerPort } from "../../application/ports/outbound/logger";
 import type {
   ArtifactSchemaRegistry,
   PluginArtifactSchemaContribution,
@@ -48,6 +49,14 @@ import {
   composeWrapperStructuralHash,
   computeStructuralHash,
 } from "../../domain/artifact-schema-hash";
+import {
+  ArtifactSchemaBreakingChangeError,
+  ArtifactSchemaChainUnsoundError,
+  classifyChange,
+  classifyCoercionChain,
+  type CoercionChainNode,
+} from "../../domain/artifact-schema-compat";
+import { parseCoerceFromColumn } from "../../domain/artifact-coercion";
 import { parseArtifact } from "../../domain/parse-artifact";
 import { plainFallback } from "../../domain/artifact-serializer";
 import {
@@ -60,7 +69,12 @@ import {
 } from "../../domain/artifact-schema";
 import { bindChannel, channelScopeWhere } from "../_shared/channel-scope";
 
-type Deps = { db: Database.Database; channels: ChannelContext };
+type Deps = {
+  db: Database.Database;
+  channels: ChannelContext;
+  /** Optional: surfaces `degraded` (non-blocking, low-confidence) chain-gate hops. */
+  logger?: LoggerPort;
+};
 
 type Row = {
   id: string;
@@ -74,6 +88,7 @@ type Row = {
   extends_kind: string | null;
   structural_hash: string | null;
   markdown_template: string | null;
+  coerce_from_json: string | null;
 };
 
 /**
@@ -125,6 +140,7 @@ const rowToRecord = (
     markdownProjection: row.markdown_template
       ? { kind: "template", template: row.markdown_template }
       : null,
+    coerceFrom: parseCoerceFromColumn(row.coerce_from_json),
   };
 };
 
@@ -155,18 +171,22 @@ const pluginContribToRecord = (
     markdownProjection: t.markdownTemplate
       ? { kind: "template", template: t.markdownTemplate }
       : null,
+    // Plugin contributions don't yet declare coercion (first-party user types
+    // are the wired write path in P3); the field stays `null` until the
+    // manifest schema carries it.
+    coerceFrom: null,
   };
 };
 
 export const createSqliteArtifactSchemaRegistry = (
-  { db, channels }: Deps,
+  { db, channels, logger }: Deps,
 ): ArtifactSchemaRegistry => {
   // `selectAll` here is channel-scoped: it powers user listings, never lookup.
   // The `findUserRecord` / `findUserRow` paths use the same query so plugin
   // and built-in resolution still bypass the channel filter (those records
   // don't live in DB anyway).
   const selectAll = db.prepare(
-    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template
+    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template, coerce_from_json
        FROM wf_artifact_schemas
       WHERE ${channelScopeWhere}
       ORDER BY id ASC, version ASC`,
@@ -174,7 +194,7 @@ export const createSqliteArtifactSchemaRegistry = (
   // `selectAllUnscoped` is used by `resolve`/`getSchema` lookups: a step that
   // references a user type from another channel must still resolve.
   const selectAllUnscoped = db.prepare(
-    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template
+    `SELECT id, version, name, description, raw_schema_json, simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash, markdown_template, coerce_from_json
        FROM wf_artifact_schemas
       ORDER BY id ASC, version ASC`,
   );
@@ -182,11 +202,11 @@ export const createSqliteArtifactSchemaRegistry = (
     `INSERT INTO wf_artifact_schemas (
        id, version, name, description, raw_schema_json,
        simplified_schema_json, sample_raw, sample_json, extends_kind, structural_hash,
-       markdown_template, channel_id, created_at
+       markdown_template, coerce_from_json, channel_id, created_at
      ) VALUES (
        @id, @version, @name, @description, @raw_schema_json,
        @simplified_schema_json, @sample_raw, @sample_json, @extends_kind, @structural_hash,
-       @markdown_template, @channel_id, @now
+       @markdown_template, @coerce_from_json, @channel_id, @now
      )
      ON CONFLICT(id, version) DO UPDATE SET
        name                   = excluded.name,
@@ -197,7 +217,8 @@ export const createSqliteArtifactSchemaRegistry = (
        sample_json            = excluded.sample_json,
        extends_kind           = excluded.extends_kind,
        structural_hash        = excluded.structural_hash,
-       markdown_template      = excluded.markdown_template`,
+       markdown_template      = excluded.markdown_template,
+       coerce_from_json       = excluded.coerce_from_json`,
   );
   const updateHash = db.prepare(
     `UPDATE wf_artifact_schemas SET structural_hash = ?
@@ -238,6 +259,16 @@ export const createSqliteArtifactSchemaRegistry = (
 
   const findUserRow = db.prepare(
     `SELECT 1 FROM wf_artifact_schemas WHERE id = ? AND version = ? LIMIT 1`,
+  );
+
+  // BACKWARD gate predecessor lookup: the schema currently stored at the SAME
+  // `(id, version)` — the only thing an in-place overwrite can break. A bump to
+  // a new version publishes a fresh identity and is never gated here. `(id,
+  // version)` is globally unique (the upsert's ON CONFLICT target), so this is
+  // unscoped by channel like `findUserRow`.
+  const selectSchemaByRef = db.prepare(
+    `SELECT simplified_schema_json FROM wf_artifact_schemas
+      WHERE id = ? AND version = ? LIMIT 1`,
   );
 
   const findPluginRecord = (
@@ -346,6 +377,9 @@ export const createSqliteArtifactSchemaRegistry = (
       // Synthesised kinds carry no explicit projection; `render.markdown`
       // falls back to the generic chain (each element's `body` / JSON).
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -399,6 +433,9 @@ export const createSqliteArtifactSchemaRegistry = (
         variantDescriptors.map((d) => d.structuralHash),
       ),
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -442,6 +479,9 @@ export const createSqliteArtifactSchemaRegistry = (
         innerDescriptor.structuralHash,
       ),
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -480,6 +520,9 @@ export const createSqliteArtifactSchemaRegistry = (
         innerDescriptor.structuralHash,
       ),
       markdownProjection: null,
+      // Synthesised kinds are content-derived `v1`; they have no predecessor
+      // to coerce from.
+      coerceFrom: null,
     };
   };
 
@@ -549,6 +592,49 @@ export const createSqliteArtifactSchemaRegistry = (
       if (row.structural_hash != null) continue;
       const desc = rowToRecord(row, resolveParentHash);
       updateHash.run(desc.structuralHash, row.id, row.version);
+    }
+  };
+
+  /**
+   * Eager dependent recompute (§5 "Risques" follow-up). When a user record's
+   * schema — and thus its structural hash — changes at save, every user record
+   * that refines it folds the *stale* parent bytes into its own identity until
+   * re-saved. Left uncorrected, `portAccepts` rule 6 (hash equality) and
+   * `record:<hash>` resolution can match against a stale child hash.
+   *
+   * We sweep the user rows to a fixpoint: a child enters `affected` only once
+   * its parent has been recomputed *and persisted*, so by the time we compute a
+   * child's hash, `resolveParentHash` reads the parent's fresh column. Robust to
+   * any chain depth; built-in / plugin parents never reach here (they can't be
+   * `save`d), so only user→user refinement chains are walked — few and cheap.
+   */
+  const recomputeDependentHashes = (changedKind: ArtifactKind): void => {
+    const rows = selectAllUnscoped.all() as Row[];
+    const affected = new Set<string>([changedKind]);
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const row of rows) {
+        const parent = row.extends_kind;
+        if (!parent || !affected.has(parent)) continue;
+        const rowKind = toUserArtifactKind({
+          id: row.id,
+          version: row.version,
+        });
+        if (affected.has(rowKind)) continue;
+        affected.add(rowKind);
+        progressed = true;
+        const newHash = computeStructuralHash(
+          {
+            simplifiedSchema: JSON.parse(row.simplified_schema_json),
+            extends: parent as ArtifactKind,
+          },
+          resolveParentHash,
+        );
+        if (newHash !== row.structural_hash) {
+          updateHash.run(newHash, row.id, row.version);
+        }
+      }
     }
   };
 
@@ -626,6 +712,74 @@ export const createSqliteArtifactSchemaRegistry = (
           `cannot save artifact type "${type.id}": collides with a built-in kind`,
         );
       }
+      // BACKWARD-compatibility gate (§2.3): an in-place overwrite at the same
+      // `(id, version)` must still read every payload valid under the stored
+      // schema. Reject breaking deltas unless the caller opts in to overwrite.
+      if (!type.allowBreaking) {
+        const existing = selectSchemaByRef.get(type.id, type.version) as
+          | { simplified_schema_json: string }
+          | undefined;
+        if (existing) {
+          const verdict = classifyChange(
+            JSON.parse(existing.simplified_schema_json),
+            type.simplifiedSchema,
+          );
+          if (verdict.breaking.length > 0) {
+            throw new ArtifactSchemaBreakingChangeError(
+              { id: type.id, version: type.version, name: type.name },
+              verdict.breaking,
+            );
+          }
+        }
+      }
+      // BACKWARD_TRANSITIVE chain gate (§2.6 P4): when this version declares a
+      // `coerceFrom`, the read path will later coerce older-version payloads
+      // forward through the chain hanging off it. Verify that chain is sound at
+      // save time — every ancestor reachable via `coerceFrom` links, coerced up
+      // to this version, still validates — rather than letting an unsound or
+      // dead declaration silently no-op (or lose data) at read time. Keys on
+      // `coerceFrom` presence, so a plain bump declares no obligation and stays
+      // ungated (preserving the "a bump is never gated" invariant). Shares the
+      // `allowBreaking` escape hatch with the in-place gate above.
+      if (!type.allowBreaking && type.coerceFrom != null) {
+        const resolveAncestor = (version: string): CoercionChainNode | null => {
+          const desc = findUserRecord({ id: type.id, version });
+          return desc
+            ? {
+                version: desc.version,
+                simplifiedSchema: desc.simplifiedSchema,
+                schema: desc.schema,
+                sample: desc.sample,
+                coerceFrom: desc.coerceFrom,
+              }
+            : null;
+        };
+        const verdict = classifyCoercionChain(
+          {
+            version: type.version,
+            simplifiedSchema: type.simplifiedSchema,
+            schema: z.fromJSONSchema(type.simplifiedSchema as never),
+            sample: type.sample ?? null,
+            coerceFrom: type.coerceFrom,
+          },
+          resolveAncestor,
+        );
+        if (verdict.broken.length > 0) {
+          throw new ArtifactSchemaChainUnsoundError(
+            { id: type.id, version: type.version, name: type.name },
+            verdict.broken,
+          );
+        }
+        // Degraded hops verified with reduced confidence (no/stale sample, or an
+        // un-modellable patch) — never block; surface as a log line if a logger
+        // was injected. A richer author-facing surfacing is a follow-up.
+        if (verdict.degraded.length > 0) {
+          logger?.warn(
+            `[wf:artifact] coercion chain for ${type.id}@${type.version} verified with reduced confidence: ` +
+              verdict.degraded.map((h) => `@${h.fromVersion} (${h.reason})`).join("; "),
+          );
+        }
+      }
       const extendsKind: ArtifactKind | null = type.extends ?? null;
       // Compute the hash *before* the upsert so the column is populated on
       // insert — no second-pass UPDATE, and `record:<hash>` lookups resolve
@@ -649,14 +803,18 @@ export const createSqliteArtifactSchemaRegistry = (
         extends_kind: type.extends ?? null,
         structural_hash: structuralHash,
         markdown_template: type.markdownTemplate ?? null,
+        coerce_from_json:
+          type.coerceFrom == null ? null : JSON.stringify(type.coerceFrom),
         channel_id: channels.getActive(),
         now: new Date().toISOString(),
       });
+      // Refinement children fold this kind's hash into their own identity;
+      // recompute & persist them so none keeps a stale hash.
+      recomputeDependentHashes(
+        toUserArtifactKind({ id: type.id, version: type.version }),
+      );
       // A synthesised entry might transitively depend on the saved kind
       // (e.g. `List<user:foo@v1>` if `user:foo@v1` was just updated).
-      // Children that refine this kind keep their stored hash — they go
-      // stale until re-saved (cf. spec §5 "Risques", follow-up: eager
-      // dependent recompute).
       synthesizedCache.clear();
     },
 

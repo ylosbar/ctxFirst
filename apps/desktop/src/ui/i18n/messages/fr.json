@@ -208,6 +208,11 @@
       "defaultPlaceholderList": "Tableau JSON, ex. [\"a\", \"b\"]",
       "defaultHint": "Matérialisée au lancement, avant tout step. Un step producteur l'écrase ensuite (pas de reset par tour de boucle).",
       "validating": "Validation…",
+      "promptAtLaunchLabel": "Demander au lancement",
+      "promptAtLaunchToggle": "Demander la valeur de cette variable au lancement d'un run",
+      "promptAtLaunchHint": "Pré-rempli par la valeur par défaut si présente, sinon champ requis.",
+      "promptAtLaunchProducerHint": "Une étape écrit cette variable ({{producers}}) — elle ne peut pas être une variable de lancement (la valeur produite écraserait la saisie).",
+      "promptAtLaunchRequiredNote": "Entrée requise (sans valeur par défaut) — ce template ne sera ni invocable comme sous-workflow ni planifiable tant qu'il n'aura pas de valeur par défaut.",
       "references": "Références",
       "writtenBy": "Écrit par :",
       "readBy": "Lu par :",
@@ -249,7 +254,18 @@
       "seedPlaceholder": "Contenu {{kind}}…",
       "noSeedMessage": "Ce template ne nécessite pas d'entrée utilisateur — la première étape se lance directement avec sa configuration.",
       "starting": "Démarrage…",
-      "start": "Démarrer"
+      "start": "Démarrer",
+      "inputsHeading": "Variables de lancement",
+      "requiredBadge": "requis"
+    },
+    "deps": {
+      "panelTitle": "Dépendances du template ({{count}})",
+      "skillsSection": "Skills / prompts",
+      "artifactTypesSection": "Types d'artifact",
+      "subTemplatesSection": "Sous-templates",
+      "missing": "manquant",
+      "empty": "Ce template n'a aucune dépendance.",
+      "toolbarButton": "Voir les dépendances du template"
     },
     "missingDeps": {
       "sectionHeader": "{{title}} ({{count}})",
@@ -1066,6 +1082,11 @@
         "title": "Schéma en doublon",
         "body": "Hash structurel identique à « {{name}} » ({{ref}}). Les ports le traiteront comme équivalent — tu peux référencer le type existant plutôt qu'en sauvegarder un doublon."
       },
+      "breaking": {
+        "title": "Changement cassant",
+        "overwrite": "Écraser quand même",
+        "dismiss": "Annuler"
+      },
       "sections": {
         "identity": "Identité",
         "schema": "Schéma",
@@ -1683,7 +1704,8 @@
       "cwdPlaceholder": "(par défaut : cwd du process Electron)",
       "saving": "Enregistrement…",
       "seedLabel": "Seed ({{kind}})",
-      "seedPlaceholder": "# Titre\n\n…"
+      "seedPlaceholder": "# Titre\n\n…",
+      "requiredLaunchInput": "Ce template a une ou des variables de lancement requises ({{names}}) sans valeur par défaut — il n'est pas planifiable. Donne une valeur par défaut à chacune pour le rendre planifiable."
     },
     "leafMenu": {
       "disable": "Désactiver",

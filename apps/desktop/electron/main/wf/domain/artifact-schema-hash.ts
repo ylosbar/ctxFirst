@@ -27,9 +27,10 @@
  *  - `Error<E>`    → `{kind: "Error",   inner:    H(E)}`
  *
  * Cache invariant (v1): user-record hashes are computed eagerly at save and
- * persisted on the row. If a refined record's *parent* later mutates, the
- * child's persisted hash becomes stale until the child is re-saved — eager
- * recompute of dependents is left as a follow-up (cf. spec §5 "Risques").
+ * persisted on the row. When a refined record's *parent* mutates in place, the
+ * registry eagerly recomputes and re-persists every dependent's hash in the
+ * same save (cf. `recomputeDependentHashes` in the SQLite adapter), so a child
+ * never keeps a stale parent hash (cf. spec §2.6 P0 integrity).
  */
 import { createHash } from "node:crypto";
 import {

@@ -45,6 +45,13 @@ import {
   composeWrapperStructuralHash,
   computeStructuralHash,
 } from "../../domain/artifact-schema-hash";
+import {
+  ArtifactSchemaBreakingChangeError,
+  ArtifactSchemaChainUnsoundError,
+  classifyChange,
+  classifyCoercionChain,
+  type CoercionChainNode,
+} from "../../domain/artifact-schema-compat";
 import { plainFallback } from "../../domain/artifact-serializer";
 import type {
   ArtifactKindDescriptor,
@@ -200,6 +207,7 @@ const pluginContribToDescriptor = (
     markdownProjection: t.markdownTemplate
       ? { kind: "template", template: t.markdownTemplate }
       : null,
+    coerceFrom: null,
   };
 };
 
@@ -215,6 +223,30 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
 
   const resolveParentHash = (kind: ArtifactKind): string | null =>
     findRecord(kind)?.structuralHash ?? null;
+
+  // Mirrors the SQLite adapter's eager dependent-hash recompute: when a user
+  // record's hash changes, every user record that refines it (transitively)
+  // is recomputed in dependency order so no child keeps a stale parent hash.
+  const recomputeDependentHashes = (changedKind: ArtifactKind): void => {
+    const affected = new Set<string>([changedKind]);
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const [kind, desc] of userRecords) {
+        const parent = desc.extends;
+        if (!parent || !affected.has(parent) || affected.has(kind)) continue;
+        affected.add(kind);
+        progressed = true;
+        const newHash = computeStructuralHash(
+          { simplifiedSchema: desc.simplifiedSchema, extends: parent },
+          resolveParentHash,
+        );
+        if (newHash !== desc.structuralHash) {
+          userRecords.set(kind, { ...desc, structuralHash: newHash });
+        }
+      }
+    }
+  };
 
   const synthesizeList = (kind: ArtifactKind): ArtifactKindDescriptor | null => {
     if (!isContainerArtifactKind(kind)) return null;
@@ -239,6 +271,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
       extends: null,
       structuralHash: composeListStructuralHash(innerDesc.structuralHash),
       markdownProjection: null,
+      coerceFrom: null,
     };
   };
 
@@ -275,6 +308,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
         variantDescriptors.map((d) => d.structuralHash),
       ),
       markdownProjection: null,
+      coerceFrom: null,
     };
   };
 
@@ -310,6 +344,7 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
         innerDesc.structuralHash,
       ),
       markdownProjection: null,
+      coerceFrom: null,
     };
   };
 
@@ -453,6 +488,52 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
     async save(type: SaveUserArtifactSchema) {
       const kind = `user:${type.id}@${type.version}` as ArtifactKind;
       const simplifiedSchema = type.simplifiedSchema;
+      // Mirror the SQLite adapter's BACKWARD gate: an in-place overwrite at the
+      // same (id, version) must still read payloads valid under the stored one.
+      if (!type.allowBreaking) {
+        const existing = userRecords.get(kind);
+        if (existing) {
+          const verdict = classifyChange(existing.simplifiedSchema, simplifiedSchema);
+          if (verdict.breaking.length > 0) {
+            throw new ArtifactSchemaBreakingChangeError(
+              { id: type.id, version: type.version, name: type.name },
+              verdict.breaking,
+            );
+          }
+        }
+      }
+      // Mirror the SQLite adapter's BACKWARD_TRANSITIVE chain gate (§2.6 P4) via
+      // the same pure classifier, so use-case tests match the adapter exactly.
+      if (!type.allowBreaking && type.coerceFrom != null) {
+        const resolveAncestor = (version: string): CoercionChainNode | null => {
+          const anc = userRecords.get(`user:${type.id}@${version}`);
+          return anc
+            ? {
+                version: anc.version,
+                simplifiedSchema: anc.simplifiedSchema,
+                schema: anc.schema,
+                sample: anc.sample,
+                coerceFrom: anc.coerceFrom,
+              }
+            : null;
+        };
+        const verdict = classifyCoercionChain(
+          {
+            version: type.version,
+            simplifiedSchema,
+            schema: z.fromJSONSchema(simplifiedSchema as never),
+            sample: type.sample ?? null,
+            coerceFrom: type.coerceFrom,
+          },
+          resolveAncestor,
+        );
+        if (verdict.broken.length > 0) {
+          throw new ArtifactSchemaChainUnsoundError(
+            { id: type.id, version: type.version, name: type.name },
+            verdict.broken,
+          );
+        }
+      }
       let schema: z.ZodTypeAny;
       try {
         schema = z.fromJSONSchema(simplifiedSchema as never);
@@ -481,7 +562,9 @@ export const createFakeArtifactSchemaRegistry = (): FakeArtifactSchemaRegistry =
         markdownProjection: type.markdownTemplate
           ? { kind: "template", template: type.markdownTemplate }
           : null,
+        coerceFrom: type.coerceFrom ?? null,
       });
+      recomputeDependentHashes(kind);
       synthesizedCache.clear();
     },
     async remove(ref: ArtifactSchemaRef) {

@@ -25,7 +25,9 @@ import useArtifactSchemas from "../../../../hooks/useArtifactSchemas";
 import useWorkflowTemplates from "../../../../hooks/useWorkflowTemplates";
 import {
   collectMissingTemplateDeps,
+  collectTemplateDeps,
   totalMissing as totalMissingDeps,
+  type TemplateDeps,
 } from "../../../../../application/use-cases/collect-missing-template-deps";
 import { postImportStore } from "../../post-import-store";
 import { nodesToSteps } from "../graph/nodes-to-steps";
@@ -52,6 +54,8 @@ export type TemplateDepsControls = {
     kind: string,
   ) => { extends: ArtifactKind | null; structuralHash: string } | null;
   missingDeps: ReturnType<typeof collectMissingTemplateDeps>;
+  /** Every dependency the template carries (skills, kinds, sub-templates). */
+  deps: TemplateDeps;
   hasMissingDeps: boolean;
   missingDepsModalOpen: boolean;
   setMissingDepsModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -124,6 +128,13 @@ export const useTemplateDeps = ({
     }
     return (kind: string) => byKindIndex.get(kind) ?? null;
   }, [availableArtifactSchemas]);
+  // `workflow.call` refs that resolve against the cached template list — the
+  // keys of `subTemplates` (`${id}@${version}`). Drives the `resolved` flag of
+  // sub-template entries in the full dependency listing.
+  const availableSubTemplateRefs = useMemo(
+    () => new Set(subTemplates.keys()),
+    [subTemplates],
+  );
   const [missingDepsModalOpen, setMissingDepsModalOpen] = useState(false);
 
   const currentDraft = useMemo<{
@@ -168,6 +179,41 @@ export const useTemplateDeps = ({
     availableArtifactKinds,
   ]);
 
+  const deps = useMemo<TemplateDeps>(
+    () =>
+      collectTemplateDeps(
+        {
+          id: templateId,
+          version,
+          name,
+          description,
+          entryStep: entryStepId ?? "",
+          exitSteps: [],
+          steps: currentDraft?.steps ?? [],
+          transitions: [],
+          variables,
+          status: "draft",
+        },
+        {
+          skillRefs: availableSkillRefs,
+          artifactKinds: availableArtifactKinds,
+          subTemplates: availableSubTemplateRefs,
+        },
+      ),
+    [
+      currentDraft,
+      templateId,
+      version,
+      name,
+      description,
+      entryStepId,
+      variables,
+      availableSkillRefs,
+      availableArtifactKinds,
+      availableSubTemplateRefs,
+    ],
+  );
+
   const hasMissingDeps = totalMissingDeps(missingDeps) > 0;
 
   // Track whether we've already consumed the "fresh import" flag for the
@@ -194,6 +240,7 @@ export const useTemplateDeps = ({
     availableArtifactKinds,
     refinementResolver,
     missingDeps,
+    deps,
     hasMissingDeps,
     missingDepsModalOpen,
     setMissingDepsModalOpen,

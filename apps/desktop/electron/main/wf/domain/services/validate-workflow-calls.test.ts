@@ -306,3 +306,68 @@ describe("validateWorkflowCalls — rule 7 (scope violation §9)", () => {
     expect(() => validateWorkflowCalls(root, resolverFor(looping))).toThrow(/workflow.call "c"/);
   });
 });
+
+describe("validateWorkflowCalls — Gate 2 (required launch input, launch-input-variables.md)", () => {
+  it("rejects calling a child that exposes a required launch input (promptAtLaunch, no default, internal)", () => {
+    const childWithRequired: WorkflowTemplate = {
+      ...childB,
+      variables: [
+        ...childB.variables,
+        { name: "ticketId", kind: "Markdown", promptAtLaunch: true },
+      ],
+    };
+    const root = hostWith(call("c", "B", { readsFrom: { seed: "spec" }, writesTo: { summary: "result" } }));
+    expect(() => validateWorkflowCalls(root, resolverFor(childWithRequired))).toThrow(WorkflowCallError);
+    expect(() => validateWorkflowCalls(root, resolverFor(childWithRequired))).toThrow(/required launch input/);
+  });
+
+  it("accepts when the launch input carries a defaultValue (seeded even as a child)", () => {
+    const childWithDefault: WorkflowTemplate = {
+      ...childB,
+      variables: [
+        ...childB.variables,
+        {
+          name: "ticketId",
+          kind: "Markdown",
+          promptAtLaunch: true,
+          defaultValue: "ABC-1",
+        },
+      ],
+    };
+    const root = hostWith(call("c", "B", { readsFrom: { seed: "spec" }, writesTo: { summary: "result" } }));
+    expect(() => validateWorkflowCalls(root, resolverFor(childWithDefault))).not.toThrow();
+  });
+
+  it("accepts when the launch input is also role:input (seeded by the parent via readsFrom)", () => {
+    const childRoleInput: WorkflowTemplate = {
+      ...childB,
+      steps: [
+        step("read", "claude_code.invoke", { readsFrom: { in: "seed" } }),
+        step("write", "claude_code.invoke", {
+          readsFrom: { in: "ticketId" },
+          writesTo: { out: "summary" },
+        }),
+      ],
+      variables: [
+        v("seed", "input"),
+        v("summary", "output"),
+        { name: "ticketId", kind: "Markdown", role: "input", promptAtLaunch: true },
+      ],
+    };
+    const root = tpl("A", {
+      entryStep: sid("a-in"),
+      exitSteps: [sid("a-out")],
+      steps: [
+        step("a-in", "user.input", { writesTo: { out: "spec" } }),
+        call("c", "B", { readsFrom: { seed: "spec", ticketId: "tkt" }, writesTo: { summary: "result" } }),
+        step("a-out", "claude_code.invoke", { readsFrom: { in: "result" } }),
+      ],
+      transitions: [
+        { from: sid("a-in"), to: sid("c"), isLoop: false },
+        { from: sid("c"), to: sid("a-out"), isLoop: false },
+      ],
+      variables: [v("spec", "internal"), v("result", "internal"), v("tkt", "internal")],
+    });
+    expect(() => validateWorkflowCalls(root, resolverFor(childRoleInput))).not.toThrow();
+  });
+});

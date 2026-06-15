@@ -177,3 +177,75 @@ describe("validateTemplateInvokes", () => {
     ).toThrow(/max depth/);
   });
 });
+
+describe("validateTemplateInvokes — Gate 2 (required launch input, launch-input-variables.md)", () => {
+  const invokeB = {
+    id: "inv",
+    kind: "template.invoke",
+    config: { templateId: "B", templateVersion: "v1" },
+    readsFrom: { spec: "specVar" },
+    writesTo: { summary: "sumVar" },
+  } as const;
+  const hostVars = [
+    { name: "specVar", kind: "Markdown" as const },
+    { name: "sumVar", kind: "Markdown" as const },
+  ];
+
+  it("rejects invoking a child that exposes a required launch input (promptAtLaunch, no default, internal)", () => {
+    const childWithRequired: WorkflowTemplate = {
+      ...childB,
+      variables: [...childB.variables, { name: "ticketId", kind: "Markdown", promptAtLaunch: true }],
+    };
+    const root = rootInvoking({ ...invokeB }, hostVars);
+    expect(() => validateTemplateInvokes(root, resolverOf(childWithRequired))).toThrow(TemplateInvokeError);
+    expect(() => validateTemplateInvokes(root, resolverOf(childWithRequired))).toThrow(/required launch input/);
+  });
+
+  it("accepts when the launch input carries a defaultValue (seeded even as a child)", () => {
+    const childWithDefault: WorkflowTemplate = {
+      ...childB,
+      variables: [
+        ...childB.variables,
+        { name: "ticketId", kind: "Markdown", promptAtLaunch: true, defaultValue: "ABC-1" },
+      ],
+    };
+    const root = rootInvoking({ ...invokeB }, hostVars);
+    expect(() => validateTemplateInvokes(root, resolverOf(childWithDefault))).not.toThrow();
+  });
+
+  it("accepts when the launch input is also role:input (seeded by the parent via readsFrom)", () => {
+    const childRoleInput: WorkflowTemplate = buildTemplate(
+      "B",
+      [
+        {
+          id: "body",
+          kind: "test.echo",
+          readsFrom: { in: "spec", in2: "ticketId" },
+          writesTo: { out: "summary" },
+        },
+      ],
+      [],
+      {
+        id: "B",
+        exitSteps: ["body"],
+        status: "published",
+        variables: [
+          { name: "spec", kind: "Markdown", role: "input" },
+          { name: "summary", kind: "Markdown", role: "output" },
+          { name: "ticketId", kind: "Markdown", role: "input", promptAtLaunch: true },
+        ],
+      },
+    );
+    const root = rootInvoking(
+      {
+        id: "inv",
+        kind: "template.invoke",
+        config: { templateId: "B", templateVersion: "v1" },
+        readsFrom: { spec: "specVar", ticketId: "tktVar" },
+        writesTo: { summary: "sumVar" },
+      },
+      [...hostVars, { name: "tktVar", kind: "Markdown" as const }],
+    );
+    expect(() => validateTemplateInvokes(root, resolverOf(childRoleInput))).not.toThrow();
+  });
+});

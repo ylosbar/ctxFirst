@@ -193,6 +193,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     subTemplates,
     refinementResolver,
     missingDeps,
+    deps,
     hasMissingDeps,
     missingDepsModalOpen,
     setMissingDepsModalOpen,
@@ -211,6 +212,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const [variableModal, setVariableModal] = useState<VariableModalState>({
     open: false,
   });
+  // Modale « toutes les dépendances » ouverte depuis la toolbar (distincte de
+  // la modale des deps manquantes, qui s'auto-ouvre à l'import).
+  const [depsModalOpen, setDepsModalOpen] = useState(false);
 
   const counterRef = useRef(0);
   const flowWrapperRef = useRef<HTMLDivElement>(null);
@@ -406,6 +410,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     launch,
     launchNeedsSeed,
     launchSeedKind,
+    launchInputs,
     canLaunch,
     setLaunch,
     handleLaunchOpen,
@@ -603,6 +608,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           canLaunch={canLaunch}
           hasMissingDeps={hasMissingDeps}
           missingDeps={missingDeps}
+          deps={deps}
           notesVisible={notesVisible}
           setNotesVisible={setNotesVisible}
           canvasMode={canvasMode}
@@ -615,6 +621,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           variables={variables}
           setVariableModal={setVariableModal}
           setMissingDepsModalOpen={setMissingDepsModalOpen}
+          setDepsModalOpen={setDepsModalOpen}
           handleLaunchOpen={handleLaunchOpen}
           handleLaunchClose={handleLaunchClose}
           handleAutoLayout={handleAutoLayout}
@@ -638,6 +645,13 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         text={launch?.text ?? ""}
         busy={launch?.busy ?? false}
         error={launch?.error ?? null}
+        launchInputs={launchInputs}
+        values={launch?.values ?? {}}
+        onValueChange={(name, value) =>
+          setLaunch((prev) =>
+            prev ? { ...prev, values: { ...prev.values, [name]: value } } : prev,
+          )
+        }
         onTextChange={(text) =>
           setLaunch((prev) => (prev ? { ...prev, text } : prev))
         }
@@ -705,6 +719,9 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
         missingDepsModalOpen={missingDepsModalOpen}
         setMissingDepsModalOpen={setMissingDepsModalOpen}
         missingDeps={missingDeps}
+        depsModalOpen={depsModalOpen}
+        setDepsModalOpen={setDepsModalOpen}
+        deps={deps}
         missingFieldsModal={missingFieldsModal}
         setMissingFieldsModal={setMissingFieldsModal}
         handleMissingFieldsConfirm={handleMissingFieldsConfirm}

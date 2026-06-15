@@ -89,6 +89,9 @@ describe("registry — List<T> synthesis", () => {
         properties: { sku: { type: "string" }, qty: { type: "number" } },
         required: ["sku", "qty"],
       },
+      // In-place mutation of a published kind — a breaking diff (new required
+      // field); this test exercises cache invalidation, not the BACKWARD gate.
+      allowBreaking: true,
     });
     const after = registry.resolve("List<user:shopify-order@v1>");
     expect(after).not.toBe(before);

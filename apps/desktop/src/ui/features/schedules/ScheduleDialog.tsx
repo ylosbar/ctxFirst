@@ -20,6 +20,7 @@ import { useServices } from "../../di/services-provider";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
 import { useT } from "../../i18n";
+import { collectLaunchInputs } from "../../../application/use-cases/collect-launch-inputs";
 import { CRON_PRESETS } from "./cron-presets";
 
 const getEntrySeedKind = (
@@ -94,6 +95,15 @@ const ScheduleDialog = ({
       ? getEntrySeedKind(selected, specs.byKind) ?? "Markdown"
       : "Markdown";
 
+  // A schedule cannot prompt: a template with a required launch input (no
+  // default) is not schedulable (the engine guard in `makeSaveSchedule` rejects
+  // it). Reflect that by disabling the action and explaining why. (§P3.)
+  const requiredLaunchInputs = useMemo(
+    () => (selected ? collectLaunchInputs(selected).filter((i) => i.required) : []),
+    [selected],
+  );
+  const hasRequiredLaunchInput = requiredLaunchInputs.length > 0;
+
   const onPickCwd = async () => {
     const picked = await services.pickDirectory({
       defaultPath: cwd || undefined,
@@ -107,7 +117,8 @@ const ScheduleDialog = ({
     name.trim().length > 0 &&
     templateRef.length > 0 &&
     cron.trim().length > 0 &&
-    content.trim().length > 0;
+    content.trim().length > 0 &&
+    !hasRequiredLaunchInput;
 
   const submit = () => {
     if (!canSubmit) return;
@@ -179,6 +190,13 @@ const ScheduleDialog = ({
                     );
                   })}
                 </Select>
+                {hasRequiredLaunchInput ? (
+                  <p className="mt-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+                    {t("schedules.dialog.requiredLaunchInput", {
+                      names: requiredLaunchInputs.map((i) => i.name).join(", "),
+                    })}
+                  </p>
+                ) : null}
               </FormField>
 
               <FormField label={t("schedules.dialog.cronLabel")}>

@@ -90,7 +90,41 @@ export type TemplateVariable = {
    * (last-writer-wins).
    */
   defaultValue?: string;
+  /**
+   * Opt-in (`launch-input-variables.md`): when `true`, the run-launch dialog
+   * renders a field for this variable and injects the entered value into
+   * `variableDefaults` before the first step — so any node, upstream or
+   * downstream, that reads it via `readsFrom` sees it. Pre-filled from
+   * `defaultValue` when present, otherwise a **required** field. Joins the
+   * `seeded` predicate (legitimately read without an in-graph producer); a
+   * producer is therefore forbidden (last-writer-wins would clobber the entered
+   * value — see {@link validateTemplatePorts} Gate 1). A *required* launch input
+   * (no `defaultValue`, not `role:"input"`) is not seedable as a sub-workflow
+   * child — see {@link requiredLaunchInputs}.
+   */
+  promptAtLaunch?: boolean;
 };
+
+/**
+ * The launch-input variables that can only be satisfied by a human at the
+ * **root** launch dialog: `promptAtLaunch`, no `defaultValue`, and not tagged
+ * `role:"input"`. Flattened (`workflow.call`) or spawned (`template.invoke`) as
+ * a sub-workflow child, such a variable is namespaced out of the parent's launch
+ * collection — nobody prompts it and it resolves empty at runtime. The
+ * invocability gates (`validateWorkflowCalls` / `validateTemplateInvokes`)
+ * reject invoking a child that exposes any. The author fixes it by giving a
+ * `defaultValue` (seeded even as a child) or tagging `role:"input"` (seeded by
+ * the parent via `readsFrom`).
+ */
+export const requiredLaunchInputs = (
+  tpl: WorkflowTemplate,
+): ReadonlyArray<TemplateVariable> =>
+  tpl.variables.filter(
+    (v) =>
+      v.promptAtLaunch === true &&
+      v.role !== "input" &&
+      v.defaultValue === undefined,
+  );
 
 /**
  * Directed edge between two steps of the template.

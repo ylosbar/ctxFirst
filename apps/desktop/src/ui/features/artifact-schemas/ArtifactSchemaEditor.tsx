@@ -36,6 +36,26 @@ import ParserManager from "./ParserManager";
 const ARTIFACT_SCHEMA_URI_PREFIX = "artifact-schema://";
 const NEW_TYPE_URI = "artifact-schema://new";
 
+/** `name` set by the registry's `ArtifactSchemaBreakingChangeError` (main). */
+const BREAKING_CHANGE_ERROR_NAME = "ArtifactSchemaBreakingChangeError";
+
+/**
+ * The registry's BACKWARD gate rejects an in-place overwrite that would break
+ * existing data by throwing `ArtifactSchemaBreakingChangeError`, whose `name`
+ * and self-contained `message` both survive the IPC boundary. We discriminate
+ * it here so the editor can offer the `allowBreaking` override instead of
+ * surfacing an opaque save failure. Returns the author-facing message (with any
+ * leading error-name prefix stripped), or `null` for any other error.
+ */
+const breakingChangeMessage = (e: unknown): string | null => {
+  if (!(e instanceof Error)) return null;
+  const isBreaking =
+    e.name === BREAKING_CHANGE_ERROR_NAME ||
+    e.message.includes(BREAKING_CHANGE_ERROR_NAME);
+  if (!isBreaking) return null;
+  return e.message.replace(/^.*?ArtifactSchemaBreakingChangeError:\s*/, "");
+};
+
 type Buffer = {
   id: string;
   version: string;
@@ -153,6 +173,11 @@ const ArtifactSchemaEditor = ({ uri, api }: Props) => {
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Set when the BACKWARD gate refuses an in-place overwrite. Holds the blast
+  // radius message and gates the "overwrite anyway" affordance (retry with
+  // `allowBreaking`). Distinct from `formError` so it renders as a danger panel
+  // with an override, not a plain inline error.
+  const [breaking, setBreaking] = useState<string | null>(null);
   // Flips on the first save attempt so "required" errors only surface once the
   // user actually tries to commit — not while they're still filling the form.
   const [submitted, setSubmitted] = useState(false);
@@ -364,8 +389,12 @@ const ArtifactSchemaEditor = ({ uri, api }: Props) => {
     [buffer.simplifiedSchemaText],
   );
 
-  const save = async () => {
+  // `allowBreaking` overrides the registry's BACKWARD gate for the single save
+  // it rides on — passed only by the "overwrite anyway" affordance once the
+  // author has acknowledged the blast radius surfaced in the danger panel.
+  const save = async (allowBreaking = false) => {
     setFormError(null);
+    setBreaking(null);
     setSubmitted(true);
     const errs = computeFieldErrors(true);
     if (Object.keys(errs).length > 0 || simplifiedJsonError || rawJsonError) {
@@ -386,6 +415,7 @@ const ArtifactSchemaEditor = ({ uri, api }: Props) => {
         markdownTemplate: buffer.markdownTemplate.trim()
           ? buffer.markdownTemplate
           : null,
+        allowBreaking: allowBreaking || undefined,
       };
       await services.saveArtifactSchema(draft);
       await Promise.all([
@@ -402,7 +432,9 @@ const ArtifactSchemaEditor = ({ uri, api }: Props) => {
       setSavedBuffer(buffer);
       await refresh();
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : String(e));
+      const blastRadius = breakingChangeMessage(e);
+      if (blastRadius) setBreaking(blastRadius);
+      else setFormError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -508,6 +540,34 @@ const ArtifactSchemaEditor = ({ uri, api }: Props) => {
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-4">
           {formError && <ErrorState variant="inline" message={formError} />}
+          {breaking && (
+            <Callout
+              tone="danger"
+              title={t("artifactSchemas.editor.breaking.title")}
+              actions={
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setBreaking(null)}
+                    disabled={busy}
+                  >
+                    {t("artifactSchemas.editor.breaking.dismiss")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => void save(true)}
+                    disabled={busy}
+                  >
+                    {t("artifactSchemas.editor.breaking.overwrite")}
+                  </Button>
+                </div>
+              }
+            >
+              <p className="whitespace-pre-wrap">{breaking}</p>
+            </Callout>
+          )}
           {collisionMatch && (
             <Callout
               tone="warning"

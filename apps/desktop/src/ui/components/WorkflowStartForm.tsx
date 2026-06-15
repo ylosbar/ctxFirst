@@ -18,6 +18,8 @@ import type {
 } from "../../domain/workflow/types";
 import { useServices } from "../di/services-provider";
 import useNodeSpecs from "../hooks/useNodeSpecs";
+import LaunchInputsFields from "./LaunchInputsFields";
+import { collectLaunchInputs } from "../../application/use-cases/collect-launch-inputs";
 
 type Props = {
   templates: ReadonlyArray<TemplateView>;
@@ -28,6 +30,7 @@ type Props = {
     seedKind: ArtifactKind;
     content: string;
     cwd?: string;
+    variableValues?: ReadonlyArray<{ name: string; content: string }>;
   }) => void;
 };
 
@@ -63,6 +66,7 @@ const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
   const [templateRef, setTemplateRef] = useState<string>("");
   const [content, setContent] = useState<string>("");
   const [cwd, setCwd] = useState<string>("");
+  const [values, setValues] = useState<Record<string, string>>({});
 
   const onPickCwd = async () => {
     const picked = await services.pickDirectory({ defaultPath: cwd || undefined });
@@ -81,6 +85,19 @@ const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
     [published, templateRef],
   );
 
+  const launchInputs = useMemo(
+    () => (selected ? collectLaunchInputs(selected) : []),
+    [selected],
+  );
+
+  // Reset the launch-input fields to their defaults whenever the selected
+  // template changes (§P3).
+  useEffect(() => {
+    setValues(
+      Object.fromEntries(launchInputs.map((i) => [i.name, i.defaultValue ?? ""])),
+    );
+  }, [launchInputs]);
+
   const seedKind: ArtifactKind =
     selected && specs.status === "ready"
       ? getEntrySeedKind(selected, specs.byKind) ?? "Markdown"
@@ -88,7 +105,11 @@ const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
   const seedLabel = SEED_LABELS[seedKind] ?? seedKind;
   const placeholder = PLACEHOLDERS[seedKind] ?? "";
 
-  const disabled = busy || !selected || content.trim().length === 0;
+  const missingRequired = launchInputs.some(
+    (i) => i.required && (values[i.name] ?? "").trim().length === 0,
+  );
+  const disabled =
+    busy || !selected || content.trim().length === 0 || missingRequired;
 
   if (loading || specs.status === "loading") {
     return <LoadingState label="Chargement des templates…" />;
@@ -136,6 +157,19 @@ const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
         />
       </FormField>
 
+      {launchInputs.length > 0 ? (
+        <FormField label={t("templates.launchRun.inputsHeading")}>
+          <LaunchInputsFields
+            inputs={launchInputs}
+            values={values}
+            busy={busy}
+            onChange={(name, value) =>
+              setValues((prev) => ({ ...prev, [name]: value }))
+            }
+          />
+        </FormField>
+      ) : null}
+
       <FormField label="Répertoire de travail (cwd CLI, optionnel)">
         <div className="flex items-center gap-2">
           <Input
@@ -178,6 +212,14 @@ const WorkflowStartForm = ({ templates, busy, loading, onStart }: Props) => {
               seedKind,
               content,
               cwd: cwd.trim() || undefined,
+              ...(launchInputs.length
+                ? {
+                    variableValues: launchInputs.map((i) => ({
+                      name: i.name,
+                      content: values[i.name] ?? "",
+                    })),
+                  }
+                : {}),
             })
           }
         >

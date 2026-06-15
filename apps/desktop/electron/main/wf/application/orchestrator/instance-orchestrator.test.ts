@@ -11,6 +11,7 @@ import {
 } from "../../__tests__/fixtures/builders";
 import { putArtifactPayload } from "../artifact-io";
 import type { RunContext, StepRunner } from "../step-runner";
+import type { ArtifactId } from "../../domain/ids";
 
 let harness: OrchestratorHarness | null = null;
 
@@ -978,6 +979,52 @@ describe("InstanceOrchestrator — foreach writesTo.item", () => {
       const stored = harness.fakes.artifactStore.getById(a.artifactId);
       expect(stored?.meta.kind).toBe("Json");
     }
+  });
+
+  it("an in-scope item read survives a frozen `cur` variable (relaunch robustness)", async () => {
+    // Regression — specs/bug-foreach-currentlot-freeze.md. The freeze: the
+    // orchestrator's per-iteration `VariableAssigned` for `cur` stops taking
+    // effect after iteration 0 (as if an app relaunch mid-loop had skipped the
+    // emit), so the flat variable cell is stuck on item 0 while the iteration
+    // records stay correct. We reproduce that by overwriting the projected
+    // variable back to item 0 on every later assignment.
+    const seen: string[] = [];
+    const template = itemVarTemplate(["1", "2", "3"]);
+    harness = createOrchestratorHarness({
+      templates: [template],
+      extraRunners: [makeCapture(seen)],
+    });
+
+    // Subscribed after engine-state + the orchestrator, so this runs last in
+    // each synchronous publish — undoing the variable write before the next
+    // body step resolves its inputs. The first assignment (item 0) is let
+    // through; it becomes the frozen value.
+    let frozenItem: ArtifactId | null = null;
+    harness.fakes.bus.subscribe((evt) => {
+      if (evt.type !== "VariableAssigned" || evt.variableName !== "cur") return;
+      const inst = harness!.state.getInstance(evt.instanceId);
+      if (!inst) return;
+      if (frozenItem === null) {
+        frozenItem = evt.artifactId;
+        return;
+      }
+      // `variables` is a ReadonlyMap in the public type but a live mutable Map
+      // at runtime — overwrite it to keep the cell stuck on item 0.
+      (inst.variables as Map<string, ArtifactId>).set("cur", frozenItem);
+    });
+
+    const { instanceId } = await harness.startInstance({
+      templateRef: refOf(template),
+      seeds: [{ kind: "Markdown", content: "seed" }],
+    });
+    await harness.waitForStatus(instanceId, "completed");
+
+    // The variable cell really is frozen at item 0 …
+    const inst = harness.state.getInstance(instanceId)!;
+    expect(inst.variables.get("cur")).toBe(frozenItem);
+    // … yet each iteration still saw its own item, because the in-scope read
+    // resolves the item from the iteration record (journal), not the variable.
+    expect(seen).toEqual(["1", "2", "3"]);
   });
 
   it("empty array emits no VariableAssigned and never defines the variable", async () => {

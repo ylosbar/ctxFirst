@@ -590,3 +590,43 @@ describe("validateTemplateVariables — backward compatibility", () => {
     expect(() => validateTemplatePorts(tpl, registry)).not.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests – Gate 1: promptAtLaunch (launch-input-variables.md)
+// ---------------------------------------------------------------------------
+
+describe("validateTemplateVariables — Gate 1 (promptAtLaunch)", () => {
+  const registry = makeRegistry();
+
+  it("rejects a promptAtLaunch variable that also has an in-graph producer (writesTo)", () => {
+    const tpl = template({
+      variables: [{ name: "endpoint", kind: "Markdown" as const, promptAtLaunch: true }],
+      steps: [
+        step("a", { writesTo: { out: "endpoint" } }),
+        step("b", { kind: "human.gate" }),
+      ],
+      transitions: [edge("a", "b")],
+      exitSteps: [asStepId("b")],
+    });
+    expect(() => validateTemplatePorts(tpl, registry)).toThrow(TemplatePortError);
+    expect(() => validateTemplatePorts(tpl, registry)).toThrow(
+      /launch input cannot have an in-graph producer/,
+    );
+  });
+
+  it("accepts a promptAtLaunch variable read downstream with no producer (seeded exemption — no Rule 9 violation)", () => {
+    const tpl = template({
+      variables: [{ name: "endpoint", kind: "Markdown" as const, promptAtLaunch: true }],
+      steps: [
+        step("a"),
+        step("b", {
+          kind: "claude_code.invoke",
+          readsFrom: { prompt: "endpoint" },
+        }),
+      ],
+      transitions: [edge("a", "b")],
+      exitSteps: [asStepId("b")],
+    });
+    expect(() => validateTemplatePorts(tpl, registry)).not.toThrow();
+  });
+});

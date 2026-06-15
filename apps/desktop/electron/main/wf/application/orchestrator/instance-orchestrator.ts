@@ -257,17 +257,15 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
   };
 
   /**
-   * Loads the artifact bound to a template variable into a `RunContextInput`.
-   * Returns `null` if the variable is unset (caller decides whether to throw
-   * — non-optional ports do; optional / isList ports tolerate).
+   * Loads a specific artifact into a `RunContextInput` for the given port.
+   * Shared by the flat-variable read ({@link loadVariableInput}) and the
+   * iteration-scoped item resolution in {@link resolvePort}.
    */
-  const loadVariableInput = async (
-    inst: InstanceState,
+  const loadArtifactInput = async (
     portName: string,
-    variableName: string,
-  ): Promise<{ input: RunContextInput; artifactId: ArtifactId } | null> => {
-    const artifactId = inst.variables.get(variableName);
-    if (!artifactId) return null;
+    artifactId: ArtifactId,
+    portKinds: PortSpec["kinds"],
+  ): Promise<{ input: RunContextInput; artifactId: ArtifactId }> => {
     const { meta } = await deps.artifactStore.get(artifactId);
     const loaded = await loadAndParseArtifact(
       deps.artifactStore,
@@ -276,17 +274,34 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       meta.kind,
       validationMode,
       deps.logger,
+      portKinds,
     );
     return {
       input: {
         port: portName,
-        kind: loaded.meta.kind,
+        kind: loaded.kind,
         content: loaded.content,
         payload: loaded.payload,
         artifactId,
       },
       artifactId,
     };
+  };
+
+  /**
+   * Loads the artifact bound to a template variable into a `RunContextInput`.
+   * Returns `null` if the variable is unset (caller decides whether to throw
+   * — non-optional ports do; optional / isList ports tolerate).
+   */
+  const loadVariableInput = async (
+    inst: InstanceState,
+    portName: string,
+    variableName: string,
+    portKinds: PortSpec["kinds"],
+  ): Promise<{ input: RunContextInput; artifactId: ArtifactId } | null> => {
+    const artifactId = inst.variables.get(variableName);
+    if (!artifactId) return null;
+    return loadArtifactInput(portName, artifactId, portKinds);
   };
 
   /**
@@ -332,9 +347,32 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
 
     // 1. Variable (readsFrom) — prepended on isList, exclusive on mono.
     const variableName = step.readsFrom?.[port.name];
-    const fromVar = variableName
-      ? await loadVariableInput(inst, port.name, variableName)
+    let fromVar = variableName
+      ? await loadVariableInput(inst, port.name, variableName, port.kinds)
       : null;
+
+    // 1b. Per-iteration item (robustness). When `variableName` is the
+    //     `writesTo.item` target of the foreach scope enclosing this step,
+    //     resolve it from the iteration record keyed by the consumer's
+    //     `iterationKey` instead of the flat last-writer variable map. This
+    //     makes the per-iteration read recalculable from the journal — exactly
+    //     like a `foreach.item → consumer` data edge — so a missed
+    //     `assignForeachItem` emit (e.g. an app relaunch mid-loop) can no
+    //     longer freeze the item for in-scope consumers.
+    //     See specs/bug-foreach-currentlot-freeze.md.
+    if (variableName && iterationKey) {
+      const foreachId = scopesOf(template).scopeByStep.get(step.id);
+      if (foreachId && findStep(template, foreachId).writesTo?.["item"] === variableName) {
+        const record = findIterationRecord(inst, foreachId, iterationKey);
+        if (record) {
+          fromVar = await loadArtifactInput(
+            port.name,
+            record.itemArtifactId,
+            port.kinds,
+          );
+        }
+      }
+    }
 
     // 2. Collect incoming non-loop transitions targeting this port. A
     //    transition matches when `toPort === port.name` (explicit), or when
@@ -392,6 +430,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
               template,
               edge,
               port.name,
+              port.kinds,
               rec.iterationKey,
             );
             if (loaded) {
@@ -407,6 +446,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
             template,
             edge,
             port.name,
+            port.kinds,
             iterationKey,
           );
           if (loaded) {
@@ -457,6 +497,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       template,
       incoming[0].edge,
       port.name,
+      port.kinds,
       iterationKey,
     );
     if (!loaded) return { inputs: [], inputIds: [] };
@@ -484,6 +525,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     template: WorkflowTemplate,
     edge: Transition,
     portName: string,
+    portKinds: PortSpec["kinds"],
     iterationKey?: string,
   ): Promise<{ input: RunContextInput; artifactId: ArtifactId } | null> => {
     const upstream = resolveTransitionUpstreamData(template, edge);
@@ -502,11 +544,12 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         (await deps.artifactStore.get(record.itemArtifactId)).meta.kind,
         validationMode,
         deps.logger,
+        portKinds,
       );
       return {
         input: {
           port: portName,
-          kind: loaded.meta.kind,
+          kind: loaded.kind,
           content: loaded.content,
           payload: loaded.payload,
           artifactId: record.itemArtifactId,
@@ -562,11 +605,12 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       meta.kind,
       validationMode,
       deps.logger,
+      portKinds,
     );
     return {
       input: {
         port: portName,
-        kind: loaded.meta.kind,
+        kind: loaded.kind,
         content: loaded.content,
         payload: loaded.payload,
         artifactId,

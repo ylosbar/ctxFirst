@@ -144,6 +144,8 @@ export const BUILTIN_DESCRIPTORS: ReadonlyArray<ArtifactKindDescriptor> = (() =>
       markdownProjection: def.markdown
         ? { kind: "fn", render: def.markdown }
         : null,
+      // Built-ins are always `v1` — no predecessor version to coerce from.
+      coerceFrom: null,
     };
   });
 })();

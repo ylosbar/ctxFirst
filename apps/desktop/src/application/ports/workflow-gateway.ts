@@ -44,6 +44,8 @@ export interface WorkflowGateway {
     seeds: ReadonlyArray<{ kind: ArtifactKind; content: string }>;
     /** Working directory used by native side-effects of the run (CLI cwd). */
     cwd?: string;
+    /** Values for the template's `promptAtLaunch` variables (launch-input-variables.md). */
+    variableValues?: ReadonlyArray<{ name: string; content: string }>;
   }): Promise<{ instanceId: string }>;
   submitDecision(input: { instanceId: string; stepExecId: string }): Promise<void>;
   openLoop(input: {

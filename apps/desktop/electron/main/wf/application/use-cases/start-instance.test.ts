@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeStartInstance } from "./start-instance";
+import type { TemplateVariable } from "../../domain/template";
 import { buildTemplate, TEMPLATE_LINEAR } from "../../__tests__/fixtures/builders";
 import { createFakeArtifactStore } from "../../__tests__/fixtures/fake-artifact-store";
 import { createFakeChannelContext } from "../../__tests__/fixtures/fake-channel-context";
@@ -278,5 +279,122 @@ describe("startInstance use-case", () => {
       seeds: [],
     });
     expect(order).toEqual(["append", "publish"]);
+  });
+});
+
+describe("startInstance — launch inputs (variableValues)", () => {
+  const launchInputTpl = (variables: ReadonlyArray<TemplateVariable>) =>
+    buildTemplate("with-launch-input", [{ id: "s1", kind: "human.review" }], [], {
+      variables,
+    });
+
+  it("materializes a provided launch-input value and carries it on InstanceStarted", async () => {
+    const tpl = launchInputTpl([
+      { name: "endpoint", kind: "Markdown", promptAtLaunch: true },
+    ]);
+    const { fakes, start } = buildDeps([tpl]);
+    await start({
+      templateRef: `${tpl.id}@${tpl.version}`,
+      seeds: [],
+      variableValues: [{ name: "endpoint", content: "https://api.example.com" }],
+    });
+
+    const stored = fakes.artifactStore.getAll();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].content).toBe("https://api.example.com");
+    expect(fakes.bus.ofType("InstanceStarted")[0].variableDefaults).toEqual([
+      { name: "endpoint", artifactId: stored[0].meta.id },
+    ]);
+  });
+
+  it("a launch-input value overrides the variable's defaultValue", async () => {
+    const tpl = launchInputTpl([
+      { name: "endpoint", kind: "Markdown", promptAtLaunch: true, defaultValue: "default-url" },
+    ]);
+    const { fakes, start } = buildDeps([tpl]);
+    await start({
+      templateRef: `${tpl.id}@${tpl.version}`,
+      seeds: [],
+      variableValues: [{ name: "endpoint", content: "override-url" }],
+    });
+    expect(fakes.artifactStore.getAll().map((s) => s.content)).toEqual(["override-url"]);
+  });
+
+  it("falls back to defaultValue when a launch input is omitted", async () => {
+    const tpl = launchInputTpl([
+      { name: "endpoint", kind: "Markdown", promptAtLaunch: true, defaultValue: "default-url" },
+    ]);
+    const { fakes, start } = buildDeps([tpl]);
+    await start({ templateRef: `${tpl.id}@${tpl.version}`, seeds: [] });
+    expect(fakes.artifactStore.getAll().map((s) => s.content)).toEqual(["default-url"]);
+  });
+
+  it("throws when a launch value targets an unknown variable", async () => {
+    const tpl = launchInputTpl([
+      { name: "endpoint", kind: "Markdown", promptAtLaunch: true, defaultValue: "x" },
+    ]);
+    const { fakes, start } = buildDeps([tpl]);
+    await expect(
+      start({
+        templateRef: `${tpl.id}@${tpl.version}`,
+        seeds: [],
+        variableValues: [{ name: "ghost", content: "y" }],
+      }),
+    ).rejects.toThrow(/does not match any declared template variable/);
+    expect(fakes.bus.published).toHaveLength(0);
+  });
+
+  it("throws when a launch value targets a variable that is not promptAtLaunch", async () => {
+    const tpl = launchInputTpl([
+      { name: "internalVar", kind: "Markdown", defaultValue: "x" },
+    ]);
+    const { fakes, start } = buildDeps([tpl]);
+    await expect(
+      start({
+        templateRef: `${tpl.id}@${tpl.version}`,
+        seeds: [],
+        variableValues: [{ name: "internalVar", content: "y" }],
+      }),
+    ).rejects.toThrow(/not promptAtLaunch/);
+    expect(fakes.bus.published).toHaveLength(0);
+  });
+
+  it("throws when a required launch input is provided neither a value nor a default", async () => {
+    const tpl = launchInputTpl([
+      { name: "endpoint", kind: "Markdown", promptAtLaunch: true },
+    ]);
+    const { fakes, start } = buildDeps([tpl]);
+    await expect(
+      start({ templateRef: `${tpl.id}@${tpl.version}`, seeds: [] }),
+    ).rejects.toThrow(/required launch input "endpoint" was not provided/);
+    expect(fakes.bus.published).toHaveLength(0);
+  });
+
+  it("rejects malformed launch content via the artifact-store validator", async () => {
+    const tpl = launchInputTpl([
+      { name: "count", kind: "Json", promptAtLaunch: true },
+    ]);
+    const fakes = {
+      templates: createFakeTemplateRegistry([tpl]),
+      artifactStore: createFakeArtifactStore({
+        validate: (kind, content) => {
+          if (kind === "Json") JSON.parse(content);
+        },
+      }),
+      bus: createFakeEventBus(),
+      log: createFakeEventLog(),
+      clock: createFakeClock(),
+      ids: createFakeIdGenerator(),
+      channels: createFakeChannelContext(),
+    };
+    const start = makeStartInstance(fakes);
+    await expect(
+      start({
+        templateRef: `${tpl.id}@${tpl.version}`,
+        seeds: [],
+        variableValues: [{ name: "count", content: "{not json" }],
+      }),
+    ).rejects.toThrow();
+    expect(fakes.bus.published).toHaveLength(0);
   });
 });

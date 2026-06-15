@@ -12,6 +12,7 @@
 import type { z } from "zod";
 import type { ArtifactMarkdownProjection } from "@shared/wf/render-artifact-markdown";
 import type { ArtifactKind, PluginArtifactKind, UserArtifactKind } from "./artifact";
+import type { CoerceFrom } from "./artifact-coercion";
 
 export type { ArtifactMarkdownProjection };
 
@@ -114,6 +115,18 @@ export type ArtifactKindDescriptor = {
    * main-side and only the produced string is shipped.
    */
   markdownProjection: ArtifactMarkdownProjection | null;
+  /**
+   * Read-time coercion declaration (§2.4, P3). When present, a payload written
+   * under the same logical `id` at `coerceFrom.fromVersion` is reshaped by the
+   * declarative patch before validation against this descriptor's schema — the
+   * Avro reader-vs-writer bridge, constrained to a single adjacent same-`id`
+   * step. `null`/absent for the vast majority of descriptors (built-ins are
+   * always `v1`, so they never have a predecessor to coerce from).
+   *
+   * Orthogonal to {@link structuralHash}: a coercion declaration is read-side
+   * metadata, never folded into identity (adding one must not change the type).
+   */
+  coerceFrom: CoerceFrom | null;
 };
 
 /**
@@ -149,6 +162,22 @@ export type SaveUserArtifactSchema = {
    * on resolve; `null`/omitted ⇒ no projection (fallback chain).
    */
   markdownTemplate?: string | null;
+  /**
+   * Read-time coercion declaration (§2.4, P3): names a same-`id` predecessor
+   * version and a declarative patch that upgrades its payloads to this
+   * version's shape at read time. Persisted in the `coerce_from_json` column.
+   * `null`/omitted ⇒ no coercion. Typically set on a `@vNext` bump alongside a
+   * mechanical reshape (e.g. `rename summary → abstract`).
+   */
+  coerceFrom?: CoerceFrom | null;
+  /**
+   * Escape hatch for the BACKWARD-compatibility gate (§2.3). When an in-place
+   * overwrite at the same `(id, version)` would reject payloads valid under the
+   * stored schema, the registry throws unless this is `true`. Not persisted;
+   * it only authorises the single save it rides on. Bumping to a new version is
+   * the preferred path — this is for deliberate breaking redesigns.
+   */
+  allowBreaking?: boolean;
 };
 
 /** Encodes a `(id, version)` ref into the `user:` artifact kind string. */

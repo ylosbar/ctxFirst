@@ -3,6 +3,8 @@ import { Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/ui/i18n";
+import LaunchInputsFields from "@/ui/components/LaunchInputsFields";
+import type { LaunchInput } from "@/application/use-cases/collect-launch-inputs";
 import type { ArtifactKind } from "../../../domain/workflow/types";
 
 type Props = {
@@ -13,6 +15,11 @@ type Props = {
   readonly text: string;
   readonly busy: boolean;
   readonly error: string | null;
+  /** `promptAtLaunch` variables to collect (launch-input-variables.md §P3). */
+  readonly launchInputs: ReadonlyArray<LaunchInput>;
+  /** Current value per launch-input name (pre-filled from defaults upstream). */
+  readonly values: Record<string, string>;
+  readonly onValueChange: (name: string, value: string) => void;
   readonly onTextChange: (text: string) => void;
   readonly onSubmit: () => void;
   readonly onClose: () => void;
@@ -26,12 +33,19 @@ const LaunchRunDialog = ({
   text,
   busy,
   error,
+  launchInputs,
+  values,
+  onValueChange,
   onTextChange,
   onSubmit,
   onClose,
 }: Props) => {
   const t = useT();
-  const canSubmit = !busy && (!needsSeed || text.trim().length > 0);
+  const missingRequired = launchInputs.some(
+    (i) => i.required && (values[i.name] ?? "").trim().length === 0,
+  );
+  const canSubmit =
+    !busy && (!needsSeed || text.trim().length > 0) && !missingRequired;
 
   return (
     <Dialog.Root
@@ -56,9 +70,9 @@ const LaunchRunDialog = ({
             </Dialog.Close>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
             {needsSeed ? (
-              <>
+              <div className="flex min-h-0 flex-col gap-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs font-medium text-foreground">
                     {t("templates.launchRun.seedLabel")}
@@ -71,7 +85,7 @@ const LaunchRunDialog = ({
                   ) : null}
                 </div>
                 <Textarea
-                  className="min-h-[220px] flex-1 font-mono text-sm"
+                  className="min-h-[180px] flex-1 font-mono text-sm"
                   placeholder={t("templates.launchRun.seedPlaceholder", {
                     kind: seedKind ?? "…",
                   })}
@@ -86,12 +100,25 @@ const LaunchRunDialog = ({
                   disabled={busy}
                   autoFocus
                 />
-              </>
-            ) : (
+              </div>
+            ) : launchInputs.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {t("templates.launchRun.noSeedMessage")}
               </p>
-            )}
+            ) : null}
+            {launchInputs.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium text-foreground">
+                  {t("templates.launchRun.inputsHeading")}
+                </span>
+                <LaunchInputsFields
+                  inputs={launchInputs}
+                  values={values}
+                  busy={busy}
+                  onChange={onValueChange}
+                />
+              </div>
+            ) : null}
             {error ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}

@@ -12,49 +12,18 @@
  * `Keyword` had a different payload shape (`{value:string}`); we rewrite the
  * bin to a Markdown envelope using `value` as the body.
  *
- * Idempotent via the `app_settings` row keyed by `MIGRATION_KEY` — runs at
- * most once per database.
+ * Built on the shared {@link ./migrate-artifact-meta.ts} primitive (keyed by
+ * {@link MIGRATION_KEY}): label flips return `write-meta`; the `Keyword`
+ * reshape returns `rewrite-bin`, so the walker recomputes the hash, renames the
+ * pair, and updates the `wf_artifacts` row in step.
  */
 import fs from "node:fs/promises";
-import path from "node:path";
+import { forEachArtifactMeta } from "./migrate-artifact-meta";
 import type Database from "better-sqlite3";
 
 const MIGRATION_KEY = "artifacts:folded-removed-kinds-into-markdown";
 
 const REMOVED_TEXT_KINDS = new Set(["TechSpec", "CodePatch", "QuestionList"]);
-
-type AnyMeta = {
-  id?: unknown;
-  kind?: unknown;
-  hash?: unknown;
-  storageRef?: unknown;
-  metadata?: unknown;
-  createdAt?: unknown;
-};
-
-const readJson = async (file: string): Promise<unknown> => {
-  const raw = await fs.readFile(file, "utf8");
-  return JSON.parse(raw) as unknown;
-};
-
-const writeJson = async (file: string, value: unknown): Promise<void> => {
-  await fs.writeFile(file, JSON.stringify(value), "utf8");
-};
-
-const hasBeenRun = (db: Database.Database): boolean => {
-  const row = db
-    .prepare("SELECT 1 FROM app_settings WHERE key = ?")
-    .get(MIGRATION_KEY);
-  return row !== undefined;
-};
-
-const markRun = (db: Database.Database): void => {
-  db.prepare(
-    `INSERT INTO app_settings (key, value, updated_at)
-     VALUES (?, '1', ?)
-     ON CONFLICT(key) DO NOTHING`,
-  ).run(MIGRATION_KEY, new Date().toISOString());
-};
 
 /**
  * Rewrites on-disk artifact metadata (and `Keyword` payloads) so that all
@@ -64,53 +33,25 @@ const markRun = (db: Database.Database): void => {
 export const migrateRemovedArtifactKinds = async (
   rootDir: string,
   db: Database.Database,
-): Promise<void> => {
-  if (hasBeenRun(db)) return;
-
-  let entries: ReadonlyArray<string>;
-  try {
-    entries = await fs.readdir(rootDir);
-  } catch {
-    // Artifact dir doesn't exist yet (fresh install) — nothing to migrate.
-    markRun(db);
-    return;
-  }
-
-  for (const name of entries) {
-    if (!name.endsWith(".meta.json")) continue;
-    const metaPath = path.join(rootDir, name);
-    let meta: AnyMeta;
-    try {
-      meta = (await readJson(metaPath)) as AnyMeta;
-    } catch {
-      continue;
-    }
+): Promise<void> =>
+  forEachArtifactMeta(rootDir, db, MIGRATION_KEY, async ({ meta, binPath }) => {
     const kind = meta.kind;
-    if (typeof kind !== "string") continue;
+    if (typeof kind !== "string") return { action: "skip" };
 
     if (REMOVED_TEXT_KINDS.has(kind)) {
       meta.kind = "Markdown";
-      await writeJson(metaPath, meta);
-      continue;
+      return { action: "write-meta" };
     }
-    if (kind !== "Keyword") continue;
+    if (kind !== "Keyword") return { action: "skip" };
 
     // Keyword payload `{value:string}` → Markdown envelope `{format,body}`.
-    // `storageRef` is an absolute path written when the artifact was first
-    // put; we follow it rather than re-deriving from the hash so renamed
-    // root dirs still resolve.
-    const binPath =
-      typeof meta.storageRef === "string" && meta.storageRef.length > 0
-        ? meta.storageRef
-        : path.join(rootDir, name.replace(/\.meta\.json$/, ".bin"));
     let content: string;
     try {
       content = await fs.readFile(binPath, "utf8");
     } catch {
-      // No bin file — drop the meta so the orphan doesn't keep flagging.
+      // No bin file — flip the label so the orphan stops flagging.
       meta.kind = "Markdown";
-      await writeJson(metaPath, meta);
-      continue;
+      return { action: "write-meta" };
     }
 
     let body = "";
@@ -120,12 +61,10 @@ export const migrateRemovedArtifactKinds = async (
     } catch {
       body = content;
     }
-    const rewritten = JSON.stringify({ format: "markdown", body });
-    await fs.writeFile(binPath, rewritten, "utf8");
 
     meta.kind = "Markdown";
-    await writeJson(metaPath, meta);
-  }
-
-  markRun(db);
-};
+    return {
+      action: "rewrite-bin",
+      newBytes: JSON.stringify({ format: "markdown", body }),
+    };
+  });

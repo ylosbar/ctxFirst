@@ -208,6 +208,11 @@
       "defaultPlaceholderList": "JSON array, e.g. [\"a\", \"b\"]",
       "defaultHint": "Materialized at launch, before any step. A producer step then overwrites it (no reset per loop iteration).",
       "validating": "Validating…",
+      "promptAtLaunchLabel": "Prompt at launch",
+      "promptAtLaunchToggle": "Ask for this variable's value when launching a run",
+      "promptAtLaunchHint": "Pre-filled from the default value when present, otherwise a required field.",
+      "promptAtLaunchProducerHint": "A step writes this variable ({{producers}}) — it cannot be a launch input (the produced value would overwrite what is entered).",
+      "promptAtLaunchRequiredNote": "Required input (no default) — this template won't be invocable as a sub-workflow nor schedulable until it has a default value.",
       "references": "References",
       "writtenBy": "Written by:",
       "readBy": "Read by:",
@@ -249,7 +254,18 @@
       "seedPlaceholder": "{{kind}} content…",
       "noSeedMessage": "This template requires no user input — the first step runs directly with its configuration.",
       "starting": "Starting…",
-      "start": "Start"
+      "start": "Start",
+      "inputsHeading": "Launch variables",
+      "requiredBadge": "required"
+    },
+    "deps": {
+      "panelTitle": "Template dependencies ({{count}})",
+      "skillsSection": "Skills / prompts",
+      "artifactTypesSection": "Artifact types",
+      "subTemplatesSection": "Sub-templates",
+      "missing": "missing",
+      "empty": "This template has no dependencies.",
+      "toolbarButton": "View template dependencies"
     },
     "missingDeps": {
       "sectionHeader": "{{title}} ({{count}})",
@@ -1066,6 +1082,11 @@
         "title": "Duplicate schema",
         "body": "Same structural hash as “{{name}}” ({{ref}}). Ports will treat it as equivalent — you can reference the existing type instead of saving a duplicate."
       },
+      "breaking": {
+        "title": "Breaking change",
+        "overwrite": "Overwrite anyway",
+        "dismiss": "Cancel"
+      },
       "sections": {
         "identity": "Identity",
         "schema": "Schema",
@@ -1683,7 +1704,8 @@
       "cwdPlaceholder": "(default: Electron process cwd)",
       "saving": "Saving…",
       "seedLabel": "Seed ({{kind}})",
-      "seedPlaceholder": "# Title\n\n…"
+      "seedPlaceholder": "# Title\n\n…",
+      "requiredLaunchInput": "This template has required launch variable(s) ({{names}}) with no default — it can't be scheduled. Give each a default value to make it schedulable."
     },
     "leafMenu": {
       "disable": "Disable",

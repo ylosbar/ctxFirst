@@ -67,6 +67,7 @@ const detailArtifactKind = (record: ArtifactSchemaRecord) => ({
     record.markdownProjection?.kind === "template"
       ? record.markdownProjection.template
       : null,
+  coerceFrom: record.coerceFrom,
 });
 
 // Le SDK MCP embarque son propre `zod` (nested resolution) ; TypeScript voit
@@ -526,6 +527,31 @@ const ARTIFACT_TOOLS: ReadonlyArray<ToolDescriptor> = [
         .string()
         .nullish()
         .describe("Gabarit Markdown `{{champ}}` optionnel pour la projection."),
+      coerceFrom: z
+        .record(z.string(), z.unknown())
+        .nullish()
+        .describe(
+          "Coercion à la lecture (optionnel, P3). Objet `{ fromVersion, patch }` " +
+            "déclarant une version prédécesseur (même `id`) et un patch déclaratif " +
+            "qui reshape ses payloads vers la forme de CETTE version au moment de " +
+            "la lecture. `patch` = tableau d'ops `{ op: set|setIfMissing|unset|" +
+            "rename, at, value?, from? }` (vocabulaire sérialisable, PAS du code). " +
+            "Ex. bump `summary`→`abstract` : `{ fromVersion: 'v1', patch: " +
+            "[{ op: 'rename', from: 'summary', at: 'abstract' }] }`. À poser sur le " +
+            "`@vNext` ; un port consommateur déclarant `@vNext` lira alors les " +
+            "artefacts `@vPrev` transparemment.",
+        ),
+      allowBreaking: z
+        .boolean()
+        .optional()
+        .describe(
+          "Échappatoire au gate de compatibilité BACKWARD. Réécrire `(id, " +
+            "version)` en place avec un schéma qui rejetterait des payloads " +
+            "valides sous l'ancien (champ requis retiré, type rétréci…) est " +
+            "REFUSÉ par défaut. `true` force l'écrasement malgré le blast " +
+            "radius. Préférer bumper la version — ce flag est pour les " +
+            "refontes cassantes assumées.",
+        ),
     },
     handler: async (engine, args) => {
       const input = args as {
@@ -539,6 +565,8 @@ const ARTIFACT_TOOLS: ReadonlyArray<ToolDescriptor> = [
         sample?: unknown;
         extends?: string | null;
         markdownTemplate?: string | null;
+        coerceFrom?: Record<string, unknown> | null;
+        allowBreaking?: boolean;
       };
       const payload: SaveUserArtifactSchema = {
         id: input.id,
@@ -551,9 +579,14 @@ const ARTIFACT_TOOLS: ReadonlyArray<ToolDescriptor> = [
         sample: input.sample ?? null,
         extends: (input.extends ?? null) as ArtifactKind | null,
         markdownTemplate: input.markdownTemplate ?? null,
+        // Validated (shape of `{ fromVersion, patch }`) inside the save use-case.
+        coerceFrom: (input.coerceFrom ?? null) as SaveUserArtifactSchema["coerceFrom"],
+        allowBreaking: input.allowBreaking || undefined,
       };
       // Validation runtime (id/version/name + JSON Schema) déléguée à
       // makeSaveArtifactSchema ; le registry refuse les collisions builtin/plugin.
+      // Un schéma cassant en place throw `ArtifactSchemaBreakingChangeError`
+      // (message self-contained) sauf si `allowBreaking` est passé.
       await engine.saveArtifactSchema(payload);
       const saved = engine.artifactSchemas.resolve(
         toUserArtifactKind({ id: input.id, version: input.version }),

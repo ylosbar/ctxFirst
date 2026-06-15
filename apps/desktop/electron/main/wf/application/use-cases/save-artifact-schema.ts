@@ -1,5 +1,6 @@
 import type { ArtifactSchemaRegistry } from "../ports/outbound/artifact-schema-registry";
 import type { SaveUserArtifactSchema } from "../../domain/artifact-schema";
+import { validateCoerceFrom } from "../../domain/artifact-coercion";
 
 type Deps = { artifactSchemas: ArtifactSchemaRegistry };
 
@@ -28,5 +29,10 @@ export const makeSaveArtifactSchema =
           ")",
       );
     }
-    await artifactSchemas.save({ ...input, id, version, name });
+    // Validate the optional read-time coercion at the authoring boundary so a
+    // malformed patch is rejected here, not at a future read. `null`/omitted ⇒
+    // no coercion.
+    const coerceFrom =
+      input.coerceFrom == null ? input.coerceFrom : validateCoerceFrom(input.coerceFrom);
+    await artifactSchemas.save({ ...input, id, version, name, coerceFrom });
   };

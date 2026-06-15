@@ -414,7 +414,7 @@ export const buildWfEngine = async ({
   // contributions are pushed in later by the loader; until then validation
   // only knows about built-ins and user-defined rows, which matches the
   // visibility of `parseArtifact`.
-  const artifactSchemas = createSqliteArtifactSchemaRegistry({ db, channels });
+  const artifactSchemas = createSqliteArtifactSchemaRegistry({ db, channels, logger });
   const artifactStore = createFsArtifactStore({
     rootDir: path.join(artifactsDir),
     clock,
@@ -700,7 +700,7 @@ export const buildWfEngine = async ({
       validateBuiltinSeeds(BUILTIN_TEMPLATE_SEEDS, runners, artifactSchemas),
     scheduler,
     listSchedules: makeListSchedules({ registry: scheduleRegistry }),
-    saveSchedule: makeSaveSchedule({ registry: scheduleRegistry, scheduler }),
+    saveSchedule: makeSaveSchedule({ registry: scheduleRegistry, templates, scheduler }),
     setScheduleEnabled: makeSetScheduleEnabled({
       registry: scheduleRegistry,
       scheduler,

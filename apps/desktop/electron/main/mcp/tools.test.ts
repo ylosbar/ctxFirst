@@ -251,6 +251,51 @@ describe("ctxfirst_*_artifact_kind", () => {
     ).rejects.toThrow(/simplifiedSchema/i);
   });
 
+  // Changing `value`'s type is BACKWARD-breaking irrespective of
+  // `additionalProperties` (unlike a field drop, which is tolerated when extra
+  // props are allowed — as they are in this open `simplifiedSchema`).
+  const typeChanged = {
+    type: "object",
+    properties: { value: { type: "number" } },
+    required: ["value"],
+  };
+
+  it("rejects a breaking in-place overwrite with a self-contained message", async () => {
+    const engine = artifactEngine();
+    await invokeMcpTool(engine, "ctxfirst_save_artifact_kind", {
+      id: "Brief",
+      version: "v1",
+      name: "Brief",
+      simplifiedSchema, // { value: string } required
+    });
+    await expect(
+      invokeMcpTool(engine, "ctxfirst_save_artifact_kind", {
+        id: "Brief",
+        version: "v1",
+        name: "Brief",
+        simplifiedSchema: typeChanged, // value: string → number
+      }),
+    ).rejects.toThrow(/would break existing data/i);
+  });
+
+  it("lets allowBreaking force a breaking in-place overwrite", async () => {
+    const engine = artifactEngine();
+    await invokeMcpTool(engine, "ctxfirst_save_artifact_kind", {
+      id: "Brief",
+      version: "v1",
+      name: "Brief",
+      simplifiedSchema,
+    });
+    const { text } = await invokeMcpTool(engine, "ctxfirst_save_artifact_kind", {
+      id: "Brief",
+      version: "v1",
+      name: "Brief",
+      simplifiedSchema: typeChanged,
+      allowBreaking: true,
+    });
+    expect(JSON.parse(text).kind).toBe("user:Brief@v1");
+  });
+
   it("marks ctxfirst_save_artifact_kind destructive, reads non-destructive", async () => {
     const { createMcpToolProvider } = await import("./tools");
     const byName = new Map(

@@ -5,6 +5,7 @@ import { BUILTIN_DESCRIPTORS } from "../domain/BuiltIns";
 import {
   STRUCTURAL_HASH_SHORT_LEN,
   composeListStructuralHash,
+  computeStructuralHash,
 } from "../domain/artifact-schema-hash";
 import { createFakeArtifactSchemaRegistry } from "./fixtures/fake-registries";
 
@@ -74,6 +75,86 @@ describe("§5 — user/plugin cross-namespace collapse", () => {
     const userDesc = registry.resolve("user:my-sku@v1");
     const pluginDesc = registry.resolve("plugin:shopify:Sku@v1");
     expect(userDesc?.structuralHash).toBe(pluginDesc?.structuralHash);
+  });
+});
+
+describe("§5 — eager dependent-hash recompute (P0 integrity)", () => {
+  const objSchema = (props: Record<string, unknown>) => ({
+    type: "object",
+    properties: props,
+  });
+
+  it("re-saving a parent with a new schema refreshes a refining child's hash", async () => {
+    const registry = createFakeArtifactSchemaRegistry();
+    await registry.save({
+      id: "Base",
+      version: "v1",
+      name: "Base",
+      simplifiedSchema: objSchema({ a: { type: "string" } }),
+    });
+    const childSchema = objSchema({ a: { type: "string" } });
+    await registry.save({
+      id: "Refined",
+      version: "v1",
+      name: "Refined",
+      simplifiedSchema: childSchema,
+      extends: "user:Base@v1",
+    });
+    const childBefore = registry.resolve("user:Refined@v1")!.structuralHash;
+
+    // Mutate the parent in place → its hash changes.
+    await registry.save({
+      id: "Base",
+      version: "v1",
+      name: "Base",
+      simplifiedSchema: objSchema({ a: { type: "string" }, b: { type: "number" } }),
+    });
+    const childAfter = registry.resolve("user:Refined@v1")!.structuralHash;
+    const parentAfter = registry.resolve("user:Base@v1")!.structuralHash;
+
+    // The child no longer carries its stale hash, and matches a fresh compute
+    // folding in the parent's *new* hash.
+    expect(childAfter).not.toBe(childBefore);
+    expect(childAfter).toBe(
+      computeStructuralHash(
+        { simplifiedSchema: childSchema, extends: "user:Base@v1" },
+        (k) => (k === "user:Base@v1" ? parentAfter : null),
+      ),
+    );
+  });
+
+  it("propagates transitively through a refinement chain", async () => {
+    const registry = createFakeArtifactSchemaRegistry();
+    await registry.save({
+      id: "A",
+      version: "v1",
+      name: "A",
+      simplifiedSchema: objSchema({ a: { type: "string" } }),
+    });
+    await registry.save({
+      id: "B",
+      version: "v1",
+      name: "B",
+      simplifiedSchema: objSchema({ a: { type: "string" } }),
+      extends: "user:A@v1",
+    });
+    await registry.save({
+      id: "C",
+      version: "v1",
+      name: "C",
+      simplifiedSchema: objSchema({ a: { type: "string" } }),
+      extends: "user:B@v1",
+    });
+    const cBefore = registry.resolve("user:C@v1")!.structuralHash;
+
+    await registry.save({
+      id: "A",
+      version: "v1",
+      name: "A",
+      simplifiedSchema: objSchema({ a: { type: "string" }, extra: { type: "boolean" } }),
+    });
+    const cAfter = registry.resolve("user:C@v1")!.structuralHash;
+    expect(cAfter).not.toBe(cBefore);
   });
 });
 

@@ -502,6 +502,23 @@ const validateTemplateVariables = (
     }
   }
 
+  // Gate 1 (`launch-input-variables.md` §Contrainte): a `promptAtLaunch`
+  // variable is materialized from the launch dialog before any step runs and
+  // joins the `seeded` predicate. An in-graph producer (`writesTo`) would, by
+  // last-writer-wins, clobber the value the user entered — making the launch
+  // field silently misleading. Reject the template so the author resolves the
+  // contradiction (drop the producer, or drop the opt-in).
+  for (const variable of tpl.variables) {
+    if (variable.promptAtLaunch !== true) continue;
+    const producers = producersByVariable.get(variable.name);
+    if (producers && producers.size > 0) {
+      throw new TemplatePortError(
+        `variable "${variable.name}" is promptAtLaunch but is also written by step(s) [${[...producers].join(", ")}] ` +
+          `— a launch input cannot have an in-graph producer (last-writer-wins would overwrite the entered value)`,
+      );
+    }
+  }
+
   // Pre-compute reverse ancestors via non-loop edges for rule 9.
   const ancestorsByStep = computeNonLoopAncestors(tpl);
 
@@ -542,7 +559,9 @@ const validateTemplateVariables = (
       // blocking the `workflow.call` flattening that rebinds that read onto a
       // host variable (`flatten-template.ts` §1).
       const seeded =
-        variable.role === "input" || variable.defaultValue !== undefined;
+        variable.role === "input" ||
+        variable.defaultValue !== undefined ||
+        variable.promptAtLaunch === true;
       if (!seeded) {
         // Rule 9: at least one producer must be an ancestor (or the step
         // itself in a self-loop pattern — accepted because the same step's
