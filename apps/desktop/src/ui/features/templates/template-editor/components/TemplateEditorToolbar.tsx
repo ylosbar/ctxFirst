@@ -6,6 +6,7 @@ import {
   AlignHorizontalSpaceAround,
   AlignVerticalSpaceAround,
   BadgeCheck,
+  Boxes,
   Check,
   ChevronDown,
   Columns2,
@@ -46,7 +47,9 @@ import VariablesPickerMenu from "../../VariablesPickerMenu";
 import { setTemplateEditorGridSnap } from "../../../../workbench/store";
 import {
   totalMissing as totalMissingDeps,
+  totalTemplateDeps,
   type MissingDeps,
+  type TemplateDeps,
 } from "../../../../../application/use-cases/collect-missing-template-deps";
 import type { StepKindMeta } from "../../../../components/templates/step-kinds";
 import type { LaunchRunControls } from "../hooks/useLaunchRun";
@@ -64,6 +67,7 @@ type Props = {
   readonly canLaunch: boolean;
   readonly hasMissingDeps: boolean;
   readonly missingDeps: MissingDeps;
+  readonly deps: TemplateDeps;
   readonly notesVisible: boolean;
   readonly setNotesVisible: Dispatch<SetStateAction<boolean>>;
   readonly canvasMode: CanvasMode;
@@ -76,6 +80,7 @@ type Props = {
   readonly variables: readonly TemplateVariableDraft[];
   readonly setVariableModal: Dispatch<SetStateAction<VariableModalState>>;
   readonly setMissingDepsModalOpen: Dispatch<SetStateAction<boolean>>;
+  readonly setDepsModalOpen: Dispatch<SetStateAction<boolean>>;
   readonly handleLaunchOpen: () => void;
   readonly handleLaunchClose: () => void;
   readonly handleAutoLayout: (mode: AutoLayoutMode) => void;
@@ -100,6 +105,7 @@ const TemplateEditorToolbar = ({
   canLaunch,
   hasMissingDeps,
   missingDeps,
+  deps,
   notesVisible,
   setNotesVisible,
   canvasMode,
@@ -112,6 +118,7 @@ const TemplateEditorToolbar = ({
   variables,
   setVariableModal,
   setMissingDepsModalOpen,
+  setDepsModalOpen,
   handleLaunchOpen,
   handleLaunchClose,
   handleAutoLayout,
@@ -386,6 +393,12 @@ const TemplateEditorToolbar = ({
             </Menu.Positioner>
           </Menu.Portal>
         </Menu.Root>
+        <ToolbarButton
+          icon={Boxes}
+          label={t("templates.deps.toolbarButton")}
+          onClick={() => setDepsModalOpen(true)}
+          disabled={totalTemplateDeps(deps) === 0}
+        />
         {hasMissingDeps ? (
           <ToolbarButton
             icon={AlertTriangle}

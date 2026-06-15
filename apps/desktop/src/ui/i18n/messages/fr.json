@@ -258,6 +258,15 @@
       "inputsHeading": "Variables de lancement",
       "requiredBadge": "requis"
     },
+    "deps": {
+      "panelTitle": "Dépendances du template ({{count}})",
+      "skillsSection": "Skills / prompts",
+      "artifactTypesSection": "Types d'artifact",
+      "subTemplatesSection": "Sous-templates",
+      "missing": "manquant",
+      "empty": "Ce template n'a aucune dépendance.",
+      "toolbarButton": "Voir les dépendances du template"
+    },
     "missingDeps": {
       "sectionHeader": "{{title}} ({{count}})",
       "usedBy": "utilisé par",

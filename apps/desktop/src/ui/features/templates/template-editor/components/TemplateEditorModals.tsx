@@ -1,10 +1,14 @@
 import type { Dispatch, SetStateAction } from "react";
 
 import TemplateMissingDepsModal from "../../TemplateMissingDepsModal";
+import TemplateDependenciesModal from "../../TemplateDependenciesModal";
 import TemplateSaveMissingModal from "../../TemplateSaveMissingModal";
 import TemplatePublishModal from "../../TemplatePublishModal";
 import VariableEditorModal from "../../VariableEditorModal";
-import type { MissingDeps } from "../../../../../application/use-cases/collect-missing-template-deps";
+import type {
+  MissingDeps,
+  TemplateDeps,
+} from "../../../../../application/use-cases/collect-missing-template-deps";
 import type {
   TemplateStepDraft,
   TemplateVariableDraft,
@@ -17,6 +21,9 @@ type Props = {
   readonly missingDepsModalOpen: boolean;
   readonly setMissingDepsModalOpen: Dispatch<SetStateAction<boolean>>;
   readonly missingDeps: MissingDeps;
+  readonly depsModalOpen: boolean;
+  readonly setDepsModalOpen: Dispatch<SetStateAction<boolean>>;
+  readonly deps: TemplateDeps;
   readonly missingFieldsModal: TemplateSaveControls["missingFieldsModal"];
   readonly setMissingFieldsModal: TemplateSaveControls["setMissingFieldsModal"];
   readonly handleMissingFieldsConfirm: TemplateSaveControls["handleMissingFieldsConfirm"];
@@ -40,6 +47,9 @@ const TemplateEditorModals = ({
   missingDepsModalOpen,
   setMissingDepsModalOpen,
   missingDeps,
+  depsModalOpen,
+  setDepsModalOpen,
+  deps,
   missingFieldsModal,
   setMissingFieldsModal,
   handleMissingFieldsConfirm,
@@ -64,6 +74,11 @@ const TemplateEditorModals = ({
         open={missingDepsModalOpen}
         onOpenChange={setMissingDepsModalOpen}
         missing={missingDeps}
+      />
+      <TemplateDependenciesModal
+        open={depsModalOpen}
+        onOpenChange={setDepsModalOpen}
+        deps={deps}
       />
       <TemplateSaveMissingModal
         open={missingFieldsModal !== null}
