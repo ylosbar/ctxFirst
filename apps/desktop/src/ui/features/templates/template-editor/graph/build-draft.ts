@@ -26,7 +26,7 @@ import type {
 } from "../../../../../domain/workflow/types";
 import { AUTO_LOOP_SOURCE_KINDS } from "./ids";
 import { nodesToSteps } from "./nodes-to-steps";
-import { resolveStepSpec, type ByKind } from "./step-spec";
+import { resolveStepSpec, type ByKind, type SkillBodies } from "./step-spec";
 import type { EdgeData } from "./edge-style";
 
 export type BuildTemplateDraftInput = {
@@ -111,6 +111,7 @@ export type ValidateTemplateDraftDeps = {
   byKind: ByKind | null;
   variables: ReadonlyArray<TemplateVariableDraft>;
   subTemplates: Map<string, ReadonlyArray<TemplateVariableView>>;
+  skillBodies: SkillBodies;
   refinementResolver: (
     kind: string,
   ) => { extends: ArtifactKind | null; structuralHash: string } | null;
@@ -120,7 +121,8 @@ export const validateTemplateDraft = (
   draft: TemplateDraft,
   deps: ValidateTemplateDraftDeps,
 ): string | null => {
-  const { byKind, variables, subTemplates, refinementResolver } = deps;
+  const { byKind, variables, subTemplates, skillBodies, refinementResolver } =
+    deps;
   if (!draft.id) return "L'ID du template est requis.";
   if (!draft.version) return "La version est requise.";
   if (!draft.name) return "Le nom est requis.";
@@ -144,8 +146,8 @@ export const validateTemplateDraft = (
       const src = stepById.get(t.from);
       const dst = stepById.get(t.to);
       if (!src || !dst) return `Transition orpheline : ${t.from} → ${t.to}`;
-      const srcSpec = resolveStepSpec(src, byKind, variables, subTemplates);
-      const dstSpec = resolveStepSpec(dst, byKind, variables, subTemplates);
+      const srcSpec = resolveStepSpec(src, byKind, variables, subTemplates, skillBodies);
+      const dstSpec = resolveStepSpec(dst, byKind, variables, subTemplates, skillBodies);
       if (!srcSpec || !dstSpec) continue;
       if (
         !transitionTypable(srcSpec, dstSpec, {

@@ -589,7 +589,7 @@
       "skillLoader": {
         "skill": {
           "label": "Skill",
-          "description": "Skill sauvegardée dont le <code>body</code> sera exposé en sortie comme artifact <code>Markdown</code>."
+          "description": "Skill sauvegardée exposée en sortie comme artifact <code>Markdown</code>. Chaque <code>{{variable}}</code> de son corps devient un port d'entrée — branche-lui une variable de template via <code>readsFrom</code>. Une variable non câblée est retirée du prompt."
         },
         "createNew": "+ Créer un nouveau skill…",
         "choose": "— choisir une skill —",

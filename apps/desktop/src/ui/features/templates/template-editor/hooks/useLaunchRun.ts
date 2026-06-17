@@ -27,7 +27,7 @@ import {
 import type { Services } from "../../../../di/services";
 import type { WorkbenchApi } from "../../../../workbench/types";
 import { runUriFor } from "../../../runs/run-uri";
-import { resolveStepSpec, type ByKind } from "../graph/step-spec";
+import { resolveStepSpec, type ByKind, type SkillBodies } from "../graph/step-spec";
 import { stripStepUiFields } from "../graph/nodes-to-steps";
 
 type LaunchState = {
@@ -44,6 +44,7 @@ type Options = {
   byKind: ByKind | null;
   variables: ReadonlyArray<TemplateVariableDraft>;
   subTemplates: Map<string, ReadonlyArray<TemplateVariableView>>;
+  skillBodies: SkillBodies;
   /** `null` tant que le template n'a pas de ligne en base. */
   editingRef: string | null;
   hasMissingDeps: boolean;
@@ -70,6 +71,7 @@ export const useLaunchRun = ({
   byKind,
   variables,
   subTemplates,
+  skillBodies,
   editingRef,
   hasMissingDeps,
   services,
@@ -88,9 +90,9 @@ export const useLaunchRun = ({
 
   const launchSeedKind = useMemo<ArtifactKind | null>(() => {
     if (!launchEntryStep || !byKind) return null;
-    const spec = resolveStepSpec(launchEntryStep, byKind, variables, subTemplates);
+    const spec = resolveStepSpec(launchEntryStep, byKind, variables, subTemplates, skillBodies);
     return (spec?.outputs[0]?.kind as ArtifactKind) ?? null;
-  }, [launchEntryStep, byKind, variables, subTemplates]);
+  }, [launchEntryStep, byKind, variables, subTemplates, skillBodies]);
 
   // The `promptAtLaunch` variables to collect in the dialog (§P3). Pre-filled
   // from `defaultValue`; a variable with no default is a required field.

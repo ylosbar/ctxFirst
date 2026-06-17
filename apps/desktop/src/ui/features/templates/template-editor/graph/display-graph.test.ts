@@ -24,6 +24,7 @@ const stepNode = (over: Partial<Node> = {}): Node => ({
 });
 
 const noSubTemplates = new Map();
+const noSkillBodies = new Map();
 
 describe("buildVariableByName", () => {
   it("indexes variables by name", () => {
@@ -58,6 +59,7 @@ describe("buildVariableArtifacts", () => {
       null,
       [],
       noSubTemplates,
+      noSkillBodies,
     );
 
     const produced = vNodes.find((n) => n.id.startsWith(`${VARIABLE_NODE_PREFIX}w-`));
@@ -84,6 +86,7 @@ describe("buildVariableArtifacts", () => {
       null,
       [],
       noSubTemplates,
+      noSkillBodies,
     );
     expect(vNodes).toHaveLength(0);
   });

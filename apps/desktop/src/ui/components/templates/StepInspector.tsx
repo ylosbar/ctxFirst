@@ -40,6 +40,7 @@ import type {
   TemplateVariableDraft,
 } from "../../../domain/workflow/types";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
+import useSkills from "../../hooks/useSkills";
 import { useT } from "../../i18n";
 import { getKindMeta, polymorphismOf } from "./step-kinds";
 import StepHeader from "./step-inspector/components/StepHeader";
@@ -100,10 +101,16 @@ const StepInspector = ({
   const meta = getKindMeta(step.kind);
   const config = step.config;
   const specs = useNodeSpecs();
+  // `skill.loader` derives one input port per `{{placeholder}}` in the
+  // referenced skill's body; supply a ref→body map so the inspector shows the
+  // dynamic ports and their `readsFrom` wiring (renderer mirror of the engine
+  // body snapshot).
+  const { skills } = useSkills();
+  const skillBodies = new Map(skills.map((s) => [s.ref, s.body]));
   const base =
     specs.status === "ready" ? specs.byKind.get(step.kind) ?? null : null;
   const resolvedSpec = base
-    ? resolveNodeSpec(step.kind, config, base, { variables })
+    ? resolveNodeSpec(step.kind, config, base, { variables, skillBodies })
     : null;
   const polymorphism = polymorphismOf(step.kind);
 

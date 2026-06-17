@@ -341,6 +341,13 @@ export type ResolveSpecContext = {
    * rather than throw, so the node picker can still show the kind.
    */
   template?: ResolveSpecTemplate;
+  /**
+   * The step's `readsFrom` bindings (input port → variable name), when the
+   * caller has the surrounding {@link StepDef}. Absent in the catalogue call.
+   * Consumed by `skill.loader` to preserve already-wired ports on a cold body
+   * snapshot — a transient miss must not invalidate a correct binding (rule 6).
+   */
+  readsFrom?: Readonly<Record<string, string>>;
 };
 
 /**

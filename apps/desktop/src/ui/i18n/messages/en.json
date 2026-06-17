@@ -589,7 +589,7 @@
       "skillLoader": {
         "skill": {
           "label": "Skill",
-          "description": "Saved skill whose <code>body</code> will be exposed as a <code>Markdown</code> artifact output."
+          "description": "Saved skill exposed as a <code>Markdown</code> output. Each <code>{{variable}}</code> in its body becomes an input port — wire a template variable to it via <code>readsFrom</code>. Unwired variables are dropped from the prompt."
         },
         "createNew": "+ Create a new skill…",
         "choose": "— choose a skill —",

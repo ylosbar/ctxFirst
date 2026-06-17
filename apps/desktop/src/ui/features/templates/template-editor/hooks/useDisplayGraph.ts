@@ -20,6 +20,7 @@ import {
   buildDisplayNodes,
   buildVariableArtifacts,
   buildVariableByName,
+  type SkillBodies,
   type SubTemplates,
 } from "../graph/display-graph";
 
@@ -29,6 +30,7 @@ type Options = {
   variables: ReadonlyArray<TemplateVariableDraft>;
   byKind: ByKind | null;
   subTemplates: SubTemplates;
+  skillBodies: SkillBodies;
   entryStepId: string | null;
   runOverlay: RunOverlay | undefined;
 };
@@ -39,6 +41,7 @@ export const useDisplayGraph = ({
   variables,
   byKind,
   subTemplates,
+  skillBodies,
   entryStepId,
   runOverlay,
 }: Options): { displayNodes: Node[]; displayEdges: Edge[] } => {
@@ -55,8 +58,9 @@ export const useDisplayGraph = ({
         byKind,
         variables,
         subTemplates,
+        skillBodies,
       ),
-    [nodes, variableByName, byKind, variables, subTemplates],
+    [nodes, variableByName, byKind, variables, subTemplates, skillBodies],
   );
 
   const displayNodes = useMemo<Node[]>(

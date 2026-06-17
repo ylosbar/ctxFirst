@@ -396,3 +396,49 @@ describe("resolveNodeSpec — loop.collect", () => {
     });
   });
 });
+
+describe("resolveNodeSpec — skill.loader", () => {
+  // Base spec as `listNodeSpecs()` returns it for `skill.loader`: the `in`
+  // chaining port + the static `out` Markdown output (the runner resolves a
+  // permissive signature on empty config).
+  const skillBase: NodeSpecView = {
+    kind: "skill.loader",
+    title: "Skill Loader",
+    inputs: [{ name: "in", kinds: ["*"], optional: true }],
+    outputs: [{ name: "out", kind: "Markdown", primary: true }],
+  };
+
+  it("derives one Markdown|Json port per placeholder, after the `in` port", () => {
+    const spec = resolveNodeSpec("skill.loader", { skillRef: "s@v1" }, skillBase, {
+      skillBodies: new Map([["s@v1", "Analyse {{spec}} selon {{style}}."]]),
+    });
+    expect(spec.inputs).toEqual([
+      { name: "in", kinds: ["*"], optional: true },
+      { name: "spec", kinds: ["Markdown", "Json"], optional: true },
+      { name: "style", kinds: ["Markdown", "Json"], optional: true },
+    ]);
+    expect(spec.outputs).toEqual(skillBase.outputs);
+  });
+
+  it("falls back to the permissive base when the skill body is unknown", () => {
+    const spec = resolveNodeSpec("skill.loader", { skillRef: "missing@v1" }, skillBase, {
+      skillBodies: new Map([["s@v1", "x {{y}}"]]),
+    });
+    expect(spec.inputs).toEqual(skillBase.inputs);
+  });
+
+  it("falls back to the base when no skillBodies map is supplied", () => {
+    const spec = resolveNodeSpec("skill.loader", { skillRef: "s@v1" }, skillBase);
+    expect(spec.inputs).toEqual(skillBase.inputs);
+  });
+
+  it("lets a literal {{in}} placeholder shadow the chaining port", () => {
+    const spec = resolveNodeSpec("skill.loader", { skillRef: "s@v1" }, skillBase, {
+      skillBodies: new Map([["s@v1", "{{in}} {{x}}"]]),
+    });
+    expect(spec.inputs).toEqual([
+      { name: "in", kinds: ["Markdown", "Json"], optional: true },
+      { name: "x", kinds: ["Markdown", "Json"], optional: true },
+    ]);
+  });
+});

@@ -51,13 +51,20 @@ export const buildRefinementResolver = (
 
 const resolveSpecSafe = (
   registry: StepRunnerRegistry,
-  step: { id: string; kind: string; config: Readonly<Record<string, unknown>> },
+  step: {
+    id: string;
+    kind: string;
+    config: Readonly<Record<string, unknown>>;
+    readsFrom?: Readonly<Record<string, string>>;
+  },
   template: WorkflowTemplate,
 ): NodeSpec => {
   try {
-    return registry
-      .resolve(step.kind)
-      .resolveSpec({ config: step.config, template: { variables: template.variables } });
+    return registry.resolve(step.kind).resolveSpec({
+      config: step.config,
+      template: { variables: template.variables },
+      readsFrom: step.readsFrom,
+    });
   } catch (err) {
     throw new TemplatePortError(
       `step ${step.id} (${step.kind}) failed resolveSpec: ${
@@ -103,7 +110,12 @@ export const validateTemplatePorts = (
     : undefined;
   // Cache resolved specs so we don't pay per-transition cost on large graphs.
   const specByStep = new Map<StepId, NodeSpec>();
-  const specOf = (step: { id: string; kind: string; config: Readonly<Record<string, unknown>> }) => {
+  const specOf = (step: {
+    id: string;
+    kind: string;
+    config: Readonly<Record<string, unknown>>;
+    readsFrom?: Readonly<Record<string, string>>;
+  }) => {
     const cached = specByStep.get(step.id as StepId);
     if (cached) return cached;
     const spec = resolveSpecSafe(registry, step, tpl);

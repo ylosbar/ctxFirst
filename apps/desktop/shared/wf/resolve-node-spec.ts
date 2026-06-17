@@ -16,6 +16,7 @@
  * of truth on the renderer side.
  */
 import { isSumArtifactKind, parseSumArtifactKind } from "./artifact-kind-grammar";
+import { extractPlaceholders } from "./placeholders";
 import type { NodeSpecView, TemplateVariableView } from "./types";
 
 const readStr = (v: unknown): string | null =>
@@ -130,6 +131,16 @@ export type ResolveNodeSpecContext = {
    * the boundary edges touching it cannot be drawn.
    */
   subTemplates?: ReadonlyMap<string, ReadonlyArray<TemplateVariableView>>;
+  /**
+   * Saved skill bodies keyed by `ref`. Lets `skill.loader` derive one input
+   * port per `{{placeholder}}` — mirrors the engine runner's `resolveSpec`
+   * (`plugins/skill-loader.ts`), which the kind-keyed `listNodeSpecs()` catalog
+   * cannot express (the base spec has no skill context). The editor supplies it
+   * from its cached skill list; without it (or on an unknown ref) the node
+   * keeps the permissive `in`-only base, exactly like the runner on a cold
+   * snapshot.
+   */
+  skillBodies?: ReadonlyMap<string, string>;
 };
 
 export const resolveNodeSpec = (
@@ -473,6 +484,28 @@ export const resolveNodeSpec = (
           .filter((v) => v.role === "output")
           .map((v) => ({ name: v.name, kind: v.kind })),
       };
+    }
+    case "skill.loader": {
+      // Mirrors `createSkillLoaderRunner.resolveSpec` (plugins/skill-loader.ts):
+      // one optional `Markdown|Json` input port per `{{placeholder}}` in the
+      // referenced skill's body, plus the `in` chaining port (kept first unless
+      // a literal `{{in}}` placeholder shadows it). The body comes from
+      // `ctx.skillBodies` (the editor supplies it from its cached skill list);
+      // without it, or on an unknown ref, we fall back to the permissive base
+      // (`in` only) — exactly like the runner on a cold snapshot.
+      const ref = readStr(config.skillRef);
+      const body = ref ? ctx.skillBodies?.get(ref) : undefined;
+      if (body === undefined) return base;
+      const names = extractPlaceholders(body);
+      const placeholderPorts = names.map((name) => ({
+        name,
+        kinds: ["Markdown", "Json"],
+        optional: true,
+      }));
+      const inputs = names.includes("in")
+        ? placeholderPorts
+        : [{ name: "in", kinds: ["*"], optional: true }, ...placeholderPorts];
+      return { ...base, inputs };
     }
     case "loop.foreach": {
       // Mirror `createLoopForeachRunner.resolveSpec`: `config.itemKind`

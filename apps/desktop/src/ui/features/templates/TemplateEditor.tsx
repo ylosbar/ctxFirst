@@ -191,6 +191,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   // re-mounting this editor.
   const {
     subTemplates,
+    skillBodies,
     refinementResolver,
     missingDeps,
     deps,
@@ -280,6 +281,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     variables,
     byKind,
     subTemplates,
+    skillBodies,
     entryStepId,
     runOverlay,
   });
@@ -422,6 +424,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     byKind,
     variables,
     subTemplates,
+    skillBodies,
     editingRef,
     hasMissingDeps,
     services,
@@ -449,6 +452,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     byKind,
     variables,
     subTemplates,
+    skillBodies,
     refinementResolver,
     nodesRef,
     edgesRef,
@@ -481,6 +485,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     byKind,
     variables,
     subTemplates,
+    skillBodies,
     refinementResolver,
     screenToFlowPosition,
     setCenter,
@@ -556,6 +561,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     status,
     byKind,
     subTemplates,
+    skillBodies,
     refinementResolver,
     isNew,
     uri,
