@@ -115,6 +115,7 @@ import { makeSaveChannel } from "./application/use-cases/save-channel";
 import { makeDeleteChannel } from "./application/use-cases/delete-channel";
 import { makeMoveEntity } from "./application/use-cases/move-entity";
 import { createConcatMarkdownRunner } from "./plugins/concat-markdown";
+import { createMarkdownTemplateRunner } from "./plugins/markdown-template";
 import { createFileLoadMarkdownRunner } from "./plugins/file-load-markdown";
 import { createFileLoadRunner } from "./plugins/file-load";
 import { createFilesLoadRunner } from "./plugins/files-load";
@@ -538,6 +539,7 @@ export const buildWfEngine = async ({
     createGitlabMrMergeRunner({ getAccessToken: getGitLabAccessToken }),
   );
   runners.register(createConcatMarkdownRunner());
+  runners.register(createMarkdownTemplateRunner());
   runners.register(createTransformRunRunner());
   runners.register(createJsonTransformRunner());
   runners.register(createRenderMarkdownRunner());

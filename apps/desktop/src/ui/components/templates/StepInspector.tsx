@@ -24,6 +24,7 @@ import LinearFetchConfig from "./step-inspector/config/LinearFetchConfig";
 import ShellExecConfig from "./step-inspector/config/ShellExecConfig";
 import SkillLoaderConfig from "./step-inspector/config/SkillLoaderConfig";
 import ConcatMarkdownConfig from "./step-inspector/config/ConcatMarkdownConfig";
+import MarkdownTemplateConfig from "./step-inspector/config/MarkdownTemplateConfig";
 import PolymorphismKindEditor from "./step-inspector/config/PolymorphismKindEditor";
 import SuggestedNodes from "./step-inspector/components/SuggestedNodes";
 import PortsWiring from "./step-inspector/components/PortsWiring";
@@ -63,6 +64,7 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "file.load-markdown",
   "skill.loader",
   "concat.markdown",
+  "markdown.template",
   "transform.run",
   "webhook.call",
   "human.gate",
@@ -221,6 +223,10 @@ const StepInspector = ({
 
         {step.kind === "concat.markdown" ? (
           <ConcatMarkdownConfig config={config} setConfig={setConfig} />
+        ) : null}
+
+        {step.kind === "markdown.template" ? (
+          <MarkdownTemplateConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "transform.run" ? (

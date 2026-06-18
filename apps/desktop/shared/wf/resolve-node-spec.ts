@@ -507,6 +507,27 @@ export const resolveNodeSpec = (
         : [{ name: "in", kinds: ["*"], optional: true }, ...placeholderPorts];
       return { ...base, inputs };
     }
+    case "markdown.template": {
+      // Mirrors `createMarkdownTemplateRunner.resolveSpec`
+      // (plugins/markdown-template.ts): one optional `Markdown|Json` input port
+      // per `{{placeholder}}` in the inline `config.template`, plus the `in`
+      // chaining port (kept first unless a literal `{{in}}` placeholder shadows
+      // it). Unlike `skill.loader`, the template lives in the config — no
+      // snapshot needed; an empty/absent template degrades to the permissive
+      // base (`in` only).
+      const template = readStr(config.template);
+      if (!template) return base;
+      const names = extractPlaceholders(template);
+      const placeholderPorts = names.map((name) => ({
+        name,
+        kinds: ["Markdown", "Json"],
+        optional: true,
+      }));
+      const inputs = names.includes("in")
+        ? placeholderPorts
+        : [{ name: "in", kinds: ["*"], optional: true }, ...placeholderPorts];
+      return { ...base, inputs };
+    }
     case "loop.foreach": {
       // Mirror `createLoopForeachRunner.resolveSpec`: `config.itemKind`
       // (default `Markdown`) drives the `items` input kind (`listKindFor`) and

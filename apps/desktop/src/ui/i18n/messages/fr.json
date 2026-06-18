@@ -597,30 +597,11 @@
         "open": "Ouvrir la skill"
       },
       "concat": {
-        "mode": {
-          "label": "Mode",
-          "description": "En mode <code>template</code>, le port <code>main</code> est un gabarit dont les placeholders <code>{{example}}</code> sont remplacés par les autres ports — adressés par variable via <code>readsFrom</code>, sinon par nom de port.",
-          "concat": "Concat (concatène)",
-          "template": "Template (substitue les placeholders)"
-        },
         "separator": "Séparateur entre parts",
         "order": {
           "label": "Ordre de concaténation",
           "topToBottom": "Top to bottom (main → markdown3)",
           "bottomToTop": "Bottom to top (markdown3 → main)"
-        },
-        "onMissing": {
-          "label": "Placeholder non résolu",
-          "description": "Comportement si un {{example}} du gabarit n'a aucune valeur fournie.",
-          "keep": "Garder littéral (défaut)",
-          "empty": "Remplacer par vide",
-          "error": "Erreur (échec du step)"
-        },
-        "onUnused": {
-          "label": "Port câblé non référencé",
-          "description": "Comportement si un port branché n'apparaît dans aucun placeholder du gabarit.",
-          "append": "Ajouter en fin (défaut)",
-          "ignore": "Ignorer"
         },
         "header": "Header (optionnel)",
         "footer": "Footer (optionnel)",
@@ -629,6 +610,19 @@
           "description": "Optionnel. Enveloppe chaque entrée avant la concaténation. Vide ⇒ ignoré.",
           "header": "Header",
           "footer": "Footer"
+        }
+      },
+      "markdownTemplate": {
+        "template": {
+          "label": "Gabarit",
+          "description": "Gabarit Markdown inline. Chaque placeholder <code>{{example}}</code> devient un port d'entrée — branche-lui une valeur. La sortie est le Markdown substitué."
+        },
+        "onMissing": {
+          "label": "Placeholder non résolu",
+          "description": "Comportement si un {{example}} n'a aucune valeur câblée.",
+          "empty": "Retirer (défaut)",
+          "keep": "Garder littéral",
+          "error": "Erreur (échec du step)"
         }
       },
       "humanGate": {

@@ -146,6 +146,18 @@ const TemplateCanvas = ({
             onPaneClick={handlers.onPaneClick}
             onNodeDragStop={isViewRun ? undefined : handlers.onNodeDragStop}
             onMoveEnd={isViewRun ? undefined : handlers.onMoveEnd}
+            // Tolérance de clic. React Flow câble la sélection d'une node ET le
+            // déclenchement de `onNodeClick` (→ inspecteur) sur le *même*
+            // événement `click` DOM. Or d3-drag supprime ce `click` natif dès
+            // que le pointeur bouge de plus de `nodeClickDistance` px entre le
+            // press et le release — et le défaut est **0**, donc le moindre
+            // tremblement (trackpad, node `backdrop-blur` sous le curseur)
+            // avalait le clic : ni focus, ni inspecteur, d'où l'impression
+            // qu'il faut cliquer 2-3 fois. On élargit la tolérance, et on monte
+            // `nodeDragThreshold` à la même valeur pour qu'un micro-mouvement
+            // sous ce seuil ne démarre pas non plus un drag accidentel.
+            nodeClickDistance={5}
+            nodeDragThreshold={5}
             snapToGrid={snapToGrid}
             snapGrid={snapGrid}
             panOnDrag={panOnDrag}
