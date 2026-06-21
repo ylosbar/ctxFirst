@@ -1,6 +1,5 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +17,7 @@ import {
   type getKindMeta,
   iconForKind,
 } from "../../step-kinds";
+import { BufferedInput } from "./buffered-inputs";
 
 type StepHeaderProps = {
   step: TemplateStepDraft;
@@ -59,7 +59,7 @@ const StepHeader = ({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5">
-          <Input
+          <BufferedInput
             aria-label={t("template.stepInspector.header.nameAriaLabel")}
             className="h-7 border-transparent bg-transparent px-1.5 text-sm font-semibold shadow-none hover:border-input"
             value={step.name}

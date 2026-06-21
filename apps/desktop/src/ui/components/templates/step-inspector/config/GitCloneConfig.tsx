@@ -1,6 +1,6 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
+import { BufferedInput } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import { useT } from "../../../../i18n";
 
@@ -14,7 +14,7 @@ const GitCloneConfig = ({ config, setConfig }: GitCloneConfigProps) => {
   return (
     <>
       <FormField label={t("template.stepInspector.gitClone.repoUrl.label")}>
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="https://gitlab.com/group/project.git"
           value={(config["repoUrl"] as string | undefined) ?? ""}
@@ -32,7 +32,7 @@ const GitCloneConfig = ({ config, setConfig }: GitCloneConfigProps) => {
           />
         }
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder={t(
             "template.stepInspector.gitClone.baseDir.placeholder",
@@ -43,7 +43,7 @@ const GitCloneConfig = ({ config, setConfig }: GitCloneConfigProps) => {
       </FormField>
 
       <FormField label={t("template.stepInspector.gitClone.folder.label")}>
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="group/project"
           value={(config["folder"] as string | undefined) ?? ""}
@@ -52,7 +52,7 @@ const GitCloneConfig = ({ config, setConfig }: GitCloneConfigProps) => {
       </FormField>
 
       <FormField label={t("template.stepInspector.gitClone.branch.label")}>
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder={t(
             "template.stepInspector.gitClone.branch.placeholder",

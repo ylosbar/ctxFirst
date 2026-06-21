@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
+import { BufferedInput } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import { useServices } from "../../../../di/services-provider";
 import { useT } from "../../../../i18n";
@@ -36,7 +36,7 @@ const FilesLoadConfig = ({ config, setConfig }: FilesLoadConfigProps) => {
         }
       >
         <div className="flex items-center gap-2">
-          <Input
+          <BufferedInput
             className="font-mono"
             placeholder="/chemin/absolu/vers/dossier"
             value={(config["path"] as string | undefined) ?? ""}

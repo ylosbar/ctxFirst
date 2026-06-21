@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { BufferedInput } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import type { ArtifactKind } from "../../../../../domain/workflow/types";
 import { useServices } from "../../../../di/services-provider";
@@ -48,7 +48,7 @@ const FileLoadConfig = ({ config, setConfig }: FileLoadConfigProps) => {
         }
       >
         <div className="flex items-center gap-2">
-          <Input
+          <BufferedInput
             className="font-mono"
             placeholder="/chemin/absolu/vers/data.json"
             value={(config["path"] as string | undefined) ?? ""}

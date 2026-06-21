@@ -1,7 +1,6 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { BufferedInput, BufferedTextarea } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 
 type ConcatMarkdownConfigProps = {
@@ -17,7 +16,7 @@ const ConcatMarkdownConfig = ({
   return (
     <>
       <FormField label={t("template.stepInspector.concat.separator")}>
-        <Input
+        <BufferedInput
           placeholder="\n\n"
           value={(config["separator"] as string | undefined) ?? ""}
           onChange={(e) => setConfig({ separator: e.target.value })}
@@ -37,7 +36,7 @@ const ConcatMarkdownConfig = ({
         </Select>
       </FormField>
       <FormField label={t("template.stepInspector.concat.header")}>
-        <Textarea
+        <BufferedTextarea
           size="sm"
           className="min-h-[40px]"
           value={(config["header"] as string | undefined) ?? ""}
@@ -45,7 +44,7 @@ const ConcatMarkdownConfig = ({
         />
       </FormField>
       <FormField label={t("template.stepInspector.concat.footer")}>
-        <Textarea
+        <BufferedTextarea
           size="sm"
           className="min-h-[40px]"
           value={(config["footer"] as string | undefined) ?? ""}

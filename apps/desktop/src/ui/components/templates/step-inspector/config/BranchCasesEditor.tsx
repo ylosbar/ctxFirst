@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { BufferedInput } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 import { CASE_NAME_RE } from "../parts/inspector-constants";
 
@@ -93,7 +93,7 @@ const BranchCasesEditor = ({
           {cases.map((c, i) => (
             <div key={i} className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2">
-                <Input
+                <BufferedInput
                   className="font-mono text-xs"
                   value={c}
                   onChange={(e) => setCase(i, e.target.value)}

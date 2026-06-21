@@ -1,5 +1,5 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
+import { BufferedInput } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import { useT } from "../../../../i18n";
 
@@ -25,14 +25,14 @@ const OpenrouterInvokeConfig = ({
           />
         }
       >
-        <Input
+        <BufferedInput
           placeholder={t("template.stepInspector.openrouter.model.placeholder")}
           value={(config["model"] as string | undefined) ?? ""}
           onChange={(e) => setConfig({ model: e.target.value })}
         />
       </FormField>
       <FormField label={t("template.stepInspector.fields.maxTokens")}>
-        <Input
+        <BufferedInput
           type="number"
           min={1}
           value={(config["maxTokens"] as number | undefined) ?? 4000}

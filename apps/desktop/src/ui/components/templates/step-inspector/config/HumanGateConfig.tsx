@@ -1,6 +1,5 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { BufferedInput, BufferedTextarea } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 
 type HumanGateConfigProps = {
@@ -13,13 +12,13 @@ const HumanGateConfig = ({ config, setConfig }: HumanGateConfigProps) => {
   return (
     <>
       <FormField label={t("template.stepInspector.humanGate.role")}>
-        <Input
+        <BufferedInput
           value={(config["role"] as string | undefined) ?? ""}
           onChange={(e) => setConfig({ role: e.target.value })}
         />
       </FormField>
       <FormField label={t("template.stepInspector.humanGate.prompt")}>
-        <Textarea
+        <BufferedTextarea
           size="sm"
           className="min-h-[80px]"
           value={(config["prompt"] as string | undefined) ?? ""}

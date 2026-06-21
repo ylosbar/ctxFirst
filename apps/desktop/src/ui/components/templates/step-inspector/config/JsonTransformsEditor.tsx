@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
+import { BufferedInput } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 import { CASE_NAME_RE } from "../parts/inspector-constants";
 
@@ -77,13 +77,13 @@ const JsonTransformsEditor = ({
         {items.map((it, i) => (
           <div key={i} className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2">
-              <Input
+              <BufferedInput
                 className="w-32 font-mono text-xs"
                 placeholder="port"
                 value={it.port}
                 onChange={(e) => setItem(i, { port: e.target.value })}
               />
-              <Input
+              <BufferedInput
                 className="flex-1 font-mono text-xs"
                 placeholder="$.foo.bar[*]"
                 value={it.expression}

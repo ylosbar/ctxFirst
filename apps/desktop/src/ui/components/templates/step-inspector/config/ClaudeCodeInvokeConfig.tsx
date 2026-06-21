@@ -1,5 +1,5 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
+import { BufferedInput } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 
 type ClaudeCodeInvokeConfigProps = {
@@ -15,13 +15,13 @@ const ClaudeCodeInvokeConfig = ({
   return (
     <>
       <FormField label={t("template.stepInspector.claudeCode.model")}>
-        <Input
+        <BufferedInput
           value={(config["model"] as string | undefined) ?? ""}
           onChange={(e) => setConfig({ model: e.target.value })}
         />
       </FormField>
       <FormField label={t("template.stepInspector.fields.maxTokens")}>
-        <Input
+        <BufferedInput
           type="number"
           min={1}
           value={(config["maxTokens"] as number | undefined) ?? 8000}

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { BufferedInput } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 import {
   CASE_NAME_RE,
@@ -112,7 +112,7 @@ const FilesLoadSlotsEditor = ({
                 <span className="text-2xs text-muted-foreground">
                   {t(k("portLabel"))}
                 </span>
-                <Input
+                <BufferedInput
                   className="font-mono text-xs"
                   placeholder={t(k("portPlaceholder"))}
                   value={it.port}
@@ -148,7 +148,7 @@ const FilesLoadSlotsEditor = ({
               <span className="text-2xs text-muted-foreground">
                 {t(k("subpathLabel"))}
               </span>
-              <Input
+              <BufferedInput
                 className="w-full font-mono text-xs"
                 placeholder={t(k("subpathPlaceholder"))}
                 value={it.subpath}

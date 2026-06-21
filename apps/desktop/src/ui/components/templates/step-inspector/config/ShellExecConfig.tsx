@@ -1,7 +1,6 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { BufferedInput, BufferedTextarea } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import { useT } from "../../../../i18n";
 import ShellExecExitCodeEditor, {
@@ -18,7 +17,7 @@ const ShellExecConfig = ({ config, setConfig }: ShellExecConfigProps) => {
   return (
     <>
       <FormField label={t("template.stepInspector.shellExec.command")}>
-        <Textarea
+        <BufferedTextarea
           size="sm"
           className="min-h-[60px] font-mono"
           placeholder={
@@ -48,7 +47,7 @@ const ShellExecConfig = ({ config, setConfig }: ShellExecConfigProps) => {
       </FormField>
 
       <FormField label={t("template.stepInspector.shellExec.subdir.label")}>
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder={t("template.stepInspector.shellExec.subdir.placeholder")}
           value={(config["subdir"] as string | undefined) ?? ""}
@@ -57,7 +56,7 @@ const ShellExecConfig = ({ config, setConfig }: ShellExecConfigProps) => {
       </FormField>
 
       <FormField label={t("template.stepInspector.shellExec.timeout")}>
-        <Input
+        <BufferedInput
           type="number"
           min={1000}
           max={600000}
@@ -78,7 +77,7 @@ const ShellExecConfig = ({ config, setConfig }: ShellExecConfigProps) => {
           />
         }
       >
-        <Input
+        <BufferedInput
           type="number"
           min={1}
           value={Math.round(
