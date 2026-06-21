@@ -13,6 +13,8 @@ type PortsWiringProps = {
   spec: NodeSpecView;
   variables: ReadonlyArray<TemplateVariableDraft>;
   onChange: (next: TemplateStepDraft) => void;
+  /** Contenu additionnel rendu sous le select de câblage d'un port d'ENTRÉE. */
+  renderInputExtra?: (portName: string) => React.ReactNode;
 };
 
 const PortsWiring = ({
@@ -20,6 +22,7 @@ const PortsWiring = ({
   spec,
   variables,
   onChange,
+  renderInputExtra,
 }: PortsWiringProps) => {
   const t = useT();
   const writeTo = (port: string, variableName: string | "") => {
@@ -76,6 +79,7 @@ const PortsWiring = ({
                     </option>
                   ))}
                 </Select>
+                {renderInputExtra?.(p.name)}
               </PortRow>
             );
           })}

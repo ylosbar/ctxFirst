@@ -166,6 +166,7 @@ const noDeps = {
   byKind: null,
   variables: [],
   subTemplates: new Map(),
+  skillBodies: new Map(),
   refinementResolver: () => null,
 };
 

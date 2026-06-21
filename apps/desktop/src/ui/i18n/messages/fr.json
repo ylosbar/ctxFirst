@@ -589,7 +589,7 @@
       "skillLoader": {
         "skill": {
           "label": "Skill",
-          "description": "Skill sauvegardée dont le <code>body</code> sera exposé en sortie comme artifact <code>Markdown</code>."
+          "description": "Skill sauvegardée exposée en sortie comme artifact <code>Markdown</code>. Chaque <code>{{variable}}</code> de son corps devient un port d'entrée — branche-lui une variable de template via <code>readsFrom</code>. Une variable non câblée est retirée du prompt."
         },
         "createNew": "+ Créer un nouveau skill…",
         "choose": "— choisir une skill —",
@@ -597,38 +597,31 @@
         "open": "Ouvrir la skill"
       },
       "concat": {
-        "mode": {
-          "label": "Mode",
-          "description": "En mode <code>template</code>, le port <code>main</code> est un gabarit dont les placeholders <code>{{example}}</code> sont remplacés par les autres ports — adressés par variable via <code>readsFrom</code>, sinon par nom de port.",
-          "concat": "Concat (concatène)",
-          "template": "Template (substitue les placeholders)"
-        },
         "separator": "Séparateur entre parts",
         "order": {
           "label": "Ordre de concaténation",
           "topToBottom": "Top to bottom (main → markdown3)",
           "bottomToTop": "Bottom to top (markdown3 → main)"
         },
-        "onMissing": {
-          "label": "Placeholder non résolu",
-          "description": "Comportement si un {{example}} du gabarit n'a aucune valeur fournie.",
-          "keep": "Garder littéral (défaut)",
-          "empty": "Remplacer par vide",
-          "error": "Erreur (échec du step)"
-        },
-        "onUnused": {
-          "label": "Port câblé non référencé",
-          "description": "Comportement si un port branché n'apparaît dans aucun placeholder du gabarit.",
-          "append": "Ajouter en fin (défaut)",
-          "ignore": "Ignorer"
-        },
         "header": "Header (optionnel)",
         "footer": "Footer (optionnel)",
         "perEntry": {
-          "title": "Préfixe / suffixe par entrée",
-          "description": "Optionnel. Enveloppe chaque entrée avant la concaténation. Vide ⇒ ignoré.",
+          "toggle": "Préfixe / suffixe",
           "header": "Header",
           "footer": "Footer"
+        }
+      },
+      "markdownTemplate": {
+        "template": {
+          "label": "Gabarit",
+          "description": "Gabarit Markdown inline. Chaque placeholder <code>{{example}}</code> devient un port d'entrée — branche-lui une valeur. La sortie est le Markdown substitué."
+        },
+        "onMissing": {
+          "label": "Placeholder non résolu",
+          "description": "Comportement si un {{example}} n'a aucune valeur câblée.",
+          "empty": "Retirer (défaut)",
+          "keep": "Garder littéral",
+          "error": "Erreur (échec du step)"
         }
       },
       "humanGate": {

@@ -589,7 +589,7 @@
       "skillLoader": {
         "skill": {
           "label": "Skill",
-          "description": "Saved skill whose <code>body</code> will be exposed as a <code>Markdown</code> artifact output."
+          "description": "Saved skill exposed as a <code>Markdown</code> output. Each <code>{{variable}}</code> in its body becomes an input port — wire a template variable to it via <code>readsFrom</code>. Unwired variables are dropped from the prompt."
         },
         "createNew": "+ Create a new skill…",
         "choose": "— choose a skill —",
@@ -597,38 +597,31 @@
         "open": "Open skill"
       },
       "concat": {
-        "mode": {
-          "label": "Mode",
-          "description": "In <code>template</code> mode, the <code>main</code> port is a template whose <code>{{example}}</code> placeholders are replaced by the other ports — addressed by variable via <code>readsFrom</code>, otherwise by port name.",
-          "concat": "Concat (concatenates)",
-          "template": "Template (substitutes placeholders)"
-        },
         "separator": "Separator between parts",
         "order": {
           "label": "Concatenation order",
           "topToBottom": "Top to bottom (main → markdown3)",
           "bottomToTop": "Bottom to top (markdown3 → main)"
         },
-        "onMissing": {
-          "label": "Unresolved placeholder",
-          "description": "Behavior if a {{example}} in the template has no value provided.",
-          "keep": "Keep literal (default)",
-          "empty": "Replace with empty",
-          "error": "Error (step fails)"
-        },
-        "onUnused": {
-          "label": "Wired port not referenced",
-          "description": "Behavior if a wired port doesn't appear in any placeholder of the template.",
-          "append": "Append at end (default)",
-          "ignore": "Ignore"
-        },
         "header": "Header (optional)",
         "footer": "Footer (optional)",
         "perEntry": {
-          "title": "Prefix / suffix per entry",
-          "description": "Optional. Wraps each entry before concatenation. Empty ⇒ ignored.",
+          "toggle": "Prefix / suffix",
           "header": "Header",
           "footer": "Footer"
+        }
+      },
+      "markdownTemplate": {
+        "template": {
+          "label": "Template",
+          "description": "Inline Markdown template. Each <code>{{example}}</code> placeholder becomes an input port — wire a value to it. Output is the substituted Markdown."
+        },
+        "onMissing": {
+          "label": "Unresolved placeholder",
+          "description": "Behavior if a {{example}} has no value wired.",
+          "empty": "Drop (default)",
+          "keep": "Keep literal",
+          "error": "Error (step fails)"
         }
       },
       "humanGate": {

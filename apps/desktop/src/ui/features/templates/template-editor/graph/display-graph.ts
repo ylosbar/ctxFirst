@@ -29,12 +29,14 @@ import {
   VARIABLE_EDGE_PREFIX,
   VARIABLE_NODE_PREFIX,
 } from "./ids";
-import { resolveStepSpec, type ByKind } from "./step-spec";
+import { resolveStepSpec, type ByKind, type SkillBodies } from "./step-spec";
 
 export type SubTemplates = ReadonlyMap<
   string,
   ReadonlyArray<TemplateVariableView>
 >;
+
+export type { SkillBodies };
 
 export const buildVariableByName = (
   variables: ReadonlyArray<TemplateVariableDraft>,
@@ -50,6 +52,7 @@ export const buildVariableArtifacts = (
   byKind: ByKind | null,
   variables: ReadonlyArray<TemplateVariableDraft>,
   subTemplates: SubTemplates,
+  skillBodies: SkillBodies,
 ): { nodes: Node[]; edges: Edge[] } => {
   const vNodes: Node[] = [];
   const vEdges: Edge[] = [];
@@ -94,7 +97,9 @@ export const buildVariableArtifacts = (
     if (n.type !== "step") continue;
     const step = n.data as unknown as TemplateStepDraft;
     const stepWidth = n.measured?.width ?? 200;
-    const spec = byKind ? resolveStepSpec(step, byKind, variables, subTemplates) : null;
+    const spec = byKind
+      ? resolveStepSpec(step, byKind, variables, subTemplates, skillBodies)
+      : null;
     const stepAbs = absPosOf(n, nodesById);
 
     const writes = step.writesTo ? Object.entries(step.writesTo) : [];

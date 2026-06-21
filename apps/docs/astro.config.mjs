@@ -91,6 +91,19 @@ export default defineConfig({
           autogenerate: { directory: "features" },
         },
         {
+          // Concepts du système de types (artifacts, kinds, compatibilité…).
+          // Ordre des pages piloté par le frontmatter `sidebar.order` de chaque
+          // fichier sous type-system/.
+          label: "Système de types",
+          translations: { en: "Type system" },
+          autogenerate: { directory: "type-system" },
+        },
+        {
+          label: "Éditeur de template",
+          translations: { en: "Template editor" },
+          autogenerate: { directory: "template-editor" },
+        },
+        {
           // Nodes groupés par famille, dans le même ordre que la palette de
           // l'app (CATEGORY_ORDER / CATEGORY_LABEL de step-kinds.ts). Seules les
           // pages existantes sont listées ; ajouter un node = l'ajouter sous sa
@@ -106,6 +119,9 @@ export default defineConfig({
                 { label: "User Input", slug: "nodes/user-input" },
                 { label: "Skill Loader", slug: "nodes/skill-loader" },
                 { label: "Load File", slug: "nodes/file-load" },
+                { label: "Load Markdown File", slug: "nodes/file-load-markdown" },
+                { label: "Load Files", slug: "nodes/files-load" },
+                { label: "Load Files (manifest)", slug: "nodes/files-load-manifest" },
               ],
             },
             {
@@ -113,6 +129,10 @@ export default defineConfig({
               translations: { en: "AI generation" },
               items: [
                 { label: "Claude Code Invoke", slug: "nodes/claude-code-invoke" },
+                { label: "Codex Invoke", slug: "nodes/codex-invoke" },
+                { label: "OpenRouter Invoke", slug: "nodes/openrouter-invoke" },
+                { label: "LLM Judge", slug: "nodes/llm-judge" },
+                { label: "Claude Code Judge", slug: "nodes/claude-code-judge" },
               ],
             },
             {
@@ -120,6 +140,25 @@ export default defineConfig({
               translations: { en: "Transformation" },
               items: [
                 { label: "Concat Markdown", slug: "nodes/concat-markdown" },
+                { label: "Markdown Template", slug: "nodes/markdown-template" },
+                { label: "Transform", slug: "nodes/transform-run" },
+                { label: "JSON Transform", slug: "nodes/json-transform" },
+                { label: "Render Markdown", slug: "nodes/render-markdown" },
+                { label: "Sous-workflow", translations: { en: "Sub-workflow" }, slug: "nodes/workflow-call" },
+                { label: "Invoquer un template", translations: { en: "Invoke sub-template" }, slug: "nodes/template-invoke" },
+              ],
+            },
+            {
+              label: "Flux / Contrôle",
+              translations: { en: "Flow / Control" },
+              items: [
+                { label: "Branch", slug: "nodes/branch-bool" },
+                { label: "Branch (JSON)", slug: "nodes/branch-json" },
+                { label: "Branch (match)", slug: "nodes/branch-match" },
+                { label: "Select (Markdown)", slug: "nodes/select-markdown" },
+                { label: "For each", slug: "nodes/loop-foreach" },
+                { label: "Collect", slug: "nodes/loop-collect" },
+                { label: "Format Validate", slug: "nodes/format-validate" },
               ],
             },
             {
@@ -134,8 +173,16 @@ export default defineConfig({
               translations: { en: "System / Execution" },
               items: [
                 { label: "Workspace Set", slug: "nodes/workspace-set" },
+                { label: "Shell Exec", slug: "nodes/shell-exec" },
                 { label: "Git Clone", slug: "nodes/git-clone" },
                 { label: "Git Commit & Push", slug: "nodes/git-commit-push" },
+                { label: "Git Worktree Create", slug: "nodes/git-worktree-create" },
+                { label: "Git Worktree Remove", slug: "nodes/git-worktree-remove" },
+                { label: "GitLab Files Fetch", slug: "nodes/gitlab-files-fetch" },
+                { label: "GitLab: créer une MR", translations: { en: "GitLab: create MR" }, slug: "nodes/gitlab-mr-create" },
+                { label: "GitLab: merger une MR", translations: { en: "GitLab: merge MR" }, slug: "nodes/gitlab-mr-merge" },
+                { label: "Webhook / HTTP call", slug: "nodes/webhook-call" },
+                { label: "Export Run", slug: "nodes/export-run" },
               ],
             },
           ],

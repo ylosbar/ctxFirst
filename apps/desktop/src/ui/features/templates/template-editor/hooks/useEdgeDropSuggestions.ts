@@ -43,7 +43,12 @@ import {
   highestCounterForKind,
   makeStepId,
 } from "../graph/ids";
-import { buildDefaultStep, resolveStepSpec, type ByKind } from "../graph/step-spec";
+import {
+  buildDefaultStep,
+  resolveStepSpec,
+  type ByKind,
+  type SkillBodies,
+} from "../graph/step-spec";
 import { edgeStyle, type EdgeData } from "../graph/edge-style";
 import {
   AUTO_LAYOUT_DEFAULT_HEIGHT,
@@ -62,6 +67,7 @@ type Options = {
   byKind: ByKind | null;
   variables: ReadonlyArray<TemplateVariableDraft>;
   subTemplates: Map<string, ReadonlyArray<TemplateVariableView>>;
+  skillBodies: SkillBodies;
   refinementResolver: (
     kind: string,
   ) => { extends: ArtifactKind | null; structuralHash: string } | null;
@@ -102,6 +108,7 @@ export const useEdgeDropSuggestions = ({
   byKind,
   variables,
   subTemplates,
+  skillBodies,
   refinementResolver,
   screenToFlowPosition,
   setCenter,
@@ -194,7 +201,7 @@ export const useEdgeDropSuggestions = ({
     const origin = nodes.find((n) => n.id === pendingConnect.fromNodeId);
     if (!origin) return [];
     const originStep = origin.data as unknown as TemplateStepDraft;
-    const originSpec = resolveStepSpec(originStep, byKind, variables, subTemplates);
+    const originSpec = resolveStepSpec(originStep, byKind, variables, subTemplates, skillBodies);
     if (!originSpec) return [];
     const result: EdgeDropSuggestion[] = [];
     for (const kindMeta of STEP_KIND_CATALOG) {
@@ -205,7 +212,7 @@ export const useEdgeDropSuggestions = ({
         kindMeta.id,
         candidateConfig,
         base,
-        { variables, subTemplates },
+        { variables, subTemplates, skillBodies },
       );
       const isCompatible =
         pendingConnect.handleType === "source"
@@ -227,7 +234,7 @@ export const useEdgeDropSuggestions = ({
       });
     }
     return result;
-  }, [nodes, pendingConnect, byKind, variables, subTemplates]);
+  }, [nodes, pendingConnect, byKind, variables, subTemplates, skillBodies]);
 
   const handleSuggestionPick = (suggestion: EdgeDropSuggestion) => {
     if (!pendingConnect) return;

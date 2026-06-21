@@ -59,13 +59,14 @@ import {
   type ByKind,
 } from "../graph/step-spec";
 import type { EdgeData } from "../graph/edge-style";
-import type { SubTemplates } from "../graph/display-graph";
+import type { SkillBodies, SubTemplates } from "../graph/display-graph";
 
 type Options = {
   nodes: Node[];
   byKind: ByKind | null;
   variables: ReadonlyArray<TemplateVariableDraft>;
   subTemplates: SubTemplates;
+  skillBodies: SkillBodies;
   refinementResolver: (
     kind: string,
   ) => { extends: ArtifactKind | null; structuralHash: string } | null;
@@ -118,6 +119,7 @@ export const useCanvasHandlers = ({
   byKind,
   variables,
   subTemplates,
+  skillBodies,
   refinementResolver,
   nodesRef,
   edgesRef,
@@ -171,8 +173,8 @@ export const useCanvasHandlers = ({
       if (!src || !tgt) return false;
       const srcStep = src.data as unknown as TemplateStepDraft;
       const tgtStep = tgt.data as unknown as TemplateStepDraft;
-      const srcSpec = resolveStepSpec(srcStep, byKind, variables, subTemplates);
-      const tgtSpec = resolveStepSpec(tgtStep, byKind, variables, subTemplates);
+      const srcSpec = resolveStepSpec(srcStep, byKind, variables, subTemplates, skillBodies);
+      const tgtSpec = resolveStepSpec(tgtStep, byKind, variables, subTemplates, skillBodies);
       if (!srcSpec || !tgtSpec) return false;
       if (
         !transitionTypable(srcSpec, tgtSpec, {
@@ -200,7 +202,7 @@ export const useCanvasHandlers = ({
       }
       return true;
     },
-    [byKind, variables, subTemplates],
+    [byKind, variables, subTemplates, skillBodies],
   );
 
   const addStep = useCallback(

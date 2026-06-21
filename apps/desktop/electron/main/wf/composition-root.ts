@@ -115,6 +115,7 @@ import { makeSaveChannel } from "./application/use-cases/save-channel";
 import { makeDeleteChannel } from "./application/use-cases/delete-channel";
 import { makeMoveEntity } from "./application/use-cases/move-entity";
 import { createConcatMarkdownRunner } from "./plugins/concat-markdown";
+import { createMarkdownTemplateRunner } from "./plugins/markdown-template";
 import { createFileLoadMarkdownRunner } from "./plugins/file-load-markdown";
 import { createFileLoadRunner } from "./plugins/file-load";
 import { createFilesLoadRunner } from "./plugins/files-load";
@@ -142,6 +143,7 @@ import { createLoopCollectRunner } from "./plugins/loop-collect";
 import { createLoopForeachRunner } from "./plugins/loop-foreach";
 import { createShellExecRunner } from "./plugins/shell-exec";
 import { createSkillLoaderRunner } from "./plugins/skill-loader";
+import { createSkillBodySnapshot } from "./plugins/skill-body-snapshot";
 import { createUserInputRunner } from "./plugins/user-input";
 import { createJsonTransformRunner } from "./plugins/json-transform";
 import { createRenderMarkdownRunner } from "./plugins/render-markdown";
@@ -483,6 +485,12 @@ export const buildWfEngine = async ({
     if (!hit) warmTemplateSnapshot();
     return hit;
   };
+  // Synchronous snapshot of saved skill bodies by `ref`, consumed by the
+  // `skill.loader` runner's (pure, sync) `resolveSpec` to derive one input port
+  // per `{{placeholder}}`. Same lifecycle as `templateSnapshot`: warmed at boot,
+  // refreshed on a miss, and explicitly re-warmed after a skill mutation (see
+  // `saveSkill`/`deleteSkill` below).
+  const skillBodies = createSkillBodySnapshot(skills);
   runners.register(createWorkflowCallRunner({ getChild: getChildTemplate }));
   // `template.invoke` (Approach A) derives its ports from the same warm
   // template snapshot as `workflow.call`; the orchestrator spawns the child at
@@ -531,6 +539,7 @@ export const buildWfEngine = async ({
     createGitlabMrMergeRunner({ getAccessToken: getGitLabAccessToken }),
   );
   runners.register(createConcatMarkdownRunner());
+  runners.register(createMarkdownTemplateRunner());
   runners.register(createTransformRunRunner());
   runners.register(createJsonTransformRunner());
   runners.register(createRenderMarkdownRunner());
@@ -539,7 +548,7 @@ export const buildWfEngine = async ({
   runners.register(createFileLoadRunner());
   runners.register(createFilesLoadRunner());
   runners.register(createFilesLoadManifestRunner());
-  runners.register(createSkillLoaderRunner());
+  runners.register(createSkillLoaderRunner({ getSkillBody: skillBodies.get }));
   runners.register(createLoopForeachRunner());
   runners.register(createLoopCollectRunner());
 
@@ -616,6 +625,10 @@ export const buildWfEngine = async ({
   // `startInstance` est extrait pour être partagé entre l'objet retourné
   // (handler IPC manuel) et le scheduler (déclenchement cron en fond).
   const startInstance = makeStartInstance({ templates, artifactStore, bus, log, clock, ids, channels });
+  // Built once here so the IPC-facing `saveSkill`/`deleteSkill` below can wrap
+  // them with a snapshot re-warm without rebuilding their dependency closure.
+  const saveSkillUseCase = makeSaveSkill({ skills });
+  const deleteSkillUseCase = makeDeleteSkill({ skills });
   const scheduler = createSchedulerService({
     registry: scheduleRegistry,
     startInstance,
@@ -643,8 +656,18 @@ export const buildWfEngine = async ({
     saveTemplateLayout: makeSaveTemplateLayout({ templates }),
     listSkills: makeListSkills({ skills }),
     getSkill: makeGetSkill({ skills }),
-    saveSkill: makeSaveSkill({ skills }),
-    deleteSkill: makeDeleteSkill({ skills }),
+    // Re-warm the body snapshot after a mutation so `skill.loader`'s
+    // `resolveSpec` reflects an edited body / a deleted skill without waiting
+    // for the next snapshot miss (the in-app path; a direct DB import still
+    // needs a restart or a miss — cf. spec § Risques).
+    saveSkill: async (skill) => {
+      await saveSkillUseCase(skill);
+      void skillBodies.warm();
+    },
+    deleteSkill: async (ref) => {
+      await deleteSkillUseCase(ref);
+      void skillBodies.warm();
+    },
     listInstances: makeListInstances({ state, channels }),
     listAwaitingHuman: makeListAwaitingHuman({ state, templates, channels }),
     searchInstances: makeSearchInstances({ state, log, channels }),

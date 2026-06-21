@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 import { FormLabel } from "./form-label"
+import { InfoTooltip } from "./info-tooltip"
 
 type FormFieldOrientation = "vertical" | "inline"
 
@@ -40,15 +41,10 @@ const FormField = ({
               {label}
             </FormLabel>
           ) : null}
+          {description !== undefined ? (
+            <InfoTooltip content={description} className="-ml-1" />
+          ) : null}
         </div>
-        {description !== undefined ? (
-          <p
-            data-slot="form-field-description"
-            className="text-xs text-muted-foreground/80"
-          >
-            {description}
-          </p>
-        ) : null}
         {error !== undefined ? (
           <p data-slot="form-field-error" className="text-xs text-destructive">
             {error}
@@ -64,18 +60,17 @@ const FormField = ({
       data-orientation="vertical"
       className={cn("flex flex-col gap-1", className)}
     >
-      {label !== undefined ? (
-        <FormLabel htmlFor={htmlFor} required={required}>
-          {label}
-        </FormLabel>
-      ) : null}
-      {description !== undefined ? (
-        <p
-          data-slot="form-field-description"
-          className="text-xs text-muted-foreground/80"
-        >
-          {description}
-        </p>
+      {label !== undefined || description !== undefined ? (
+        <div className="flex items-center gap-0.5">
+          {label !== undefined ? (
+            <FormLabel htmlFor={htmlFor} required={required}>
+              {label}
+            </FormLabel>
+          ) : null}
+          {description !== undefined ? (
+            <InfoTooltip content={description} />
+          ) : null}
+        </div>
       ) : null}
       {children}
       {error !== undefined ? (

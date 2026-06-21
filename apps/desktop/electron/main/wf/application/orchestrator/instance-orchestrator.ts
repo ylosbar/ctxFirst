@@ -383,6 +383,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
       const spec = runner.resolveSpec({
         config: step.config,
         template: { variables: template.variables },
+        readsFrom: step.readsFrom,
       });
       return spec.inputs.length === 1;
     })();
@@ -644,6 +645,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
     const spec = runner.resolveSpec({
       config: step.config,
       template: { variables: template.variables },
+      readsFrom: step.readsFrom,
     });
 
     const allInputs: RunContextInput[] = [];
@@ -913,6 +915,7 @@ export const createInstanceOrchestrator = (deps: Deps): InstanceOrchestrator => 
         declaredOutputs = runner.resolveSpec({
           config: step.config,
           template: { variables: template.variables },
+          readsFrom: step.readsFrom,
         }).outputs;
       } catch {
         // Polymorphic runner with incomplete config; the post-run schema

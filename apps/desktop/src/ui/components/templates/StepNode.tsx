@@ -4,6 +4,7 @@ import { Cog } from "lucide-react";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import type { TemplateVariableView } from "@shared/wf/types";
 import useWorkflowTemplates from "../../hooks/useWorkflowTemplates";
+import useSkills from "../../hooks/useSkills";
 import { Badge } from "@/components/ui/badge";
 import { Callout } from "@/components/ui/callout";
 import { STATUS_STYLE } from "@/components/ui/step-status";
@@ -125,8 +126,17 @@ const StepNode = ({ data, selected }: NodeProps) => {
     }
     return map;
   }, [templates]);
+  // A `skill.loader` node derives one input port per `{{placeholder}}` in the
+  // referenced skill's body — feed `resolveNodeSpec` a ref→body map built from
+  // the cached skill list (renderer mirror of the engine's body snapshot).
+  const { skills } = useSkills();
+  const skillBodies = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of skills) map.set(s.ref, s.body);
+    return map;
+  }, [skills]);
   const spec = base
-    ? resolveNodeSpec(step.kind, step.config, base, { subTemplates })
+    ? resolveNodeSpec(step.kind, step.config, base, { subTemplates, skillBodies })
     : null;
   const notesVisible = useNotesVisible();
   const showNote =

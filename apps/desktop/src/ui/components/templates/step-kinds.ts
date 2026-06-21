@@ -1,6 +1,7 @@
 import {
   BookOpen,
   Boxes,
+  Braces,
   CloudDownload,
   FileDown,
   FileJson,
@@ -408,13 +409,25 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     family: "transform",
     category: "transform",
     buildDefaultConfig: () => ({
-      mode: "concat",
       separator: "\n\n",
       header: "",
       footer: "",
       order: "top-to-bottom",
-      onMissing: "keep",
-      onUnused: "append",
+    }),
+  },
+  {
+    id: "markdown.template",
+    label: "Markdown Template",
+    description:
+      "Gabarit Markdown inline : chaque {{variable}} devient un port d'entrée hydraté, et la sortie est le Markdown substitué.",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: Braces,
+    family: "transform",
+    category: "transform",
+    buildDefaultConfig: () => ({
+      template: "",
+      onMissing: "empty",
     }),
   },
   {

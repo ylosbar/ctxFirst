@@ -38,7 +38,7 @@ import {
   validateTemplateDraft,
   type TemplateDraftOverrides,
 } from "../graph/build-draft";
-import type { ByKind } from "../graph/step-spec";
+import type { ByKind, SkillBodies } from "../graph/step-spec";
 
 type Options = {
   nodes: Node[];
@@ -52,6 +52,7 @@ type Options = {
   status: "draft" | "published";
   byKind: ByKind | null;
   subTemplates: Map<string, ReadonlyArray<TemplateVariableView>>;
+  skillBodies: SkillBodies;
   refinementResolver: (
     kind: string,
   ) => { extends: ArtifactKind | null; structuralHash: string } | null;
@@ -99,6 +100,7 @@ export const useTemplateSave = ({
   status,
   byKind,
   subTemplates,
+  skillBodies,
   refinementResolver,
   isNew,
   uri,
@@ -140,6 +142,7 @@ export const useTemplateSave = ({
       byKind,
       variables,
       subTemplates,
+      skillBodies,
       refinementResolver,
     });
 

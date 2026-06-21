@@ -48,6 +48,8 @@ type Options = {
 export type TemplateDepsControls = {
   /** ref→variables des sous-templates, pour les ports de `workflow.call`. */
   subTemplates: Map<string, ReadonlyArray<TemplateVariableView>>;
+  /** ref→body des skills, pour les ports dynamiques de `skill.loader`. */
+  skillBodies: Map<string, string>;
   availableSkillRefs: Set<string>;
   availableArtifactKinds: Set<string>;
   refinementResolver: (
@@ -100,6 +102,16 @@ export const useTemplateDeps = ({
     () => new Set(availableSkills.map((s) => s.ref)),
     [availableSkills],
   );
+  // `skill.loader` derives one input port per `{{placeholder}}` in the
+  // referenced skill's body, so feed `resolveNodeSpec` a ref→body map built
+  // from the cached skill list — the renderer mirror of the engine's
+  // synchronous body snapshot. Used by `resolveStepSpec` for canvas handles,
+  // `isValidConnection`, and save-time port validation alike.
+  const skillBodies = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of availableSkills) map.set(s.ref, s.body);
+    return map;
+  }, [availableSkills]);
   const availableArtifactKinds = useMemo(
     () =>
       new Set(
@@ -236,6 +248,7 @@ export const useTemplateDeps = ({
 
   return {
     subTemplates,
+    skillBodies,
     availableSkillRefs,
     availableArtifactKinds,
     refinementResolver,

@@ -1074,6 +1074,15 @@ body {
   font-weight: 600;
 }
 
+/* Node inspector — les libellés des champs de config (FormLabel) sont poussés
+   un cran plus près du `--foreground` que le `--muted-foreground` global, pour
+   qu'ils ressortent mieux au-dessus de leur champ (en thème sombre : plus
+   blancs). Scopé à l'inspecteur via `data-node-inspector` pour que les autres
+   surfaces gardent le ton de label standard. */
+[data-node-inspector] [data-slot="form-label"] {
+  color: color-mix(in srgb, var(--muted-foreground), var(--foreground) 40%);
+}
+
 .react-flow__node-group {
   background-color: transparent;
 }
