@@ -24,6 +24,7 @@ import LinearFetchConfig from "./step-inspector/config/LinearFetchConfig";
 import ShellExecConfig from "./step-inspector/config/ShellExecConfig";
 import SkillLoaderConfig from "./step-inspector/config/SkillLoaderConfig";
 import ConcatMarkdownConfig from "./step-inspector/config/ConcatMarkdownConfig";
+import ConcatEntryWrapperFields from "./step-inspector/config/ConcatEntryWrapperFields";
 import MarkdownTemplateConfig from "./step-inspector/config/MarkdownTemplateConfig";
 import PolymorphismKindEditor from "./step-inspector/config/PolymorphismKindEditor";
 import SuggestedNodes from "./step-inspector/components/SuggestedNodes";
@@ -31,12 +32,12 @@ import PortsWiring from "./step-inspector/components/PortsWiring";
 import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
-import { Select } from "@/components/ui/select";
+// import { Select } from "@/components/ui/select"; // masqué avec le champ Acteur
 import { Textarea } from "@/components/ui/textarea";
 import type {
-  ActorRole,
   TemplateStepDraft,
   TemplateVariableDraft,
 } from "../../../domain/workflow/types";
@@ -45,7 +46,7 @@ import useSkills from "../../hooks/useSkills";
 import { useT } from "../../i18n";
 import { getKindMeta, polymorphismOf } from "./step-kinds";
 import StepHeader from "./step-inspector/components/StepHeader";
-import { ACTOR_ROLES } from "./step-inspector/parts/inspector-constants";
+// import { ACTOR_ROLES } from "./step-inspector/parts/inspector-constants"; // masqué avec le champ Acteur
 
 const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "claude_code.invoke",
@@ -126,7 +127,7 @@ const StepInspector = ({
     polymorphism !== null || KINDS_WITH_CONFIG.has(step.kind);
 
   return (
-    <div className="flex flex-col text-sm">
+    <div data-node-inspector className="flex flex-col text-sm">
       <div className="px-3 py-3">
         <StepHeader
           step={step}
@@ -137,6 +138,27 @@ const StepInspector = ({
           onSetEntry={onSetEntry}
           onEnterStudio={onEnterStudio}
         />
+      </div>
+
+      <div className="px-3 pb-3">
+        <FormField
+          label={t("template.stepInspector.behavior.note.label")}
+          description={t("template.stepInspector.behavior.note.description")}
+        >
+          <Textarea
+            size="sm"
+            className="min-h-[60px]"
+            placeholder={t("template.stepInspector.behavior.note.placeholder")}
+            value={step.note ?? ""}
+            onChange={(e) => {
+              const next = e.target.value;
+              onChange({
+                ...step,
+                note: next.length > 0 ? next : undefined,
+              });
+            }}
+          />
+        </FormField>
       </div>
 
       <Section
@@ -292,7 +314,11 @@ const StepInspector = ({
 
       <Section
         title={t("template.stepInspector.sections.wiring.title")}
-        description={t("template.stepInspector.sections.wiring.description")}
+        actions={
+          <InfoTooltip
+            content={t("template.stepInspector.sections.wiring.description")}
+          />
+        }
         variant="panel"
         collapsible
         defaultOpen
@@ -313,6 +339,17 @@ const StepInspector = ({
             spec={resolvedSpec}
             variables={variables}
             onChange={onChange}
+            renderInputExtra={
+              step.kind === "concat.markdown"
+                ? (port) => (
+                    <ConcatEntryWrapperFields
+                      port={port}
+                      config={config}
+                      setConfig={setConfig}
+                    />
+                  )
+                : undefined
+            }
           />
         )}
       </Section>
@@ -329,6 +366,7 @@ const StepInspector = ({
         persistKey="app.step-inspector.behavior"
         className="px-2 py-2"
       >
+        {/* Champ Acteur masqué pour le moment.
         <FormField label={t("template.stepInspector.behavior.actor")}>
           <Select
             value={step.actorRole}
@@ -343,6 +381,7 @@ const StepInspector = ({
             ))}
           </Select>
         </FormField>
+        */}
 
         <FormField
           orientation="inline"
@@ -353,25 +392,6 @@ const StepInspector = ({
             onCheckedChange={(v) =>
               onChange({ ...step, humanGateRequired: v })
             }
-          />
-        </FormField>
-
-        <FormField
-          label={t("template.stepInspector.behavior.note.label")}
-          description={t("template.stepInspector.behavior.note.description")}
-        >
-          <Textarea
-            size="sm"
-            className="min-h-[60px]"
-            placeholder={t("template.stepInspector.behavior.note.placeholder")}
-            value={step.note ?? ""}
-            onChange={(e) => {
-              const next = e.target.value;
-              onChange({
-                ...step,
-                note: next.length > 0 ? next : undefined,
-              });
-            }}
           />
         </FormField>
       </Section>

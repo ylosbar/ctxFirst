@@ -606,8 +606,7 @@
         "header": "Header (optionnel)",
         "footer": "Footer (optionnel)",
         "perEntry": {
-          "title": "Préfixe / suffixe par entrée",
-          "description": "Optionnel. Enveloppe chaque entrée avant la concaténation. Vide ⇒ ignoré.",
+          "toggle": "Préfixe / suffixe",
           "header": "Header",
           "footer": "Footer"
         }

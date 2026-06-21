@@ -70,7 +70,7 @@ export const clampGridSnapSize = (n: unknown): number => {
 
 export const INSPECTOR_WIDTH_DEFAULT_PX = 360;
 export const INSPECTOR_WIDTH_MIN_PX = 280;
-export const INSPECTOR_WIDTH_MAX_PX = 720;
+export const INSPECTOR_WIDTH_MAX_PX = 1080;
 
 export const clampInspectorWidth = (n: unknown): number => {
   if (typeof n !== "number" || !Number.isFinite(n)) {
