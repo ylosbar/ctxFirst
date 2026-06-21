@@ -1,6 +1,6 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { BufferedInput } from "../components/buffered-inputs";
 import type { TemplateStepDraft } from "../../../../../domain/workflow/types";
 import { useT } from "../../../../i18n";
 import { ACTOR_ROLES } from "../parts/inspector-constants";
@@ -20,7 +20,7 @@ const LinearFetchConfig = ({
   return (
     <>
       <FormField label={t("template.stepInspector.linear.ticketRef.label")}>
-        <Input
+        <BufferedInput
           placeholder={t("template.stepInspector.linear.ticketRef.placeholder")}
           value={(config["ticketRef"] as string | undefined) ?? ""}
           onChange={(e) => setConfig({ ticketRef: e.target.value })}

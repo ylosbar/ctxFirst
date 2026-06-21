@@ -1,6 +1,6 @@
 import { FormField } from "@/components/ui/form-field";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { BufferedTextarea } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import { useT } from "../../../../i18n";
 
@@ -27,7 +27,7 @@ const MarkdownTemplateConfig = ({
           />
         }
       >
-        <Textarea
+        <BufferedTextarea
           size="sm"
           className="min-h-[120px] font-mono"
           value={(config["template"] as string | undefined) ?? ""}

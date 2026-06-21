@@ -33,10 +33,12 @@ import { resolveNodeSpec } from "@shared/wf/resolve-node-spec";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
 // import { Select } from "@/components/ui/select"; // masqué avec le champ Acteur
-import { Textarea } from "@/components/ui/textarea";
+import {
+  BufferedInput,
+  BufferedTextarea,
+} from "./step-inspector/components/buffered-inputs";
 import type {
   TemplateStepDraft,
   TemplateVariableDraft,
@@ -145,7 +147,7 @@ const StepInspector = ({
           label={t("template.stepInspector.behavior.note.label")}
           description={t("template.stepInspector.behavior.note.description")}
         >
-          <Textarea
+          <BufferedTextarea
             size="sm"
             className="min-h-[60px]"
             placeholder={t("template.stepInspector.behavior.note.placeholder")}
@@ -408,7 +410,7 @@ const StepInspector = ({
           label={t("template.stepInspector.advanced.id.label")}
           description={t("template.stepInspector.advanced.id.description")}
         >
-          <Input
+          <BufferedInput
             className="font-mono text-xs"
             value={step.id}
             onChange={(e) => onChange({ ...step, id: e.target.value })}

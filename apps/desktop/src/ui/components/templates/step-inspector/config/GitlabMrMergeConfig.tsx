@@ -1,5 +1,5 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
+import { BufferedInput } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 
 type GitlabMrMergeConfigProps = {
@@ -20,7 +20,7 @@ const GitlabMrMergeConfig = ({
           "template.stepInspector.gitlabMrMerge.project.description",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="group/project"
           value={(config["project"] as string | undefined) ?? ""}
@@ -34,7 +34,7 @@ const GitlabMrMergeConfig = ({
           "template.stepInspector.gitlabMrMerge.iid.description",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="42"
           value={(config["mergeRequestIid"] as string | undefined) ?? ""}
@@ -48,7 +48,7 @@ const GitlabMrMergeConfig = ({
           "template.stepInspector.gitlabMrMerge.baseUrl.description",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="https://gitlab.com"
           value={(config["baseUrl"] as string | undefined) ?? ""}

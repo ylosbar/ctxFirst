@@ -1,7 +1,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { BufferedInput } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import { useT } from "../../../../i18n";
 import { FILE_LOAD_OUTPUT_KINDS } from "../parts/inspector-constants";
@@ -40,7 +40,7 @@ const FilesLoadManifestConfigEditor = ({
           />
         }
       >
-        <Input
+        <BufferedInput
           className="font-mono text-xs"
           placeholder="$.mockups[*].transcription"
           value={(config["selector"] as string | undefined) ?? ""}
@@ -54,7 +54,7 @@ const FilesLoadManifestConfigEditor = ({
           "template.stepInspector.filesLoadManifest.subdir.description",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono text-xs"
           placeholder="product_requirements/looker-studio/mockups"
           value={(config["subdir"] as string | undefined) ?? ""}
@@ -91,13 +91,13 @@ const FilesLoadManifestConfigEditor = ({
         }
       >
         <div className="flex flex-col gap-1.5">
-          <Input
+          <BufferedInput
             className="font-mono text-xs"
             placeholder='<transcript file="{name}">'
             value={(wrap["header"] as string | undefined) ?? ""}
             onChange={(e) => setWrap({ header: e.target.value })}
           />
-          <Input
+          <BufferedInput
             className="font-mono text-xs"
             placeholder="</transcript>"
             value={(wrap["footer"] as string | undefined) ?? ""}
@@ -112,7 +112,7 @@ const FilesLoadManifestConfigEditor = ({
           "template.stepInspector.filesLoadManifest.separator.description",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono text-xs"
           placeholder="\n\n"
           value={(config["separator"] as string | undefined) ?? ""}
@@ -157,7 +157,7 @@ const FilesLoadManifestConfigEditor = ({
           "template.stepInspector.filesLoadManifest.maxFiles.description",
         )}
       >
-        <Input
+        <BufferedInput
           type="number"
           min={1}
           className="font-mono text-xs"

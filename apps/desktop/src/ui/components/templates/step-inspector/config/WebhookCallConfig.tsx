@@ -1,9 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { BufferedInput, BufferedTextarea } from "../components/buffered-inputs";
 import { Trans } from "react-i18next";
 import { useT } from "../../../../i18n";
 
@@ -82,7 +81,7 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
           />
         }
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="https://api.example.com/notify"
           value={(config["url"] as string | undefined) ?? ""}
@@ -97,13 +96,13 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
         <div className="flex flex-col gap-1.5">
           {headerEntries.map(([key, value], i) => (
             <div key={i} className="flex items-center gap-2">
-              <Input
+              <BufferedInput
                 className="font-mono text-xs"
                 placeholder={t("template.stepInspector.webhook.headers.placeholder")}
                 value={key}
                 onChange={(e) => setHeaderKey(key, e.target.value)}
               />
-              <Input
+              <BufferedInput
                 className="font-mono text-xs"
                 placeholder={t("template.stepInspector.webhook.headers.valuePlaceholder")}
                 value={value}
@@ -142,7 +141,7 @@ const WebhookCallConfig = ({ config, setConfig }: WebhookCallConfigProps) => {
             />
           }
         >
-          <Textarea
+          <BufferedTextarea
             size="sm"
             className="min-h-[60px] font-mono"
             placeholder={'{ "event": "done" }'}

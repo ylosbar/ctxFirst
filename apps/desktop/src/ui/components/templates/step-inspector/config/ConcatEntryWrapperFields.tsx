@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
-
 import { FormField } from "@/components/ui/form-field";
 import { Section } from "@/components/ui/section";
 import { Textarea } from "@/components/ui/textarea";
 import { useT } from "../../../../i18n";
+import { useBufferedField } from "../components/buffered-inputs";
 import { closingTagFor } from "./derive-closing-tag";
 
 type Props = {
@@ -11,28 +10,6 @@ type Props = {
   port: string;
   config: Readonly<Record<string, unknown>>;
   setConfig: (patch: Record<string, unknown>) => void;
-};
-
-/**
- * Buffer local d'un champ texte de l'inspecteur.
- *
- * La valeur affichée par l'inspecteur fait un aller-retour par un store publié
- * dans un `useEffect` (cf. `useRegisterTemplateCanvas`) : elle revient donc un
- * tick *après* la frappe. Un `<Textarea value={valeurDuStore}>` se ferait
- * réécrire sa valeur DOM par React pendant ce tick de décalage (la prop reste
- * la valeur d'avant la frappe), ce qui renvoie le curseur en fin de chaîne dès
- * qu'on édite au milieu. On affiche donc un état local mis à jour
- * synchroniquement à la frappe, et on le resynchronise quand la valeur amont
- * change *hors* de ce champ (changement de node, auto-remplissage, undo).
- */
-const useBufferedField = (
-  value: string,
-): [string, (next: string) => void] => {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-  return [draft, setDraft];
 };
 
 /**

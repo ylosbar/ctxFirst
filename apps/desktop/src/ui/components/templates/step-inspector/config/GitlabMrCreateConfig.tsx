@@ -1,6 +1,5 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { BufferedInput, BufferedTextarea } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 
 type GitlabMrCreateConfigProps = {
@@ -21,7 +20,7 @@ const GitlabMrCreateConfig = ({
           "template.stepInspector.gitlabMrCreate.project.description",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="group/project"
           value={(config["project"] as string | undefined) ?? ""}
@@ -34,7 +33,7 @@ const GitlabMrCreateConfig = ({
           "template.stepInspector.gitlabMrCreate.sourceBranch.label",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="feature/x"
           value={(config["sourceBranch"] as string | undefined) ?? ""}
@@ -47,7 +46,7 @@ const GitlabMrCreateConfig = ({
           "template.stepInspector.gitlabMrCreate.targetBranch.label",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="main"
           value={(config["targetBranch"] as string | undefined) ?? ""}
@@ -58,7 +57,7 @@ const GitlabMrCreateConfig = ({
       <FormField
         label={t("template.stepInspector.gitlabMrCreate.title.label")}
       >
-        <Input
+        <BufferedInput
           value={(config["title"] as string | undefined) ?? ""}
           onChange={(e) => setConfig({ title: e.target.value })}
         />
@@ -69,7 +68,7 @@ const GitlabMrCreateConfig = ({
           "template.stepInspector.gitlabMrCreate.description.label",
         )}
       >
-        <Textarea
+        <BufferedTextarea
           size="sm"
           value={(config["description"] as string | undefined) ?? ""}
           onChange={(e) => setConfig({ description: e.target.value })}
@@ -82,7 +81,7 @@ const GitlabMrCreateConfig = ({
           "template.stepInspector.gitlabMrCreate.baseUrl.description",
         )}
       >
-        <Input
+        <BufferedInput
           className="font-mono"
           placeholder="https://gitlab.com"
           value={(config["baseUrl"] as string | undefined) ?? ""}

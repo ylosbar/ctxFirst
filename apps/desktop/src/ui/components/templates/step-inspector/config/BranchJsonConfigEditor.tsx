@@ -1,5 +1,5 @@
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
+import { BufferedInput } from "../components/buffered-inputs";
 import { useT } from "../../../../i18n";
 import BranchCasesEditor from "./BranchCasesEditor";
 
@@ -30,7 +30,7 @@ const BranchJsonConfigEditor = ({
         label={t("template.stepInspector.branchJson.path.label")}
         description={t("template.stepInspector.branchJson.path.description")}
       >
-        <Input
+        <BufferedInput
           className="font-mono text-xs"
           placeholder="$.flag"
           value={path}
