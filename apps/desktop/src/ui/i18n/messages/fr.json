@@ -406,6 +406,10 @@
         "actorRole": {
           "label": "Rôle pour la validation",
           "description": "Active uniquement quand la validation humaine est requise (voir Comportement)."
+        },
+        "triageLimit": {
+          "label": "Nombre de tickets (N)",
+          "description": "Nombre de derniers tickets du triage à récupérer (1–250, défaut 10)."
         }
       },
       "workspaceSet": {

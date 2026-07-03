@@ -233,6 +233,8 @@ export type StepKindId =
   | "linear.fetch"
   | "linear.split"
   | "linear.set-status"
+  | "linear.comment"
+  | "linear.triage.fetch"
   | "workspace.set"
   | "shell.exec"
   | "file.load-markdown"

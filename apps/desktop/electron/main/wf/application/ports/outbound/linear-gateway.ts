@@ -15,6 +15,23 @@ export type LinearComment = {
 };
 
 /**
+ * Raw bytes of an image embedded in a ticket, downloaded from its source URL.
+ * Kept encoding-agnostic for the domain: the adapter downloads the bytes and
+ * returns them base64-encoded (the artifact store is text-only), together with
+ * the server-reported MIME type.
+ */
+export type LinearImage = {
+  /** Source URL the bytes were fetched from (typically `uploads.linear.app`). */
+  url: string;
+  /** Server-reported MIME type, e.g. `"image/png"`. `null` when unknown. */
+  mimeType: string | null;
+  /** Base64-encoded image bytes. */
+  dataBase64: string;
+  /** Decoded byte length — handy for downstream size budgeting. */
+  byteLength: number;
+};
+
+/**
  * Structured snapshot of a Linear issue at fetch time. Free of HTML, JSX or
  * other host-specific encodings — the formatter turns this into clean
  * Markdown for the artifact store.
@@ -52,4 +69,31 @@ export interface LinearGateway {
    * the team has no workflow state matching `status`.
    */
   setTicketStatus(ref: string, status: string): Promise<LinearTicket>;
+
+  /**
+   * Posts a Markdown comment in a ticket's native comment thread. `ref` is the
+   * human identifier (`"ENG-123"`) or UUID; `body` is Markdown. Returns the
+   * refreshed ticket snapshot, whose `comments` now include the new entry.
+   * Rejects on auth/network failure, unknown ticket, or an empty body.
+   */
+  addComment(ref: string, body: string): Promise<LinearTicket>;
+
+  /**
+   * Fetches the `limit` most-recently-created tickets currently sitting in a
+   * Triage workflow state (matched by the canonical `triage` state *type*, so
+   * it spans every team regardless of the state's display name). Results are
+   * ordered newest-first by creation date. `limit` is clamped to `[1, 250]`.
+   * Rejects on auth/network failure.
+   */
+  fetchTriageTickets(limit: number): Promise<ReadonlyArray<LinearTicket>>;
+
+  /**
+   * Downloads the raw bytes of an image referenced by a ticket. `uploads.linear.app`
+   * assets sit behind the API key, so the adapter attaches the Linear
+   * `Authorization` header for Linear-hosted URLs and fetches external URLs
+   * anonymously. Returns the bytes base64-encoded plus the reported MIME type.
+   * Rejects on invalid URL, HTTP error or network failure — callers decide
+   * whether to skip the image or fail the step.
+   */
+  fetchImage(url: string): Promise<LinearImage>;
 }

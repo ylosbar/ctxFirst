@@ -21,6 +21,7 @@ import CodexInvokeConfig from "./step-inspector/config/CodexInvokeConfig";
 import OpenrouterInvokeConfig from "./step-inspector/config/OpenrouterInvokeConfig";
 import HumanGateConfig from "./step-inspector/config/HumanGateConfig";
 import LinearFetchConfig from "./step-inspector/config/LinearFetchConfig";
+import LinearTriageFetchConfig from "./step-inspector/config/LinearTriageFetchConfig";
 import ShellExecConfig from "./step-inspector/config/ShellExecConfig";
 import SkillLoaderConfig from "./step-inspector/config/SkillLoaderConfig";
 import ConcatMarkdownConfig from "./step-inspector/config/ConcatMarkdownConfig";
@@ -55,6 +56,7 @@ const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
   "codex.invoke",
   "openrouter.invoke",
   "linear.fetch",
+  "linear.triage.fetch",
   "workspace.set",
   "shell.exec",
   "git.clone",
@@ -199,6 +201,10 @@ const StepInspector = ({
 
         {step.kind === "linear.fetch" ? (
           <LinearFetchConfig step={step} config={config} setConfig={setConfig} />
+        ) : null}
+
+        {step.kind === "linear.triage.fetch" ? (
+          <LinearTriageFetchConfig config={config} setConfig={setConfig} />
         ) : null}
 
         {step.kind === "workspace.set" ? (
