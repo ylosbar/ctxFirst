@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType, FunctionComponent, ReactNode } from "react";
 import type { LucideProps } from "lucide-react";
 import type { IDockviewPanelHeaderProps } from "dockview-react";
 import type { ChatViewContextSnapshot } from "@/application/ports/chat-gateway";
@@ -31,10 +31,16 @@ export type ActivityContribution = {
   // Where the activity button sits in the ActivityBar. "top" (default) is the
   // main scrollable group; "bottom" is the pinned footer group (e.g. Settings).
   readonly placement?: "top" | "bottom";
-  // Phase 1 cohabitation: route to navigate to when this activity is clicked
-  // outside the Workbench host. Will be removed once all features live inside
-  // the Workbench.
+  // Landing path for this activity: navigated to when the button is clicked
+  // outside the Workbench host, and the URL an editor-less activity maps back
+  // to (spec workbench audit H-3). `WorkbenchRouterSync` matches an incoming
+  // URL to this activity when `matchPath` isn't supplied, via a prefix test on
+  // `route` (`path === route || path.startsWith(route + "/")`).
   readonly route?: string;
+  // Optional custom URL→activity matcher, overriding the default `route`
+  // prefix test. Lets an activity claim extra paths (e.g. Overview also owns
+  // `/`). Returning `true` activates this activity for `pathname`.
+  readonly matchPath?: (pathname: string) => boolean;
   // Launcher mode: when set, clicking the button only invokes this callback —
   // the activity is not activated, no route is navigated, no editor is opened.
   // Used for modal-style activities (e.g. Settings).
@@ -66,8 +72,6 @@ export type ViewContribution = {
   // candidates au même emplacement (cf. `pickPrimaryView`). Tri ascendant,
   // défaut `100`. Tie-break sur `id` croissant.
   readonly priority?: number;
-  // Si `true`, empêche le détachement en groupe flottant ou popout fenêtre.
-  readonly pinnable?: boolean;
   // Si `false`, le reconciler ne matérialise PAS la vue automatiquement quand
   // elle devient éligible (défaut `true`). La vue reste ouvrable explicitement
   // via `showView` (ex. bouton ActivityBar) et, une fois ouverte, persiste dans
@@ -110,23 +114,30 @@ export type EditorTypeContribution = {
   // `text-[var(--chart-1)]`). Used to color the icon per resource kind so
   // tabs stay visually consistent with the explorer.
   readonly iconClassName?: string;
-  readonly singleton?: boolean;
   // Default view to show in the primary (left) anchor group when an editor of
-  // this type becomes active and the user has no persisted choice yet.
-  // Symétrique à `defaultSecondaryView`. Lu par `pickPrimaryView` (cf. spec
-  // workbench-unified-dockview.md §2.3).
+  // this type becomes active and the user has no persisted choice yet. Lu par
+  // `pickPrimaryView` (cf. spec workbench-unified-dockview.md §2.3).
   readonly defaultPrimaryView?: ViewId;
-  // Default view to show in the secondary sidebar when an editor of this type
-  // becomes active and the user has no persisted choice yet.
-  readonly defaultSecondaryView?: ViewId;
+  // URL routing (spec workbench audit H-3) — each editor type owns the mapping
+  // between its URI scheme and the router path, so `WorkbenchRouterSync` stays
+  // generic (a plugin routes itself without patching the sync component).
+  //  - `matchPath`: URL → editor URI. Return the URI to open for `pathname` +
+  //    `search`, or `null` when this type doesn't own the path.
+  //  - `toPath`: editor URI → URL. Return the path to navigate to when an
+  //    editor of this type is active, or `null` to leave the URL untouched.
+  readonly matchPath?: (pathname: string, search: string) => EditorUri | null;
+  readonly toPath?: (uri: EditorUri) => string | null;
   readonly render: (props: {
     uri: EditorUri;
     api: WorkbenchApi;
   }) => ReactNode;
   // Optional: a custom tab renderer for this editor type. Receives Dockview
   // panel header props with the editor's params. If omitted, the default
-  // EditorTabRenderer is used.
-  readonly tab?: ComponentType<EditorTabProps>;
+  // EditorTabRenderer is used. Typed as `FunctionComponent` (not the broader
+  // `ComponentType`) so it slots into Dockview's `tabComponents` map without a
+  // cast (spec workbench audit F-6) — Dockview only accepts function components
+  // (memo/forwardRef/plain) at runtime anyway.
+  readonly tab?: FunctionComponent<EditorTabProps>;
 
   // Synchronous snapshot of the editor's chat context for the given URI.
   // Called at every chat sendMessage (and at session creation) to publish the
@@ -136,18 +147,15 @@ export type EditorTypeContribution = {
   readonly getChatContext?: (uri: EditorUri) => ChatViewContextSnapshot | null;
 };
 
-export type WorkbenchEvent =
-  | "activeEditorChanged"
-  | "editorsChanged"
-  | "viewChanged"
-  | "activityChanged";
-
 export type OpenEditorOptions = {
   readonly focus?: boolean;
 };
 
 export type WorkbenchApi = {
-  openEditor(uri: EditorUri, opts?: OpenEditorOptions): EditorState;
+  // Returns the opened editor's state, or `null` when no editor type is
+  // registered for the URI's scheme (spec workbench audit M-2). Callers that
+  // pass a URI from user/plugin-controlled input must handle `null`.
+  openEditor(uri: EditorUri, opts?: OpenEditorOptions): EditorState | null;
   closeEditor(uri: EditorUri): void;
   closeEditorByPanel(panelId: string): void;
   activeEditor(): EditorState | null;
@@ -156,12 +164,7 @@ export type WorkbenchApi = {
   showView(id: ViewId): void;
   hideView(id: ViewId): void;
   toggleView(id: ViewId): void;
-  togglePrimarySidebar(): void;
-  toggleSecondarySidebar(): void;
-  toggleBottomDock(): void;
 
   activateActivity(id: ActivityId): void;
   activeActivity(): ActivityId | null;
-
-  subscribe(event: WorkbenchEvent, handler: () => void): () => void;
 };

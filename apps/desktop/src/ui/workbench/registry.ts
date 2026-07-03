@@ -143,6 +143,39 @@ export const workbenchRegistry = {
     return null;
   },
 
+  // URL routing (spec workbench audit H-3). The scheme↔path table used to be
+  // hardcoded in `WorkbenchRouterSync`, which meant a plugin declaring a route
+  // couldn't be routed without patching that file. Now each contribution owns
+  // its mapping and the router just iterates the registry.
+
+  // URL → activity. First activity whose `matchPath` accepts the path, or —
+  // when it has none — whose `route` prefixes the path. Activities are iterated
+  // in `order`, so a more specific route can't be shadowed by a broader one
+  // sharing a prefix as long as authors keep routes non-overlapping.
+  activityForPath(pathname: string): ActivityContribution | null {
+    for (const a of this.activities()) {
+      if (a.matchPath) {
+        if (a.matchPath(pathname)) return a;
+        continue;
+      }
+      if (!a.route) continue;
+      if (pathname === a.route || pathname.startsWith(`${a.route}/`)) return a;
+    }
+    return null;
+  },
+  // URL → editor URI. First editor type whose `matchPath` claims the path.
+  uriForPath(pathname: string, search: string): EditorUri | null {
+    for (const t of editorTypes.values()) {
+      const uri = t.matchPath?.(pathname, search);
+      if (uri) return uri;
+    }
+    return null;
+  },
+  // Editor URI → URL, via the owning editor type's `toPath`.
+  pathForUri(uri: EditorUri): string | null {
+    return this.editorTypeFor(uri)?.toPath?.(uri) ?? null;
+  },
+
   hosts(): ReadonlyArray<FeatureHostContribution> {
     return [...hosts.values()];
   },

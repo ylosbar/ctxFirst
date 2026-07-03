@@ -42,10 +42,7 @@ import type {
   SkillView,
   TemplateView,
 } from "../../../domain/workflow/types";
-import {
-  useWorkbench,
-  useWorkbenchPrefs,
-} from "../../workbench/WorkbenchProvider";
+import { useWorkbench } from "../../workbench/WorkbenchProvider";
 import {
   THEMES,
   useSetPreviewTheme,
@@ -191,7 +188,6 @@ const CommandPalette = () => {
   const navigate = useNavigate();
   const services = useServices();
   const workbench = useWorkbench();
-  const workbenchPrefs = useWorkbenchPrefs();
   const theme = useTheme();
   const setTheme = useSetTheme();
   const previewTheme = useSetPreviewTheme();
@@ -397,24 +393,6 @@ const CommandPalette = () => {
       perform: () => setMode("theme"),
     });
     out.push({
-      id: "action:toggle-primary-sidebar",
-      kind: "action",
-      label: workbenchPrefs.primarySidebar.collapsed
-        ? "Afficher la barre latérale gauche"
-        : "Réduire la barre latérale gauche",
-      description: "⌘B",
-      perform: () => workbench.togglePrimarySidebar(),
-    });
-    out.push({
-      id: "action:toggle-secondary-sidebar",
-      kind: "action",
-      label: workbenchPrefs.secondarySidebar.collapsed
-        ? "Afficher la barre latérale droite"
-        : "Réduire la barre latérale droite",
-      description: "⌘⌥B",
-      perform: () => workbench.toggleSecondarySidebar(),
-    });
-    out.push({
       id: "action:settings",
       kind: "action",
       label: "Paramètres",
@@ -429,8 +407,6 @@ const CommandPalette = () => {
     artifactSchemas,
     navigate,
     workbench,
-    workbenchPrefs.primarySidebar.collapsed,
-    workbenchPrefs.secondarySidebar.collapsed,
     setTheme,
   ]);
 

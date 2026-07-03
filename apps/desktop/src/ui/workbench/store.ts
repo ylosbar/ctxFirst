@@ -12,6 +12,7 @@ import {
   ensureSidebarConstraints,
   findEditorPanel,
   isViewPanelId,
+  isWatermarkPanelId,
   maybeRecordSidebarDrag,
   pinSidebarWidth,
   resolveDockLocation,
@@ -39,7 +40,6 @@ import type {
   OpenEditorOptions,
   ViewId,
   WorkbenchApi,
-  WorkbenchEvent,
 } from "./types";
 
 export type EditorPanelParams = {
@@ -111,16 +111,13 @@ type WorkbenchStore = WorkbenchState & {
   setDockviewApi: (api: DockviewApi) => void;
   disposeDockviewApi: () => void;
 
-  openEditor: (uri: EditorUri, opts?: OpenEditorOptions) => EditorState;
+  openEditor: (uri: EditorUri, opts?: OpenEditorOptions) => EditorState | null;
   closeEditor: (uri: EditorUri) => void;
   closeEditorByPanel: (panelId: string) => void;
 
   showView: (id: ViewId) => void;
   hideView: (id: ViewId) => void;
   toggleView: (id: ViewId) => void;
-  togglePrimarySidebar: () => void;
-  toggleSecondarySidebar: () => void;
-  toggleBottomDock: () => void;
 
   activateActivity: (id: ActivityId) => void;
 
@@ -176,12 +173,17 @@ const pruneAgainstRegistry = (prefs: WorkbenchPrefs): WorkbenchPrefs =>
     ),
   });
 
-const initialPrefs = (): WorkbenchPrefs => {
-  const loaded = loadPrefs();
-  const pruned = pruneAgainstRegistry(loaded);
-  if (pruned !== loaded) savePrefs(pruned);
-  return pruned;
-};
+// Load persisted prefs verbatim — do NOT prune here. This factory runs at
+// module load (inside `create(...)` below), which is BEFORE
+// `register-contributions` has fired the feature contribution side-effects, so
+// the registry is still empty. Pruning against an empty registry would wipe
+// every per-editor-type view, `lastActiveLeftView`, `viewLocations`,
+// `activeActivity` and `hiddenViews` and re-save that emptied blob — clobbering
+// prefs the user accumulated across sessions (spec workbench audit C-1). The
+// real pruning runs once, later, in `prunePrefsAgainstRegistry()` (called from
+// the Provider mount) when all contributions are registered. `loadPrefs`
+// already clamps the numeric fields, so nothing else is needed here.
+const initialPrefs = (): WorkbenchPrefs => loadPrefs();
 
 // Default editor URI to open when the workbench boots with an empty dock
 // and the active activity carries no `defaultEditor`. Overview is the
@@ -204,7 +206,11 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       _pinnedWidthSaveTimer: null,
       _beforeUnloadHandler: null,
       seenViews: new Set<ViewId>(),
-      hiddenViews: new Set<ViewId>(),
+      // Seed from persisted prefs so a user hide survives a reload (spec
+      // workbench audit H-1). Pruned against the live registry at mount by
+      // `prunePrefsAgainstRegistry`; mirrored back to `prefs.hiddenViews` on
+      // every change by the module-level subscription below.
+      hiddenViews: new Set<ViewId>(initial.hiddenViews),
       _suppressActiveTracking: false,
       _suppressHideTracking: false,
 
@@ -225,9 +231,17 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           const viewId = viewIdFromPanelId(panel.id);
           if (viewId) nextOpenViews.add(viewId);
         }
-        set({ editors: nextEditors });
-        // Ne re-set que si l'ensemble a réellement changé : `_syncFromDockview`
-        // fire à chaque tick de drag, inutile de réveiller les abonnés sinon.
+        // Ne re-set que si la liste a réellement changé : `_syncFromDockview`
+        // fire à chaque tick de drag (spec workbench audit H-4). Sans ce garde,
+        // un nouveau tableau `editors` était injecté à 60 Hz pendant un drag de
+        // sash → tout `useEditors()` (sélection par référence, `Object.is`)
+        // réveillait ses abonnés inutilement.
+        const curEditors = get().editors;
+        const editorsChanged =
+          curEditors.length !== nextEditors.length ||
+          nextEditors.some((e, i) => curEditors[i]?.panelId !== e.panelId);
+        if (editorsChanged) set({ editors: nextEditors });
+        // Idem pour l'ensemble des vues ouvertes.
         const curOpen = get().openViewIds;
         const changed =
           curOpen.size !== nextOpenViews.size ||
@@ -242,8 +256,13 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         // longer in the dock (closed), fall back to null.
         const activePanel = dv.activePanel;
         const cur = get().activeEditor;
+        // The watermark is neither a view nor an editor (spec workbench audit
+        // M-1) — treat it as "no editor active" so an active watermark keeps
+        // (rather than nulls) a real editor that may be simultaneously mounted.
         const editorActive =
-          activePanel && !isViewPanelId(activePanel.id)
+          activePanel &&
+          !isViewPanelId(activePanel.id) &&
+          !isWatermarkPanelId(activePanel.id)
             ? (nextEditors.find((e) => e.panelId === activePanel.id) ?? null)
             : cur
               ? (nextEditors.find((e) => e.panelId === cur.panelId) ?? null)
@@ -256,7 +275,13 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
       openEditor: (uri, opts) => {
         const type = workbenchRegistry.editorTypeFor(uri);
         if (!type) {
-          throw new Error(`Workbench: no editor type registered for "${uri}"`);
+          // "URI supportée" n'est pas un invariant du store : l'ensemble des
+          // schemes évolue au runtime avec les plugins (spec workbench audit
+          // M-2). Un call-site externe (raccourci hardcodé, lien, plugin
+          // retiré) ne doit pas crasher le tree React — on journalise et on
+          // renvoie null.
+          console.warn(`Workbench: no editor type registered for "${uri}"`);
+          return null;
         }
         const panelId = uri;
         const editorState: EditorState = { uri, typeId: type.id, panelId };
@@ -295,7 +320,11 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
           // Spec sidebar-user-controlled-width §3 — adding a panel rebalances
           // the dock proportionally; wrap so the post-mutation re-pin pulls
           // the sidebar back to its pinned px width.
-          let created!: IDockviewPanel;
+          // `withSidebarPinned` invokes its callback synchronously, so `created`
+          // is always assigned by the time we read it — but typing it as
+          // `| undefined` + narrowing beats a non-null assertion (spec
+          // workbench audit F-5).
+          let created: IDockviewPanel | undefined;
           withSidebarPinned(dv, () => {
             created = dv.addPanel<EditorPanelParams>({
               id: panelId,
@@ -311,6 +340,7 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
               watermark.api.close();
             }
           });
+          if (!created) return editorState;
           panel = created;
         } else {
           const nextTitle = type.title(uri);
@@ -355,8 +385,10 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
               persisted.dockLayout as Parameters<DockviewApi["fromJSON"]>[0],
             );
             // Tear down editor panels whose scheme no longer maps to an editor
-            // type — happens when a plugin is removed between sessions.
-            for (const panel of dv.panels) {
+            // type — happens when a plugin is removed between sessions. Iterate
+            // a copy: `.close()` mutates `dv.panels` mid-loop (spec workbench
+            // audit F-3), matching the view-stripping loop just below.
+            for (const panel of [...dv.panels]) {
               const state = editorStateFromParams(panel.id, panel.params);
               if (!state) continue;
               const type = workbenchRegistry.editorTypeFor(state.uri);
@@ -703,42 +735,6 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
         }
       },
 
-      // Spec §7 / PR 4 : les toggle* persistent l'état de pli des bordures
-      // dans les prefs. Le câblage visuel (collapse de groupes d'ancrage via
-      // dockview edge groups) est repoussé à PR 4 — pour PR 2c on conserve
-      // l'API publique stable et la persistance, mais l'effet visuel des
-      // toggles n'est pas (encore) rétabli depuis le démantèlement des
-      // slot-hosts.
-      togglePrimarySidebar: () => {
-        get()._updatePrefs((prev) => ({
-          ...prev,
-          primarySidebar: {
-            ...prev.primarySidebar,
-            collapsed: !prev.primarySidebar.collapsed,
-          },
-        }));
-      },
-
-      toggleSecondarySidebar: () => {
-        get()._updatePrefs((prev) => ({
-          ...prev,
-          secondarySidebar: {
-            ...prev.secondarySidebar,
-            collapsed: !prev.secondarySidebar.collapsed,
-          },
-        }));
-      },
-
-      toggleBottomDock: () => {
-        get()._updatePrefs((prev) => ({
-          ...prev,
-          bottomDock: {
-            ...prev.bottomDock,
-            collapsed: !prev.bottomDock.collapsed,
-          },
-        }));
-      },
-
       setTemplateEditorGridSnap: (next) => {
         get()._updatePrefs((prev) => ({
           ...prev,
@@ -786,55 +782,50 @@ export const useWorkbenchStore = create<WorkbenchStore>()(
   }),
 );
 
-// Re-prune against the current registry. Called by the Provider on mount as
-// a safety net: contributions registered after the store was first imported
-// (rare, but possible under HMR) wouldn't have been considered by
-// `initialPrefs()`. Idempotent — no-op when prefs are already clean.
+const hiddenSetEqualsPrefs = (
+  set: ReadonlySet<ViewId>,
+  arr: ReadonlyArray<ViewId>,
+): boolean => set.size === arr.length && arr.every((id) => set.has(id));
+
+// Re-prune against the current registry. Called by the Provider on mount once
+// every feature contribution has registered — this is where pruning actually
+// happens (spec workbench audit C-1: `initialPrefs()` deliberately does NOT
+// prune, since it runs before the registry is populated). Also reconciles the
+// runtime `hiddenViews` Set (seeded verbatim from persisted prefs at store
+// creation) against the pruned view set. Idempotent — no-op when clean.
 export const prunePrefsAgainstRegistry = (): void => {
-  const cur = useWorkbenchStore.getState().prefs;
-  const next = pruneAgainstRegistry(cur);
-  if (next !== cur) {
+  const state = useWorkbenchStore.getState();
+  const next = pruneAgainstRegistry(state.prefs);
+  const runtimeNeedsSync = !hiddenSetEqualsPrefs(
+    state.hiddenViews,
+    next.hiddenViews,
+  );
+  if (next !== state.prefs || runtimeNeedsSync) {
     savePrefs(next);
-    useWorkbenchStore.setState({ prefs: next });
+    useWorkbenchStore.setState({
+      prefs: next,
+      hiddenViews: new Set(next.hiddenViews),
+    });
   }
 };
 
-// Legacy bridge for `WorkbenchApi.subscribe`. Translates string events to
-// store.subscribe selector listeners. Kept for compatibility with consumers
-// that haven't migrated to direct `useWorkbenchStore.subscribe(selector, ...)`.
-const subscribeLegacy = (
-  event: WorkbenchEvent,
-  handler: () => void,
-): (() => void) => {
-  switch (event) {
-    case "activeEditorChanged":
-      return useWorkbenchStore.subscribe(
-        (s) => s.activeEditor,
-        () => handler(),
-      );
-    case "editorsChanged":
-      return useWorkbenchStore.subscribe(
-        (s) => s.editors,
-        () => handler(),
-      );
-    case "activityChanged":
-      return useWorkbenchStore.subscribe(
-        (s) => s.activeActivity,
-        () => handler(),
-      );
-    case "viewChanged":
-      return useWorkbenchStore.subscribe(
-        (s) => s.prefs,
-        () => handler(),
-        {
-          equalityFn: (a, b) =>
-            a.primarySidebar === b.primarySidebar &&
-            a.secondarySidebar === b.secondarySidebar &&
-            a.bottomDock === b.bottomDock,
-        },
-      );
-  }
-};
+// Mirror runtime `hiddenViews` (mutated by hideView / showView, the reconciler's
+// subtractive pass, and onDidRemovePanel) into `prefs.hiddenViews` so a user
+// hide survives a reload (spec workbench audit H-1). `subscribeWithSelector`
+// only fires on an actual change of the selected slice and never on the initial
+// subscription, so the `setState({ prefs })` it performs can't loop (the next
+// fire is on `hiddenViews`, not `prefs`, and the equality guard short-circuits
+// the reconciliation write from `prunePrefsAgainstRegistry`).
+useWorkbenchStore.subscribe(
+  (s) => s.hiddenViews,
+  (hiddenViews) => {
+    const prev = useWorkbenchStore.getState().prefs;
+    if (hiddenSetEqualsPrefs(hiddenViews, prev.hiddenViews)) return;
+    const next: WorkbenchPrefs = { ...prev, hiddenViews: [...hiddenViews] };
+    savePrefs(next);
+    useWorkbenchStore.setState({ prefs: next });
+  },
+);
 
 // Stable `WorkbenchApi` object. Methods read the latest action implementations
 // from the store on each call, so the api reference itself never changes — safe
@@ -850,14 +841,8 @@ const api: WorkbenchApi = {
   showView: (id) => useWorkbenchStore.getState().showView(id),
   hideView: (id) => useWorkbenchStore.getState().hideView(id),
   toggleView: (id) => useWorkbenchStore.getState().toggleView(id),
-  togglePrimarySidebar: () =>
-    useWorkbenchStore.getState().togglePrimarySidebar(),
-  toggleSecondarySidebar: () =>
-    useWorkbenchStore.getState().toggleSecondarySidebar(),
-  toggleBottomDock: () => useWorkbenchStore.getState().toggleBottomDock(),
   activateActivity: (id) => useWorkbenchStore.getState().activateActivity(id),
   activeActivity: () => useWorkbenchStore.getState().activeActivity,
-  subscribe: (event, handler) => subscribeLegacy(event, handler),
 };
 
 export const useWorkbench = (): WorkbenchApi => api;

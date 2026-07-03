@@ -101,7 +101,6 @@ export const rendererPluginRegistry = {
       workbenchRegistry.registerEditorType({
         id: editorTypeId,
         scheme: editorScheme,
-        singleton: true,
         title: () => page.title,
         icon: () => page.icon,
         render: () =>

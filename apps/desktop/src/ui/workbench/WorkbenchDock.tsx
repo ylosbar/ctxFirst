@@ -96,9 +96,11 @@ const WorkbenchDock = () => {
       [WATERMARK_TAB_COMPONENT]: WatermarkTabRenderer,
     };
     for (const t of workbenchRegistry.editorTypes()) {
+      // `t.tab` is a `FunctionComponent<IDockviewPanelHeaderProps<{uri,typeId}>>`,
+      // assignable to the map's `FunctionComponent<IDockviewPanelHeaderProps>`
+      // by props contravariance — no cast needed (spec workbench audit F-6).
       if (t.tab) {
-        map[workbenchTabComponentForType(t.id)] =
-          t.tab as unknown as TabComponent;
+        map[workbenchTabComponentForType(t.id)] = t.tab;
       }
     }
     return map;

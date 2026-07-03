@@ -18,6 +18,17 @@ workbenchRegistry.registerEditorType({
   icon: () => Variable,
   iconClassName: "text-[var(--chart-3)]",
   render: ({ uri, api }) => createElement(SkillEditor, { uri, api }),
+  // `/skills/<ref>` ↔ `skill://<ref>`. The bare `/skills` path carries no ref,
+  // so it maps to no editor (`matchPath` → null); `toPath` still maps the
+  // empty-ref URI back to `/skills`.
+  matchPath: (path) => {
+    const m = path.match(/^\/skills\/(.+)$/);
+    return m ? `${SKILL_URI_PREFIX}${decodeURIComponent(m[1])}` : null;
+  },
+  toPath: (uri) => {
+    const ref = uri.slice(SKILL_URI_PREFIX.length);
+    return ref ? `/skills/${encodeURIComponent(ref)}` : "/skills";
+  },
   getChatContext: (uri) => {
     // Read the live buffer published by the open SkillEditor. When the editor
     // hasn't mounted yet (URI in dockview but never activated), return null —
