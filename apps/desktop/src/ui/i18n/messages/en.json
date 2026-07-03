@@ -309,6 +309,7 @@
       "specsError": "Unable to load the node catalog:",
       "toolbar": {
         "autoLayout": {
+          "trigger": "Auto layout",
           "vertical": "Stack vertically",
           "horizontal": "Align horizontally",
           "twoColumns": "Stack in two columns"

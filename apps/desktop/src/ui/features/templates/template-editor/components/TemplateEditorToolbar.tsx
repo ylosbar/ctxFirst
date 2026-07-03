@@ -18,6 +18,7 @@ import {
   Hand,
   Maximize2,
   Minimize2,
+  Network,
   NotebookPen,
   Play,
   RefreshCw,
@@ -177,21 +178,68 @@ const TemplateEditorToolbar = ({
         />
       </div>
       <div className="flex items-center gap-0.5 border-l pl-2">
-        <ToolbarButton
-          icon={AlignVerticalSpaceAround}
-          label={t("template.editor.toolbar.autoLayout.vertical")}
-          onClick={() => handleAutoLayout("vertical")}
-        />
-        <ToolbarButton
-          icon={AlignHorizontalSpaceAround}
-          label={t("template.editor.toolbar.autoLayout.horizontal")}
-          onClick={() => handleAutoLayout("horizontal")}
-        />
-        <ToolbarButton
-          icon={Columns2}
-          label={t("template.editor.toolbar.autoLayout.twoColumns")}
-          onClick={() => handleAutoLayout("two-columns")}
-        />
+        <Menu.Root>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Menu.Trigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t(
+                        "template.editor.toolbar.autoLayout.trigger",
+                      )}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Network />
+                    </Button>
+                  }
+                />
+              }
+            />
+            <TooltipContent>
+              {t("template.editor.toolbar.autoLayout.trigger")}
+            </TooltipContent>
+          </Tooltip>
+          <Menu.Portal>
+            <Menu.Positioner align="start" sideOffset={4} className="z-50">
+              <Menu.Popup
+                render={
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    style={{ transformOrigin: "top left" }}
+                  />
+                }
+                className={menuPopupClass}
+              >
+                <Menu.Item
+                  className={cn(menuItemClass)}
+                  onClick={() => handleAutoLayout("vertical")}
+                >
+                  <AlignVerticalSpaceAround className="size-4 text-muted-foreground" />
+                  {t("template.editor.toolbar.autoLayout.vertical")}
+                </Menu.Item>
+                <Menu.Item
+                  className={cn(menuItemClass)}
+                  onClick={() => handleAutoLayout("horizontal")}
+                >
+                  <AlignHorizontalSpaceAround className="size-4 text-muted-foreground" />
+                  {t("template.editor.toolbar.autoLayout.horizontal")}
+                </Menu.Item>
+                <Menu.Item
+                  className={cn(menuItemClass)}
+                  onClick={() => handleAutoLayout("two-columns")}
+                >
+                  <Columns2 className="size-4 text-muted-foreground" />
+                  {t("template.editor.toolbar.autoLayout.twoColumns")}
+                </Menu.Item>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
       </div>
       <div className="ml-2 flex items-center gap-0.5 border-l pl-2">
         <ToolbarButton

@@ -309,6 +309,7 @@
       "specsError": "Impossible de charger le catalogue des nodes :",
       "toolbar": {
         "autoLayout": {
+          "trigger": "Disposition automatique",
           "vertical": "Empiler verticalement",
           "horizontal": "Aligner horizontalement",
           "twoColumns": "Empiler en deux colonnes"
