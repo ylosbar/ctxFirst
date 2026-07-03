@@ -93,6 +93,29 @@ describe("validateTemplate", () => {
   });
 });
 
+describe("validateTemplate — id / version format", () => {
+  it("rejects an id containing the '@' ref separator", () => {
+    const tpl = template({ id: asTemplateId("transcriptor@v1") });
+    expect(() => validateTemplate(tpl)).toThrow(TemplateError);
+    expect(() => validateTemplate(tpl)).toThrow(/id must not contain "@"/);
+  });
+
+  it("rejects a version containing the '@' ref separator", () => {
+    const tpl = template({ version: asTemplateVersion("v1@v1") });
+    expect(() => validateTemplate(tpl)).toThrow(/version must not contain "@"/);
+  });
+
+  it("rejects a blank id", () => {
+    const tpl = template({ id: asTemplateId("  ") });
+    expect(() => validateTemplate(tpl)).toThrow(/id is required/);
+  });
+
+  it("rejects a blank version", () => {
+    const tpl = template({ version: asTemplateVersion("") });
+    expect(() => validateTemplate(tpl)).toThrow(/version is required/);
+  });
+});
+
 describe("findStep", () => {
   it("returns the matching step", () => {
     const tpl = template();

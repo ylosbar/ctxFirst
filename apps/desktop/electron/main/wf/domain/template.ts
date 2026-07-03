@@ -7,6 +7,7 @@
  * the same orchestrator.
  */
 import type { ArtifactKind } from "./artifact";
+import { TEMPLATE_REF_SEPARATOR } from "./ids";
 import type { StepId, TemplateId, TemplateVersion } from "./ids";
 
 /**
@@ -200,7 +201,26 @@ export class TemplatePortError extends TemplateError {}
  *
  * @throws {TemplateError} on any violation.
  */
+/**
+ * A template's `id` and `version` are encoded into a single ref string as
+ * `"<id>@<version>"`. Neither part may be blank or contain the `@` separator —
+ * otherwise the ref stops round-tripping and the template becomes un-openable
+ * and un-deletable through ref-based paths (see {@link parseTemplateRef}).
+ */
+const assertRefSegment = (label: "id" | "version", value: string): void => {
+  if (!value.trim()) {
+    throw new TemplateError(`template ${label} is required`);
+  }
+  if (value.includes(TEMPLATE_REF_SEPARATOR)) {
+    throw new TemplateError(
+      `template ${label} must not contain "${TEMPLATE_REF_SEPARATOR}" (got "${value}")`,
+    );
+  }
+};
+
 export const validateTemplate = (tpl: WorkflowTemplate): void => {
+  assertRefSegment("id", tpl.id);
+  assertRefSegment("version", tpl.version);
   const stepIds = new Set(tpl.steps.map((s) => s.id));
   if (!stepIds.has(tpl.entryStep)) {
     throw new TemplateError(`entryStep ${tpl.entryStep} is not in steps`);

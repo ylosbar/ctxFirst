@@ -7,6 +7,7 @@ import {
   asStepId,
   asTemplateId,
   asTemplateVersion,
+  parseTemplateRef,
   type TemplateId,
   type TemplateVersion,
 } from "../../domain/ids";
@@ -104,12 +105,6 @@ const readParserAsOptionSeed = (
   }
 };
 
-const parseRef = (ref: string): { id: TemplateId; version: TemplateVersion } => {
-  const [idPart, versionPart] = ref.split("@");
-  if (!idPart || !versionPart) throw new Error(`invalid template ref: ${ref}`);
-  return { id: asTemplateId(idPart), version: asTemplateVersion(versionPart) };
-};
-
 export const createSqliteTemplateRegistry = (
   { db, channels }: Deps,
 ): TemplateRegistry => {
@@ -167,7 +162,7 @@ export const createSqliteTemplateRegistry = (
       return rowToTemplate(row, parserAsOptionSeed);
     },
     async resolveRef(ref: string): Promise<WorkflowTemplate> {
-      const { id, version } = parseRef(ref);
+      const { id, version } = parseTemplateRef(ref);
       return this.resolve(id, version);
     },
     async list(): Promise<ReadonlyArray<WorkflowTemplate>> {
