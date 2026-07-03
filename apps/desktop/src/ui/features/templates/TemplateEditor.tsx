@@ -55,6 +55,7 @@ import { useLaunchRun } from "./template-editor/hooks/useLaunchRun";
 import { useTemplateSave } from "./template-editor/hooks/useTemplateSave";
 import { useWorkflowExport } from "./template-editor/hooks/useWorkflowExport";
 import { useDisplayGraph } from "./template-editor/hooks/useDisplayGraph";
+import { useCenterOnActiveStep } from "./template-editor/hooks/useCenterOnActiveStep";
 import { useCanvasHandlers } from "./template-editor/hooks/useCanvasHandlers";
 import TemplateEditorToolbar from "./template-editor/components/TemplateEditorToolbar";
 import TemplateEditorModals from "./template-editor/components/TemplateEditorModals";
@@ -84,6 +85,14 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const rf = useReactFlow();
   const { screenToFlowPosition, setCenter, getZoom } = rf;
   const specs = useNodeSpecs();
+
+  // View-run mode: keep the viewport centered on the active step node as the
+  // run advances (human gate opens, next step starts, loop re-enters).
+  useCenterOnActiveStep({
+    isViewRun,
+    activeStepId: runOverlay?.activeStepId ?? null,
+    rf,
+  });
 
   const editingRef = refFromTemplateUri(uri);
   const fromRef = fromRefFromTemplateUri(uri);

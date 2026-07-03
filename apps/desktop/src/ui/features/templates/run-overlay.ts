@@ -4,7 +4,7 @@ import type {
   StepExecutionView,
   TemplateView,
 } from "../../../domain/workflow/types";
-import { findLatestExecForStep } from "../../components/wf-layout";
+import { findActive, findLatestExecForStep } from "../../components/wf-layout";
 
 export type StepExecutionOverlay = {
   /** Dernière exécution du step (toutes statuts confondus, par priorité). */
@@ -21,6 +21,12 @@ export type RunOverlay = {
   readonly byStepId: ReadonlyMap<string, StepExecutionOverlay>;
   /** Edge (from, to) mise en évidence si transition courante. */
   readonly activeTransition: { from: string; to: string } | null;
+  /**
+   * Step le plus « actif » du run (gate humaine en attente > running > dernier
+   * validé > dernier exec), ou `null`. Le graphe de run recentre le viewport
+   * dessus quand il change (cf. `useCenterOnActiveStep`).
+   */
+  readonly activeStepId: string | null;
   /** Nombre d'exécutions dont le stepId n'existe pas dans le template. */
   readonly orphanExecCount: number;
   readonly onSelectStep: (stepId: string) => void;
@@ -77,11 +83,19 @@ export const buildRunOverlay = (
     if (!templateStepIds.has(exec.stepId)) orphanExecCount += 1;
   }
 
+  // Reuses the same "most relevant execution" ranking that drives the run
+  // panel's auto-selection, so the graph centers on the step the user is
+  // watching. Orphan execs (stepId absent from the template) can't be centered.
+  const active = findActive(instance.executions);
+  const activeStepId =
+    active && templateStepIds.has(active.stepId) ? active.stepId : null;
+
   return {
     instanceId: instance.id,
     instanceStatus: instance.status,
     byStepId,
     activeTransition: findActiveTransition(template, byStepId),
+    activeStepId,
     orphanExecCount,
     onSelectStep,
     selectedStepId,
