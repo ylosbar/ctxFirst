@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import CommandPalette from "../components/command-palette/CommandPalette";
 import ActivityBar from "./ActivityBar";
 import WorkbenchDock from "./WorkbenchDock";
@@ -33,8 +33,21 @@ const WorkbenchLayout = () => {
   );
 };
 
+// Re-read hosts whenever the registry bumps so a FeatureHostContribution
+// registered after the Workbench mounted (e.g. an async-booted plugin) gets its
+// Provider/Overlay mounted without a reload (spec workbench audit M-3) — same
+// pattern ActivityBar / WorkbenchDock already use for their contributions.
+const useFeatureHosts = () => {
+  useSyncExternalStore(
+    workbenchRegistry.subscribe,
+    workbenchRegistry.getVersion,
+    () => 0,
+  );
+  return workbenchRegistry.hosts();
+};
+
 const FeatureHostProviders = ({ children }: { children: ReactNode }) => {
-  const hosts = useMemo(() => workbenchRegistry.hosts(), []);
+  const hosts = useFeatureHosts();
   return hosts.reduceRight<ReactNode>(
     (acc, host) =>
       host.Provider ? <host.Provider>{acc}</host.Provider> : acc,
@@ -43,7 +56,7 @@ const FeatureHostProviders = ({ children }: { children: ReactNode }) => {
 };
 
 const FeatureOverlays = () => {
-  const hosts = useMemo(() => workbenchRegistry.hosts(), []);
+  const hosts = useFeatureHosts();
   return (
     <>
       {hosts.map((host) =>

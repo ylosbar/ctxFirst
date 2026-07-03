@@ -74,9 +74,13 @@ const directionForLocation = (
   }
 };
 
-// First view panel in the dock whose contribution declares the same
-// `defaultLocation` — used as the anchor so subsequent views stack as tabs
-// in the same group instead of spawning side-by-side groups (spec §2.1).
+// First view panel in the dock whose group currently sits at `location` —
+// used as the anchor so subsequent views stack as tabs in the same group
+// instead of spawning side-by-side groups (spec §2.1). Classified by the
+// panel's REAL geometry, not the contribution's `defaultLocation` (spec
+// workbench audit H-2): once a user drags a view to another border its anchor
+// role must follow where it actually sits, otherwise a new view would stack
+// into the group's original side.
 const findAnchorViewPanel = (
   dv: DockviewApi,
   location: DockLocation,
@@ -85,7 +89,12 @@ const findAnchorViewPanel = (
     const viewId = viewIdFromPanelId(panel.id);
     if (!viewId) continue;
     const view = workbenchRegistry.getView(viewId);
-    if (view && getViewLocation(view) === location) return panel;
+    if (
+      view &&
+      resolveDockLocation(panel, getViewLocation(view)) === location
+    ) {
+      return panel;
+    }
   }
   return null;
 };
@@ -108,6 +117,10 @@ export const resolveDockLocation = (
   const root = panel.group.element.closest(".dv-dockview");
   if (!root) return fallback;
   const dock = root.getBoundingClientRect();
+  // Avant le premier layout, les rects peuvent être nuls : classer à ce moment
+  // placerait mal les ancres de côté au boot (spec workbench audit H-2). On
+  // retombe sur `defaultLocation` tant que le dock n'a pas de géométrie réelle.
+  if (dock.width === 0 || dock.height === 0) return fallback;
   const g = panel.group.element.getBoundingClientRect();
   const EPS = 4;
   if (g.bottom >= dock.bottom - EPS && g.top > dock.top + EPS) return "bottom";
@@ -345,6 +358,11 @@ export const maybeRecordSidebarDrag = (
     const anchor = findAnchorViewPanel(dv, SIDE_TO_LOCATION[side]);
     if (!anchor) continue;
     if (isProgrammaticResize || dockResized || structureChanged) {
+      // On a window resize the right-side max bound (a share of the dock width,
+      // frozen at add time) is stale — recompute it before re-pinning so a
+      // shrunk window can't leave the sidebar wider than its ceiling (spec
+      // workbench audit M-4).
+      if (dockResized) ensureSidebarConstraints(dv, side);
       pinSidebarWidth(dv, side);
       continue;
     }

@@ -5,13 +5,21 @@ import OverviewEditor from "./OverviewEditor";
 
 const OVERVIEW_URI = "overview://";
 
+const OVERVIEW_PATH = "/overview";
+
 workbenchRegistry.registerActivity({
   id: "overview",
   title: "Overview",
   icon: LayoutGrid,
   defaultEditor: OVERVIEW_URI,
   order: 15,
-  route: "/overview",
+  route: OVERVIEW_PATH,
+  // Overview also owns the app root (`/` and empty path).
+  matchPath: (path) =>
+    path === "/" ||
+    path === "" ||
+    path === OVERVIEW_PATH ||
+    path.startsWith(`${OVERVIEW_PATH}/`),
 });
 
 workbenchRegistry.registerEditorType({
@@ -19,6 +27,8 @@ workbenchRegistry.registerEditorType({
   scheme: "overview",
   title: () => "Overview",
   icon: () => LayoutGrid,
-  singleton: true,
   render: () => createElement(OverviewEditor),
+  matchPath: (path) =>
+    path === "/" || path === "" || path === OVERVIEW_PATH ? OVERVIEW_URI : null,
+  toPath: () => OVERVIEW_PATH,
 });

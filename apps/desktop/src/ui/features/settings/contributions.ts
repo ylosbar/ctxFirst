@@ -4,6 +4,7 @@ import { workbenchRegistry } from "../../workbench/registry";
 import SettingsEditor from "./SettingsEditor";
 
 const SETTINGS_URI = "settings://";
+const SETTINGS_PATH = "/settings";
 
 workbenchRegistry.registerActivity({
   id: "settings",
@@ -12,7 +13,7 @@ workbenchRegistry.registerActivity({
   defaultEditor: SETTINGS_URI,
   order: 1000,
   placement: "bottom",
-  route: "/settings",
+  route: SETTINGS_PATH,
 });
 
 workbenchRegistry.registerEditorType({
@@ -20,6 +21,15 @@ workbenchRegistry.registerEditorType({
   scheme: "settings",
   title: () => "Paramètres",
   icon: () => Settings,
-  singleton: true,
   render: () => createElement(SettingsEditor),
+  // The settings editor is a singleton whose URI carries no category — the
+  // category lives only in the URL sub-path (`/settings/<category>`), which the
+  // editor owns. `matchPath` claims the bare path and every sub-path; `toPath`
+  // maps back to the bare path (WorkbenchRouterSync preserves a deeper current
+  // URL rather than downgrading it).
+  matchPath: (path) =>
+    path === SETTINGS_PATH || path.startsWith(`${SETTINGS_PATH}/`)
+      ? SETTINGS_URI
+      : null,
+  toPath: () => SETTINGS_PATH,
 });

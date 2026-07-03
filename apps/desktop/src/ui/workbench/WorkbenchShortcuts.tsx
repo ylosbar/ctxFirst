@@ -7,12 +7,13 @@ import type { ViewId } from "./types";
 
 // Global keybindings owned by the Workbench shell. Modeled after VSCode:
 //   ⌘W / Ctrl+W      → close the active editor (any type)
-//   ⌘B / Ctrl+B      → toggle primary sidebar
-//   ⌘⌥B / Ctrl+Alt+B → toggle secondary sidebar
 //   ⌘J / Ctrl+J      → toggle the global chat panel (right)
 //   ⌘` / Ctrl+`      → toggle the terminal panel (bottom)
 // Shift is reserved for future bindings (e.g. focus); we explicitly bail when
-// it's pressed so we don't fire on ⇧⌘B combinations.
+// it's pressed so we don't fire on ⇧⌘-combinations.
+// Note: ⌘B / ⌘⌥B (sidebar collapse) were removed with the lying toggle API
+// (spec workbench audit C-2) — the visual collapse was never wired after the
+// slot-hosts were dismantled, so the shortcut did nothing.
 
 // Toggle helper for dock-hosted views. If the view is currently the active
 // panel of its group, `hideView` it. Otherwise `showView` reveals/focuses it.
@@ -49,12 +50,6 @@ const WorkbenchShortcuts = () => {
         return;
       }
       if (isEditableTarget(event.target)) return;
-      if (key === "b") {
-        event.preventDefault();
-        if (event.altKey) wb.toggleSecondarySidebar();
-        else wb.togglePrimarySidebar();
-        return;
-      }
       if (event.key === "`" && !event.altKey) {
         event.preventDefault();
         toggleDockView("terminal.devlog");

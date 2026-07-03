@@ -84,7 +84,15 @@ const pickPrimaryView = (
       !state.hiddenViews.has(persistedId) &&
       viewAvailability.isAvailable(persistedId) &&
       getViewLocation(persistedView) === "left" &&
-      (!persistedView.whenEditor || persistedView.whenEditor(ctx.editor)) &&
+      // Symmetric to the write-side guard `isPrimaryPersistablePerType`, which
+      // only records a per-type view when `whenEditor(editor)` holds for a
+      // non-null editor (spec workbench audit M-5). Without the `ctx.editor
+      // !== null` clause here, a stale per-type entry whose `whenEditor`
+      // happens to return true for `null` (e.g. an editor-transition tick)
+      // would be honoured with no editor — instead we fall through to the
+      // editor-default / global cases below.
+      (!persistedView.whenEditor ||
+        (ctx.editor !== null && persistedView.whenEditor(ctx.editor))) &&
       (!persistedView.activity || persistedView.activity === ctx.activity)
     ) {
       return { viewId: persistedId, persist: false };
@@ -187,12 +195,8 @@ export const useDockReconciler = (): void => {
     // Sort by priority ascending (default 100) so addPanel order in the
     // effect below produces a deterministic tab order within each anchor
     // group (spec §2.1, §2.3). Tie-break on id for stability across renders.
-    return [...eligible].sort((a, b) => {
-      const pa = a.priority ?? 100;
-      const pb = b.priority ?? 100;
-      if (pa !== pb) return pa - pb;
-      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-    });
+    // Reuses the single `byPriority` comparator (spec workbench audit F-2).
+    return [...eligible].sort(byPriority);
     // `availabilityVersion` and `registryVersion` participate via the external
     // stores — listed so this memo refreshes on bump.
     // eslint-disable-next-line react-hooks/exhaustive-deps

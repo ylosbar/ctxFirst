@@ -9,7 +9,7 @@ import ReviewEditor from "./ReviewEditor";
 import RunTabRenderer from "./RunTabRenderer";
 import RunsOverlay from "./RunsOverlay";
 import RunsView from "./RunsView";
-import { instanceIdFromRunUri } from "./run-uri";
+import { instanceIdFromRunUri, RUN_URI_PREFIX } from "./run-uri";
 import { parseReviewUri } from "./review-uri";
 
 // Spec runs-dedicated-activity.md §1 : sortir les runs de l'Explorer et leur
@@ -45,6 +45,18 @@ workbenchRegistry.registerEditorType({
   },
   render: ({ uri }) => createElement(RunWorkspace, { uri }),
   tab: RunTabRenderer,
+  // `/runs/<id>` ↔ `run://<id>`. `/runs/new` is the modal create route (owned
+  // by RunsOverlay) — it maps to no editor, so `matchPath` returns null for it.
+  // `toPath` strips the optional `?step=` slot (the URL form doesn't carry it).
+  matchPath: (path) => {
+    const m = path.match(/^\/runs\/([^/]+)$/);
+    if (!m || m[1] === "new") return null;
+    return `${RUN_URI_PREFIX}${decodeURIComponent(m[1])}`;
+  },
+  toPath: (uri) => {
+    const id = instanceIdFromRunUri(uri);
+    return id ? `/runs/${encodeURIComponent(id)}` : null;
+  },
   getChatContext: (uri) => {
     const handle = useRunPanelStore.getState().handles.get(uri);
     if (!handle) return null;

@@ -11,15 +11,10 @@ const PREFS_KEY = "ctxfirst:workbench:v1";
 export type WorkbenchPrefs = {
   activeActivity: ActivityId | null;
   primarySidebar: {
-    collapsed: boolean;
     expandedSizePx: number | null;
   };
   secondarySidebar: {
-    collapsed: boolean;
     expandedSizePx: number | null;
-  };
-  bottomDock: {
-    collapsed: boolean;
   };
   // Snapshot dockview unifié (éditeurs + vues). Spec workbench-unified-dockview.md
   // §6 — remplace l'ancien tuple {dockview, dockviewActivity, workbenchGrid,
@@ -43,6 +38,12 @@ export type WorkbenchPrefs = {
     ViewId,
     { location: DockLocation; floating: boolean }
   >;
+  // Vues explicitement masquées par l'utilisateur (X d'onglet, palette…).
+  // Persisté pour qu'un hide survive au reload : sans ça, une vue à
+  // `autoShow: true` encore éligible est ré-ajoutée par le reconciler additif
+  // au boot suivant (spec workbench audit H-1). Fusionné au load avec les
+  // seules vues encore enregistrées via `prunePrefs`.
+  hiddenViews: ReadonlyArray<ViewId>;
   templateEditor: {
     gridSnap: {
       enabled: boolean;
@@ -84,21 +85,17 @@ export const clampInspectorWidth = (n: unknown): number => {
 export const DEFAULT_PREFS: WorkbenchPrefs = {
   activeActivity: null,
   primarySidebar: {
-    collapsed: false,
     expandedSizePx: null,
   },
   secondarySidebar: {
-    collapsed: false,
     expandedSizePx: null,
-  },
-  bottomDock: {
-    collapsed: true,
   },
   dockLayout: null,
   openEditors: [],
   lastActiveLeftView: null,
   activeViewByEditorType: {},
   viewLocations: {},
+  hiddenViews: [],
   templateEditor: {
     gridSnap: { enabled: false, size: GRID_SNAP_DEFAULT_SIZE },
     inspectorWidthPx: INSPECTOR_WIDTH_DEFAULT_PX,
@@ -120,11 +117,6 @@ export const loadPrefs = (): WorkbenchPrefs => {
     const raw = localStorage.getItem(PREFS_KEY);
     if (!raw) return DEFAULT_PREFS;
     const parsed = JSON.parse(raw) as Partial<WorkbenchPrefs> & LegacyShape;
-    // Accept the legacy `panel` key from older snapshots so collapsed state
-    // survives the rename to `bottomDock`. Once a new snapshot is written
-    // the old key isn't rewritten and decays naturally.
-    const legacyPanel =
-      (parsed as { panel?: Partial<WorkbenchPrefs["bottomDock"]> }).panel ?? {};
     return {
       ...DEFAULT_PREFS,
       ...parsed,
@@ -136,15 +128,13 @@ export const loadPrefs = (): WorkbenchPrefs => {
         ...DEFAULT_PREFS.secondarySidebar,
         ...(parsed.secondarySidebar ?? {}),
       },
-      bottomDock: {
-        ...DEFAULT_PREFS.bottomDock,
-        ...legacyPanel,
-        ...(parsed.bottomDock ?? {}),
-      },
       lastActiveLeftView: parsed.lastActiveLeftView ?? null,
       activeViewByEditorType:
         parsed.activeViewByEditorType ?? DEFAULT_PREFS.activeViewByEditorType,
       viewLocations: parsed.viewLocations ?? DEFAULT_PREFS.viewLocations,
+      hiddenViews: Array.isArray(parsed.hiddenViews)
+        ? parsed.hiddenViews
+        : DEFAULT_PREFS.hiddenViews,
       templateEditor: {
         gridSnap: {
           enabled: Boolean(parsed.templateEditor?.gridSnap?.enabled),
@@ -239,6 +229,17 @@ export const prunePrefs = (
     return null;
   })();
 
+  // Drop persisted hides pointing at views that no longer have a contribution
+  // (spec workbench audit H-1) — otherwise a renamed/removed view would stay
+  // permanently "hidden" and its id would leak forever.
+  const nextHiddenViews = (() => {
+    const cur = prefs.hiddenViews;
+    const next = cur.filter((id) => known.views.has(id));
+    if (next.length === cur.length) return cur;
+    changed = true;
+    return next;
+  })();
+
   if (!changed) return prefs;
   return {
     ...prefs,
@@ -246,5 +247,6 @@ export const prunePrefs = (
     lastActiveLeftView: nextLastActiveLeftView,
     activeViewByEditorType: pruneActiveViewByEditorType,
     viewLocations: pruneViewLocations,
+    hiddenViews: nextHiddenViews,
   };
 };

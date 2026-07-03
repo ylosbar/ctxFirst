@@ -8,7 +8,12 @@ import TemplateEditor from "./TemplateEditor";
 import {
   NEW_TEMPLATE_URI,
   refFromTemplateUri,
+  TEMPLATE_URI_PREFIX,
+  TEMPLATES_LIST_URI,
 } from "./template-uri";
+
+const TEMPLATES_PATH = "/templates";
+const NEW_TEMPLATE_PATH = "/templates/new";
 
 workbenchRegistry.registerEditorType({
   id: "templates.list",
@@ -16,8 +21,9 @@ workbenchRegistry.registerEditorType({
   title: () => "Templates",
   icon: () => Network,
   iconClassName: "text-[var(--chart-4)]",
-  singleton: true,
   render: ({ api }) => createElement(TemplatesListEditor, { api }),
+  matchPath: (path) => (path === TEMPLATES_PATH ? TEMPLATES_LIST_URI : null),
+  toPath: () => TEMPLATES_PATH,
 });
 
 workbenchRegistry.registerEditorType({
@@ -33,6 +39,21 @@ workbenchRegistry.registerEditorType({
   icon: () => Network,
   iconClassName: "text-[var(--chart-4)]",
   render: ({ uri, api }) => createElement(TemplateEditor, { uri, api }),
+  // `/templates/new` (preserving `?from=` for duplications) ↔ `template://new`,
+  // and `/templates/<ref>/edit` ↔ `template://<ref>`.
+  matchPath: (path, search) => {
+    if (path === NEW_TEMPLATE_PATH) return `${NEW_TEMPLATE_URI}${search ?? ""}`;
+    const m = path.match(/^\/templates\/([^/]+)\/edit$/);
+    if (m) return `${TEMPLATE_URI_PREFIX}${decodeURIComponent(m[1])}`;
+    return null;
+  },
+  toPath: (uri) => {
+    const ref = refFromTemplateUri(uri);
+    // `refFromTemplateUri` returns null for the `new` variants — those map to
+    // the create path.
+    if (!ref) return NEW_TEMPLATE_PATH;
+    return `${TEMPLATES_PATH}/${encodeURIComponent(ref)}/edit`;
+  },
   getChatContext: (uri) => {
     // Read the in-memory canvas handle published by the open template editor.
     // When the editor hasn't mounted yet (URI in dockview but never activated)

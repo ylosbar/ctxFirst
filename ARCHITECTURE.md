@@ -390,7 +390,7 @@ UI façon VSCode, construite sur dockview-react. (Remplace l'ancien modèle « A
 - Registry — [workbench/registry.ts](apps/desktop/src/ui/workbench/registry.ts) : registre de contributions avec pub/sub. Quatre types : ActivityContribution (barre d'activité, ordre, route éventuelle, mode launcher), ViewContribution (vue de sidebar left/right/bottom, éligibilité whenEditor/activity, lifecycle persistant ou contextuel), EditorTypeContribution (type d'éditeur par scheme d'URI, rendu d'onglet, getChatContext), FeatureHostContribution (Providers/Overlays scoping une feature).
 - Store — [workbench/store.ts](apps/desktop/src/ui/workbench/store.ts) : zustand (editors, activeEditor, activeActivity, handle dockviewApi). Prefs persistées en localStorage sous la clé ctxfirst:workbench:v1 ([workbench/prefs.ts](apps/desktop/src/ui/workbench/prefs.ts)).
 - Reconciler — [workbench/dock-reconciler.ts](apps/desktop/src/ui/workbench/dock-reconciler.ts) : moteur de cycle de vie des vues (sélection de la vue primaire, auto-show/hide selon autoShow + lifecycle).
-- Sync routeur — [workbench/WorkbenchRouterSync.tsx](apps/desktop/src/ui/workbench/WorkbenchRouterSync.tsx) : mapping bidirectionnel URL HashRouter ↔ éditeur ouvert. ⚠️ Toute activité routée doit être déclarée en dur ici (uriFromUrl/urlFromUri), sinon cliquer son icône ne fait rien.
+- Sync routeur — [workbench/WorkbenchRouterSync.tsx](apps/desktop/src/ui/workbench/WorkbenchRouterSync.tsx) : mapping bidirectionnel URL HashRouter ↔ activité/éditeur, piloté par le registry. Chaque contribution porte son propre mapping (ActivityContribution.route/matchPath, EditorTypeContribution.matchPath/toPath) ; WorkbenchRouterSync itère le registry (activityForPath/uriForPath/pathForUri) et ne contient plus de table de schemes en dur — une activité/éditeur routé se déclare sans patcher ce fichier.
 - Shell : [Workbench.tsx](apps/desktop/src/ui/workbench/Workbench.tsx), [WorkbenchDock.tsx](apps/desktop/src/ui/workbench/WorkbenchDock.tsx) (le <DockviewReact>), [ActivityBar.tsx](apps/desktop/src/ui/workbench/ActivityBar.tsx). ActivityBar et WorkbenchDock lisent le registre via useSyncExternalStore pour capter les enregistrements tardifs (plugins).
 
 ---
@@ -508,8 +508,8 @@ Liste testable d'invariants structurels. Une PR qui en viole un, sans justificat
 
 ### Frontend / workbench
 
-17. **Toute activité routée est déclarée dans WorkbenchRouterSync** `[fe-routed-activity-declared]` — _blocker_, scopes: archi.frontend
-   Une ActivityContribution avec route: doit avoir son mapping uriFromUrl/urlFromUri dans [WorkbenchRouterSync.tsx](apps/desktop/src/ui/workbench/WorkbenchRouterSync.tsx), sinon cliquer son icône ne fait rien.
+17. **Le routage URL↔workbench est déclaré dans les contributions, pas dans WorkbenchRouterSync** `[fe-routed-activity-declared]` — _warning_, scopes: archi.frontend
+   Le mapping URL↔uri est porté par les contributions : une ActivityContribution avec route: (+ matchPath? optionnel) et un EditorTypeContribution avec matchPath?/toPath?. WorkbenchRouterSync itère le registry et ne contient plus de table de schemes en dur. Une activité/éditeur routé n'a rien à ajouter dans WorkbenchRouterSync.
 
 18. **Une feature s'enregistre via son contributions.ts** `[fe-feature-via-contributions]` — _blocker_, scopes: archi.frontend
    Activités/vues/éditeurs sont enregistrés dans le workbenchRegistry via contributions.ts, importé en side-effect par register-contributions. Brancher une feature en dur dans le shell, hors registre, dérive.
