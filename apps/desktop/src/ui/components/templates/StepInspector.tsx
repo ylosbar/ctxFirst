@@ -16,6 +16,8 @@ import WorkspaceSetConfig from "./step-inspector/config/WorkspaceSetConfig";
 import FileLoadConfig from "./step-inspector/config/FileLoadConfig";
 import FilesLoadConfig from "./step-inspector/config/FilesLoadConfig";
 import FileLoadMarkdownConfig from "./step-inspector/config/FileLoadMarkdownConfig";
+import AgentInvokeConfig from "./step-inspector/config/AgentInvokeConfig";
+import AgentJudgeConfig from "./step-inspector/config/AgentJudgeConfig";
 import ClaudeCodeInvokeConfig from "./step-inspector/config/ClaudeCodeInvokeConfig";
 import CodexInvokeConfig from "./step-inspector/config/CodexInvokeConfig";
 import OpenrouterInvokeConfig from "./step-inspector/config/OpenrouterInvokeConfig";
@@ -52,6 +54,8 @@ import StepHeader from "./step-inspector/components/StepHeader";
 // import { ACTOR_ROLES } from "./step-inspector/parts/inspector-constants"; // masqué avec le champ Acteur
 
 const KINDS_WITH_CONFIG: ReadonlySet<string> = new Set([
+  "agent.invoke",
+  "agent.judge",
   "claude_code.invoke",
   "codex.invoke",
   "openrouter.invoke",
@@ -187,6 +191,16 @@ const StepInspector = ({
           />
         ) : null}
 
+        {step.kind === "agent.invoke" ? (
+          <AgentInvokeConfig config={config} setConfig={setConfig} />
+        ) : null}
+
+        {step.kind === "agent.judge" ? (
+          <AgentJudgeConfig config={config} setConfig={setConfig} />
+        ) : null}
+
+        {/* Legacy fallbacks: the DB is migrated to agent.* (v32), but a
+            pre-migration export imported as-is still needs its editor. */}
         {step.kind === "claude_code.invoke" ? (
           <ClaudeCodeInvokeConfig config={config} setConfig={setConfig} />
         ) : null}

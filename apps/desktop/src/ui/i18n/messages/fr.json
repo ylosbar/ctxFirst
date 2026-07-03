@@ -392,6 +392,19 @@
       "codex": {
         "model": "Modèle"
       },
+      "agent": {
+        "provider": {
+          "label": "Fournisseur",
+          "description": "Backend d'agent de code qui exécute ce nœud. En changer réinitialise le modèle au défaut de ce backend."
+        },
+        "model": "Modèle",
+        "maxAttempts": "Tentatives max",
+        "judgePrompt": {
+          "label": "Critères (fallback)",
+          "description": "Critères d'acceptation utilisés comme system prompt du juge quand aucun input `criteria` n'est câblé."
+        },
+        "judgeSystemPromptNote": "Les critères sont injectés dans le contexte ; la persona système n'est garantie qu'avec Claude Code."
+      },
       "openrouter": {
         "model": {
           "label": "Modèle OpenRouter",

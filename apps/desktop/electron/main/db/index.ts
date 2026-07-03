@@ -40,7 +40,8 @@ const runMigrations = (db: Database.Database) => {
 
   const apply = db.transaction((ms: typeof migrations) => {
     for (const m of ms) {
-      db.exec(m.sql);
+      if (m.sql) db.exec(m.sql);
+      if (m.run) m.run(db);
       db.pragma(`user_version = ${m.version}`);
     }
   });

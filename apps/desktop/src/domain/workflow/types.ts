@@ -227,6 +227,8 @@ export type {
 
 export type StepKindId =
   | "user.input"
+  | "agent.invoke"
+  | "agent.judge"
   | "claude_code.invoke"
   | "codex.invoke"
   | "human.gate"

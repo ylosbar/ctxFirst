@@ -35,6 +35,7 @@ export type ParserAsOptionSeedEntry = {
  * out of scope (the plugin author is expected to register a fresh runner).
  */
 const LLM_CONSUMER_KINDS: ReadonlySet<string> = new Set([
+  "agent.invoke",
   "claude_code.invoke",
   "openrouter.invoke",
 ]);
@@ -66,6 +67,7 @@ const MULTI_OUTPUT_PRODUCERS: ReadonlySet<string> = new Set([
 
 const POLYMORPHIC_OUTPUT_PRODUCERS: ReadonlySet<string> = new Set([
   "user.input",
+  "agent.invoke",
   "claude_code.invoke",
   "openrouter.invoke",
   "transform.run",

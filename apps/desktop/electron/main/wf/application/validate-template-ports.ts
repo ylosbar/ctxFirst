@@ -317,6 +317,7 @@ export const validateTemplatePorts = (
 const AUTO_LOOP_WHITELIST: ReadonlyArray<string> = [
   "llm.judge",
   "format.validate",
+  "agent.judge",
   "claude_code.judge",
 ];
 

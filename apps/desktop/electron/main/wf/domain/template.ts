@@ -13,9 +13,14 @@ import type { StepId, TemplateId, TemplateVersion } from "./ids";
 /**
  * Identifier of a step runner plugged into the engine via
  * {@link StepRunnerRegistry.register}. Built-in kinds are `user.input`,
- * `claude_code.invoke` and `human.gate`; new kinds are pluggable.
+ * `agent.invoke` and `human.gate`; new kinds are pluggable.
  */
-export type StepKindId = "user.input" | "claude_code.invoke" | "human.gate" | string;
+export type StepKindId =
+  | "user.input"
+  | "agent.invoke"
+  | "agent.judge"
+  | "human.gate"
+  | string;
 
 /** Logical role expected to act on a step (used by `human.gate` for RBAC in v2). */
 export type ActorRole = "PO" | "Developer" | "LLMAgent";

@@ -1,6 +1,16 @@
+import type Database from "better-sqlite3";
+
 export type Migration = {
   version: number;
-  sql: string;
+  /** Declarative SQL run first (optional — a migration may be pure `run`). */
+  sql?: string;
+  /**
+   * Imperative transform executed right after `sql`, inside the same migration
+   * transaction. Needed when the change cannot be expressed as a token
+   * `REPLACE` — e.g. parsing a JSON blob column to insert a nested field
+   * (cf. v32, which injects `config.provider` into legacy agent nodes).
+   */
+  run?: (db: Database.Database) => void;
 };
 
 export const migrations: Migration[] = [
@@ -741,5 +751,57 @@ export const migrations: Migration[] = [
     sql: `
       ALTER TABLE wf_artifact_schemas ADD COLUMN coerce_from_json TEXT;
     `,
+  },
+  {
+    version: 32,
+    // Backend-agnostic agent nodes (cf. `specs/agent-backend-agnostic-nodes.md`).
+    // Rewrites persisted authoring templates so no `steps` blob leaks the LLM
+    // backend in its `kind`:
+    //   claude_code.invoke → agent.invoke + config.provider "claude-code"
+    //   codex.invoke       → agent.invoke + config.provider "codex"
+    //   claude_code.judge  → agent.judge  + config.provider "claude-code"
+    //
+    // Unlike the v11 / v17 / v23 renames this cannot be a token `REPLACE`: in a
+    // serialised step, `kind` is not adjacent to `config`, so a REPLACE cannot
+    // *insert* `provider`. We parse the `steps` JSON, rewrite the affected
+    // steps and re-serialise (imperative `run` hook, framework extension above).
+    //
+    // Scope is `wf_templates.steps` only. The event journal
+    // (`wf_events.payload_json`) is immutable by principle and stays untouched —
+    // replay/introspection of historical runs goes through the legacy runner
+    // shims still registered in the composition root. `updated_at` is left
+    // unchanged so a schema migration never reorders the "recently edited" list.
+    run: (db) => {
+      const MAP: Record<string, { kind: string; provider: string }> = {
+        "claude_code.invoke": { kind: "agent.invoke", provider: "claude-code" },
+        "codex.invoke": { kind: "agent.invoke", provider: "codex" },
+        "claude_code.judge": { kind: "agent.judge", provider: "claude-code" },
+      };
+      const rows = db
+        .prepare(
+          `SELECT rowid AS rowid, steps FROM wf_templates
+            WHERE steps LIKE '%"kind":"claude_code.invoke"%'
+               OR steps LIKE '%"kind":"codex.invoke"%'
+               OR steps LIKE '%"kind":"claude_code.judge"%'`,
+        )
+        .all() as Array<{ rowid: number; steps: string }>;
+      const upd = db.prepare(`UPDATE wf_templates SET steps = ? WHERE rowid = ?`);
+      for (const { rowid, steps } of rows) {
+        const parsed = JSON.parse(steps) as Array<Record<string, unknown>>;
+        for (const step of parsed) {
+          const m = MAP[step["kind"] as string];
+          if (!m) continue;
+          step["kind"] = m.kind;
+          // `{ provider, ...config }` injects the provider without clobbering an
+          // existing field (no legacy node has `provider`; the spread order
+          // keeps a hand-set value winning if one ever appears).
+          step["config"] = {
+            provider: m.provider,
+            ...(step["config"] ?? {}),
+          };
+        }
+        upd.run(JSON.stringify(parsed), rowid);
+      }
+    },
   },
 ];

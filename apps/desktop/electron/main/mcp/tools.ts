@@ -283,9 +283,11 @@ const NODE_SPEC_TOOLS: ReadonlyArray<ToolDescriptor> = [
       "et ports de sortie (name, kind produit). À utiliser AVANT de créer ou " +
       "modifier un workflow via `ctxfirst_save_template`, pour choisir les bons " +
       "`kind` et câbler les transitions correctement. " +
-      "⚠ Les runners polymorphiques (ex. `user.input`, `claude_code.invoke`, " +
+      "⚠ Les runners polymorphiques (ex. `user.input`, `agent.invoke`, " +
       "`openrouter.invoke`) lisent leur kind de sortie depuis `step.config.outputKind` ; " +
-      "le `kind` retourné ici est un fallback du picker.",
+      "le `kind` retourné ici est un fallback du picker. Les nodes `agent.invoke` / " +
+      "`agent.judge` choisissent leur backend LLM via `step.config.provider` " +
+      "(`claude-code` | `codex`).",
     group: "template",
     inputSchema: {},
     handler: async (engine) => {
@@ -329,7 +331,7 @@ const SKILL_TOOLS: ReadonlyArray<ToolDescriptor> = [
     title: "Liste les skills (system prompts)",
     description:
       "Retourne un résumé de toutes les skills enregistrées (prompts " +
-      "système utilisés par les steps `claude_code.invoke` et " +
+      "système utilisés par les steps `agent.invoke` et " +
       "`openrouter.invoke`). Chaque entrée fournit le `ref` canonique " +
       "(`name@version`), la meta et un aperçu du body — utiliser " +
       "`ctxfirst_get_skill` pour obtenir le body complet.",

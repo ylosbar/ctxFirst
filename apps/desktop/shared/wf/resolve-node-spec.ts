@@ -160,6 +160,7 @@ export const resolveNodeSpec = (
         outputs: [{ name: baseOut?.name ?? "out", kind: outputKind }],
       };
     }
+    case "agent.invoke":
     case "claude_code.invoke":
     case "codex.invoke": {
       const outputKind = readStr(config.outputKind);

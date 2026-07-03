@@ -127,6 +127,11 @@ import { createBranchMatchRunner } from "./plugins/branch-match";
 import { createSelectMarkdownRunner } from "./plugins/select-markdown";
 import { createClaudeCodeInvokeRunner } from "./plugins/claude-code-invoke";
 import { createCodexInvokeRunner } from "./plugins/codex-invoke";
+import {
+  createAgentInvokeRunner,
+  type AgentBackends,
+} from "./plugins/agent-invoke";
+import { createAgentJudgeRunner } from "./plugins/agent-judge";
 import { createLlmJudgeRunner } from "./plugins/llm-judge";
 import { createClaudeCodeJudgeRunner } from "./plugins/claude-code-judge";
 import { createFormatValidateRunner } from "./plugins/format-validate";
@@ -443,6 +448,15 @@ export const buildWfEngine = async ({
   // Codex : adapter `codex exec` CLI, même contrat que Claude. Injectable en
   // test via le param `codex` du builder.
   const codexGateway = codex ?? createCodexCliLLMGateway();
+  // Map provider → gateway consommé par les nodes agnostiques `agent.invoke` /
+  // `agent.judge`. Chaque backend implémente le même contrat `LLMGateway` ; le
+  // node choisit lequel appeler via `config.provider` (cf.
+  // `shared/wf/agent-backends.ts`). Ajouter un futur backend = un adapter +
+  // une entrée ici + une entrée dans le registry, zéro nouveau node.
+  const agentBackends: AgentBackends = {
+    "claude-code": llmGateway,
+    codex: codexGateway,
+  };
   // Linear : adapter HTTP/GraphQL. La clé est résolue à chaque appel via
   // le callback (settings store côté bootstrap), avec fallback sur
   // LINEAR_API_KEY. L'absence de clé n'empêche pas le boot — seul le step
@@ -498,6 +512,15 @@ export const buildWfEngine = async ({
   runners.register(createTemplateInvokeRunner({ getChild: getChildTemplate }));
   runners.register(createUserInputRunner());
   runners.register(createHumanGateRunner());
+  // Nodes agnostiques du backend (`agent.invoke` / `agent.judge`) : c'est la
+  // palette exposée à l'authoring.
+  runners.register(createAgentInvokeRunner({ backends: agentBackends }));
+  runners.register(createAgentJudgeRunner({ backends: agentBackends }));
+  // Legacy : shim de replay uniquement. Les templates d'authoring sont migrés
+  // vers `agent.*` (migration DB v32) ; ces runners ne servent plus qu'au
+  // journal d'events immuable (replay/introspection des runs historiques) et à
+  // l'import d'un export antérieur à la migration. Retirés de la palette
+  // (`step-kinds.ts`). NE PAS supprimer.
   runners.register(createClaudeCodeInvokeRunner());
   runners.register(createCodexInvokeRunner({ codex: codexGateway }));
   runners.register(createLlmJudgeRunner());
