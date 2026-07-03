@@ -8,6 +8,7 @@ import {
   ShieldAlert,
   Trash2,
   Variable,
+  Workflow,
 } from "lucide-react";
 import { extractPlaceholders } from "@shared/wf/placeholders";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,10 @@ import { useServices } from "../../di/services-provider";
 import type { SkillDraft, SkillView } from "../../../domain/workflow/types";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
 import { useRegisterSkillEditor } from "../../stores/skill-editor-store";
+import { templateUriFor } from "../templates/template-uri";
 import { notifySkillCreated } from "./events";
+import SkillConsumersModal from "./SkillConsumersModal";
+import useSkillConsumers from "./useSkillConsumers";
 import SkillSourceEditor from "./SkillSourceEditor";
 import {
   EMPTY_TEMPLATE,
@@ -101,6 +105,7 @@ const SkillEditor = ({ uri, api }: Props) => {
   const queryClient = useQueryClient();
   const isNew = uri === NEW_SKILL_URI;
   const originalRef = isNew ? null : uri.slice(SKILL_URI_PREFIX.length);
+  const { consumers } = useSkillConsumers(originalRef);
 
   const [state, setState] = useState<EditorState>(emptyState);
   const [savedState, setSavedState] = useState<EditorState>(emptyState);
@@ -108,6 +113,7 @@ const SkillEditor = ({ uri, api }: Props) => {
   const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [consumersOpen, setConsumersOpen] = useState(false);
 
   useEffect(() => {
     if (isNew) {
@@ -307,6 +313,32 @@ const SkillEditor = ({ uri, api }: Props) => {
             </em>
           )}
         </span>
+        {!isNew ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConsumersOpen(true)}
+                  disabled={consumers.length === 0}
+                  aria-label={t("skills.editor.consumers.toolbarAria")}
+                  className="gap-1.5"
+                >
+                  <Workflow className="size-3.5" />
+                  {consumers.length > 0 ? consumers.length : null}
+                </Button>
+              }
+            />
+            <TooltipContent>
+              {consumers.length > 0
+                ? t("skills.editor.consumers.toolbarTooltip", {
+                    count: consumers.length,
+                  })
+                : t("skills.editor.consumers.none")}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
         <ToolbarIconButton
           label={t("skills.editor.exportMarkdown")}
           icon={Download}
@@ -422,6 +454,15 @@ const SkillEditor = ({ uri, api }: Props) => {
         )}
         <span className="font-mono">{t("skills.editor.encodingLabel")}</span>
       </div>
+
+      {!isNew ? (
+        <SkillConsumersModal
+          open={consumersOpen}
+          onOpenChange={setConsumersOpen}
+          consumers={consumers}
+          onOpen={(ref) => api.openEditor(templateUriFor(ref), { focus: true })}
+        />
+      ) : null}
     </section>
   );
 };

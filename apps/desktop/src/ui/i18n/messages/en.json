@@ -1828,7 +1828,19 @@
       "wordCount_one": "{{count}} word",
       "wordCount_other": "{{count}} words",
       "unsavedChanges": "Unsaved changes",
-      "encodingLabel": "UTF-8"
+      "encodingLabel": "UTF-8",
+      "consumers": {
+        "toolbarAria": "Templates using this prompt",
+        "toolbarTooltip_one": "Used by {{count}} template",
+        "toolbarTooltip_other": "Used by {{count}} templates",
+        "none": "Not used by any template",
+        "modalTitle_one": "Used by {{count}} template",
+        "modalTitle_other": "Used by {{count}} templates",
+        "empty": "Not used by any template",
+        "open": "Open template {{name}}",
+        "draft": "draft",
+        "steps": "Steps: {{steps}}"
+      }
     }
   },
   "chat": {
