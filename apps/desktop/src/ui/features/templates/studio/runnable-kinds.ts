@@ -35,6 +35,7 @@ export const isKindDegradedInStudio = (kind: StepKindId): boolean =>
  */
 const SIDE_EFFECT_KINDS: ReadonlySet<string> = new Set([
   "shell.exec",
+  "agent.invoke",
   "claude_code.invoke",
   "codex.invoke",
   "openrouter.invoke",

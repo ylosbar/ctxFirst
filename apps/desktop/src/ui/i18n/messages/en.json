@@ -391,6 +391,19 @@
       "codex": {
         "model": "Model"
       },
+      "agent": {
+        "provider": {
+          "label": "Provider",
+          "description": "Which coding-agent backend runs this node. Switching it resets the model to that backend's default."
+        },
+        "model": "Model",
+        "maxAttempts": "Max attempts",
+        "judgePrompt": {
+          "label": "Criteria (fallback)",
+          "description": "Acceptance criteria used as the judge's system prompt when no `criteria` input is wired."
+        },
+        "judgeSystemPromptNote": "Criteria are injected into the context; the system-prompt persona is only guaranteed with Claude Code."
+      },
       "openrouter": {
         "model": {
           "label": "OpenRouter model",

@@ -87,7 +87,7 @@ export type StepCategory =
  * `resolveSpec`, so they do **not** live here anymore.
  *
  * `buildDefaultConfig()` seeds polymorphic discriminators (e.g.
- * `outputKind` for `user.input` / `claude_code.invoke`, `inputKind` for `human.gate`)
+ * `outputKind` for `user.input` / `agent.invoke`, `inputKind` for `human.gate`)
  * so a freshly inserted step has a valid resolved signature out of the box.
  */
 export type StepKindMeta = {
@@ -116,33 +116,38 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     buildDefaultConfig: () => ({ outputKind: "Markdown" }),
   },
   {
-    id: "claude_code.invoke",
-    label: "Claude Code Invoke",
-    description: "Invocation d'un modèle dont le prompt est l'entrée du nœud.",
+    id: "agent.invoke",
+    label: "Agent Invoke",
+    description:
+      "Invoque un agent de code (Claude Code, Codex, …) dont le prompt est l'entrée du nœud. Le backend est choisi par le champ Provider.",
     defaultActor: "LLMAgent",
     defaultHumanGateRequired: false,
     icon: Sparkles,
     family: "ai",
     category: "ai",
     buildDefaultConfig: () => ({
+      provider: "claude-code",
       model: "claude-opus-4-7",
       maxTokens: 8000,
       outputKind: "Markdown",
     }),
   },
   {
-    id: "codex.invoke",
-    label: "Codex Invoke",
-    description: "Invocation du CLI Codex (OpenAI) dont le prompt est l'entrée du nœud.",
+    id: "agent.judge",
+    label: "Agent Judge",
+    description:
+      "Juge agentique (Claude Code, Codex, …) piloté par une Skill : évalue le subject et route vers approved / rejected / exhausted. Sur rejected avec une transition isLoop, l'orchestrateur ré-invoque le step amont avec le feedback. Critères via l'input `criteria` (skill.loader) ou `config.judgePrompt`. Le backend est choisi par le champ Provider.",
     defaultActor: "LLMAgent",
     defaultHumanGateRequired: false,
-    icon: Sparkles,
+    icon: Gavel,
     family: "ai",
     category: "ai",
     buildDefaultConfig: () => ({
-      model: "gpt-5-codex",
+      provider: "claude-code",
+      model: "claude-opus-4-7",
+      judgePrompt: "",
+      maxAttempts: 3,
       maxTokens: 8000,
-      outputKind: "Markdown",
     }),
   },
   {
@@ -159,23 +164,6 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
       judgePrompt: "",
       model: "claude-haiku-4-5",
       maxAttempts: 3,
-    }),
-  },
-  {
-    id: "claude_code.judge",
-    label: "Claude Code Judge",
-    description:
-      "Juge agentique (CLI Claude Code) piloté par une Skill : évalue le subject et route vers approved / rejected / exhausted. Sur rejected avec une transition isLoop, l'orchestrateur ré-invoque le step amont avec le feedback. Critères via l'input `criteria` (skill.loader) ou `config.judgePrompt`.",
-    defaultActor: "LLMAgent",
-    defaultHumanGateRequired: false,
-    icon: Gavel,
-    family: "ai",
-    category: "ai",
-    buildDefaultConfig: () => ({
-      judgePrompt: "",
-      model: "claude-opus-4-7",
-      maxAttempts: 3,
-      maxTokens: 8000,
     }),
   },
   {
@@ -779,7 +767,11 @@ export const polymorphismOf = (
   kind: StepKindId,
 ): PolymorphismDiscriminator | null => {
   switch (kind) {
+    // `claude_code.invoke` / `codex.invoke` are legacy: the DB is migrated to
+    // `agent.invoke` (v32), but an imported pre-migration export still needs its
+    // polymorphic `outputKind` resolved in the editor (cf. spec §Impact).
     case "user.input":
+    case "agent.invoke":
     case "claude_code.invoke":
     case "codex.invoke":
     case "openrouter.invoke":

@@ -20,6 +20,7 @@ export const isSyntheticId = (id: string): boolean =>
 export const AUTO_LOOP_SOURCE_KINDS: ReadonlySet<string> = new Set([
   "llm.judge",
   "format.validate",
+  "agent.judge",
   "claude_code.judge",
 ]);
 

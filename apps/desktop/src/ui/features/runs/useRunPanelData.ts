@@ -151,7 +151,9 @@ const useRunPanelData = (
 
   const selectedKind = findStepKind(template, selected?.stepId);
   const isLlmSessionKind =
-    selectedKind === "claude_code.invoke" || selectedKind === "codex.invoke";
+    selectedKind === "agent.invoke" ||
+    selectedKind === "claude_code.invoke" ||
+    selectedKind === "codex.invoke";
 
   const pastExecutions = useMemo(
     () =>
