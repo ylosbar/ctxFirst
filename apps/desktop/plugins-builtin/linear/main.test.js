@@ -12,6 +12,9 @@ const {
   createLinearFetchRunner,
   createLinearSplitRunner,
   createLinearSetStatusRunner,
+  createLinearCommentRunner,
+  createLinearTriageFetchRunner,
+  extractDescriptionImageRefs,
   formatLinearTicket,
   TICKET_KIND,
 } = linearPlugin;
@@ -339,7 +342,7 @@ describe("linear.set-status runner — resolveSpec", () => {
     expect(spec.inputs).toEqual([
       {
         name: "ref",
-        kinds: ["LinearRef", TICKET_KIND],
+        kinds: ["LinearRef", TICKET_KIND, "Json"],
         optional: true,
         primary: true,
       },
@@ -421,6 +424,41 @@ describe("linear.set-status runner — run", () => {
     expect(calls).toEqual([{ ref: ticketFixture.identifier, status: "Done" }]);
   });
 
+  it("derives the ref from a triage Json envelope (json.transform output)", async () => {
+    const store = createStubArtifactStore();
+    const calls = [];
+    const linear = {
+      async setTicketStatus(ref, status) {
+        calls.push({ ref, status });
+        return buildGatewayTicket({ identifier: ref, state: status });
+      },
+    };
+    // Shape emitted by `linear.triage.fetch → json.transform` ($[0]): a `Json`
+    // envelope whose `body` is a JSON string wrapping the extracted item(s).
+    const ctx = buildCtx({
+      inputs: [
+        {
+          port: "ref",
+          kind: "Json",
+          content: JSON.stringify({
+            format: "json",
+            body: JSON.stringify([{ identifier: "ENG-42", title: "Triaged" }]),
+          }),
+          payload: {
+            format: "json",
+            body: JSON.stringify([{ identifier: "ENG-42", title: "Triaged" }]),
+          },
+          artifactId: "a-json",
+        },
+      ],
+      step: { kind: "linear.set-status", config: { status: "Backlog" } },
+      store,
+      linear,
+    });
+    await createLinearSetStatusRunner().run(ctx);
+    expect(calls).toEqual([{ ref: "ENG-42", status: "Backlog" }]);
+  });
+
   it("throws when no status can be resolved", async () => {
     const ctx = buildCtx({
       inputs: [
@@ -467,5 +505,420 @@ describe("linear.set-status runner — run", () => {
     await expect(createLinearSetStatusRunner().run(ctx)).rejects.toThrow(
       /requires a ticket ref/,
     );
+  });
+});
+
+describe("linear.comment runner — resolveSpec", () => {
+  it("declares a ref + body input and one plugin Ticket output", () => {
+    const spec = createLinearCommentRunner().resolveSpec();
+    expect(spec.inputs).toEqual([
+      {
+        name: "ref",
+        kinds: ["LinearRef", TICKET_KIND, "Json"],
+        optional: true,
+        primary: true,
+      },
+      { name: "body", kinds: ["Markdown", "Text", "Json"], optional: true },
+    ]);
+    expect(spec.outputs.map((o) => ({ name: o.name, kind: o.kind }))).toEqual([
+      { name: "ticket", kind: TICKET_KIND },
+    ]);
+  });
+});
+
+describe("linear.comment runner — run", () => {
+  it("posts the body from the `body` port on the ref ticket and emits the updated ticket", async () => {
+    const store = createStubArtifactStore();
+    const calls = [];
+    const linear = {
+      async addComment(ref, body) {
+        calls.push({ ref, body });
+        return buildGatewayTicket({
+          identifier: ref,
+          comments: [{ author: "workflow", body, createdAt: "2026-01-03" }],
+        });
+      },
+    };
+    const ctx = buildCtx({
+      inputs: [
+        {
+          port: "ref",
+          kind: "LinearRef",
+          content: "ENG-9",
+          payload: { value: "ENG-9" },
+          artifactId: "a-ref",
+        },
+        {
+          port: "body",
+          kind: "Markdown",
+          content: "## Diagnostic\n\nRoot cause + fix.",
+          payload: { format: "markdown", body: "## Diagnostic\n\nRoot cause + fix." },
+          artifactId: "a-body",
+        },
+      ],
+      step: { kind: "linear.comment" },
+      store,
+      linear,
+    });
+    const outcome = await createLinearCommentRunner().run(ctx);
+    expect(calls).toEqual([
+      { ref: "ENG-9", body: "## Diagnostic\n\nRoot cause + fix." },
+    ]);
+    expect(outcome.kind).toBe("produced");
+    expect(outcome.artifact.kind).toBe(TICKET_KIND);
+
+    const persisted = store.all();
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].metadata.commentCount).toBe("1");
+    expect(persisted[0].metadata.payloadFormat).toBe("json-v1");
+  });
+
+  it("derives the ref from a triage Json envelope and the body from config", async () => {
+    const store = createStubArtifactStore();
+    const calls = [];
+    const linear = {
+      async addComment(ref, body) {
+        calls.push({ ref, body });
+        return buildGatewayTicket({ identifier: ref });
+      },
+    };
+    const ctx = buildCtx({
+      inputs: [
+        {
+          port: "ref",
+          kind: "Json",
+          content: JSON.stringify({
+            format: "json",
+            body: JSON.stringify([{ identifier: "ENG-42", title: "Triaged" }]),
+          }),
+          payload: {
+            format: "json",
+            body: JSON.stringify([{ identifier: "ENG-42", title: "Triaged" }]),
+          },
+          artifactId: "a-json",
+        },
+      ],
+      step: { kind: "linear.comment", config: { body: "Fixed in main." } },
+      store,
+      linear,
+    });
+    await createLinearCommentRunner().run(ctx);
+    expect(calls).toEqual([{ ref: "ENG-42", body: "Fixed in main." }]);
+  });
+
+  it("throws when no body can be resolved", async () => {
+    const ctx = buildCtx({
+      inputs: [
+        {
+          port: "ref",
+          kind: "LinearRef",
+          content: "ENG-9",
+          payload: { value: "ENG-9" },
+          artifactId: "a-ref",
+        },
+      ],
+      step: { kind: "linear.comment", config: {} },
+      store: createStubArtifactStore(),
+      linear: {
+        async addComment() {
+          throw new Error("unreachable");
+        },
+      },
+    });
+    await expect(createLinearCommentRunner().run(ctx)).rejects.toThrow(
+      /requires a comment body/,
+    );
+  });
+
+  it("throws when no ref can be resolved", async () => {
+    const ctx = buildCtx({
+      inputs: [
+        {
+          port: "body",
+          kind: "Markdown",
+          content: "Some report",
+          payload: { format: "markdown", body: "Some report" },
+          artifactId: "a-body",
+        },
+      ],
+      step: { kind: "linear.comment", config: {} },
+      store: createStubArtifactStore(),
+      linear: {
+        async addComment() {
+          throw new Error("unreachable");
+        },
+      },
+    });
+    await expect(createLinearCommentRunner().run(ctx)).rejects.toThrow(
+      /requires a ticket ref/,
+    );
+  });
+});
+
+describe("linear.triage.fetch runner — resolveSpec", () => {
+  it("declares an optional trigger input and one Json tickets output", () => {
+    const spec = createLinearTriageFetchRunner().resolveSpec();
+    expect(spec.inputs).toEqual([
+      { name: "trigger", kinds: ["*"], optional: true },
+    ]);
+    expect(spec.outputs.map((o) => ({ name: o.name, kind: o.kind }))).toEqual([
+      { name: "tickets", kind: "Json" },
+    ]);
+  });
+});
+
+describe("linear.triage.fetch runner — run", () => {
+  it("defaults to limit 10 and emits the triage tickets as a JSON array", async () => {
+    const store = createStubArtifactStore();
+    const calls = [];
+    const linear = {
+      async fetchTriageTickets(limit) {
+        calls.push(limit);
+        return [
+          buildGatewayTicket({
+            identifier: "ENG-3",
+            createdAt: "2026-03-03",
+            description: "Full ask for ENG-3",
+          }),
+          buildGatewayTicket({ identifier: "ENG-2", createdAt: "2026-02-02" }),
+        ];
+      },
+    };
+    const ctx = buildCtx({
+      inputs: [],
+      step: { kind: "linear.triage.fetch", config: {} },
+      store,
+      linear,
+    });
+    const outcome = await createLinearTriageFetchRunner().run(ctx);
+    expect(calls).toEqual([10]);
+    expect(outcome.kind).toBe("produced");
+    expect(outcome.artifact.kind).toBe("Json");
+
+    const persisted = store.all();
+    expect(persisted).toHaveLength(1);
+    const envelope = JSON.parse(persisted[0].content);
+    expect(envelope.format).toBe("json");
+    const items = JSON.parse(envelope.body);
+    expect(items.map((t) => t.identifier)).toEqual(["ENG-3", "ENG-2"]);
+    // Compact projection: keeps triage fields incl. description, drops the
+    // heavy comments blob.
+    expect(items[0]).toMatchObject({
+      identifier: "ENG-3",
+      title: "Some ticket",
+      description: "Full ask for ENG-3",
+      state: "In Progress",
+      priorityLabel: "High",
+    });
+    expect(items[0]).not.toHaveProperty("comments");
+    expect(persisted[0].metadata.count).toBe("2");
+    expect(persisted[0].metadata.limit).toBe("10");
+    expect(persisted[0].metadata.source).toBe("linear.triage.fetch");
+    expect(persisted[0].metadata.payloadFormat).toBe("json-v1");
+  });
+
+  it("passes a clamped config.limit through to the gateway", async () => {
+    const store = createStubArtifactStore();
+    const calls = [];
+    const linear = {
+      async fetchTriageTickets(limit) {
+        calls.push(limit);
+        return [];
+      },
+    };
+    const ctx = buildCtx({
+      inputs: [],
+      step: { kind: "linear.triage.fetch", config: { limit: 999 } },
+      store,
+      linear,
+    });
+    const outcome = await createLinearTriageFetchRunner().run(ctx);
+    expect(calls).toEqual([250]); // clamped to Linear's page max
+    expect(outcome.artifact.kind).toBe("Json");
+    const envelope = JSON.parse(store.all()[0].content);
+    expect(JSON.parse(envelope.body)).toEqual([]);
+    expect(store.all()[0].metadata.count).toBe("0");
+  });
+
+  it("coerces a string limit and falls back to 10 when invalid", async () => {
+    const seen = [];
+    const linear = {
+      async fetchTriageTickets(limit) {
+        seen.push(limit);
+        return [];
+      },
+    };
+    const run = (config) =>
+      createLinearTriageFetchRunner().run(
+        buildCtx({
+          inputs: [],
+          step: { kind: "linear.triage.fetch", config },
+          store: createStubArtifactStore(),
+          linear,
+        }),
+      );
+    await run({ limit: "5" });
+    await run({ limit: "abc" });
+    await run({});
+    expect(seen).toEqual([5, 10, 10]);
+  });
+
+  it("returns an empty images array for tickets without embedded images", async () => {
+    const store = createStubArtifactStore();
+    const linear = {
+      async fetchTriageTickets() {
+        return [buildGatewayTicket({ identifier: "ENG-1", description: "No pictures here." })];
+      },
+      async fetchImage() {
+        throw new Error("fetchImage should not be called");
+      },
+    };
+    const ctx = buildCtx({
+      inputs: [],
+      step: { kind: "linear.triage.fetch", config: {} },
+      store,
+      linear,
+    });
+    await createLinearTriageFetchRunner().run(ctx);
+    const items = JSON.parse(JSON.parse(store.all()[0].content).body);
+    expect(items[0].images).toEqual([]);
+    expect(store.all()[0].metadata.imageCount).toBe("0");
+  });
+
+  it("downloads description images and attaches them (base64 + mime) to each item", async () => {
+    const store = createStubArtifactStore();
+    const requested = [];
+    const linear = {
+      async fetchTriageTickets() {
+        return [
+          buildGatewayTicket({
+            identifier: "ENG-7",
+            description:
+              'Repro:\n\n![before](https://uploads.linear.app/a/before.png)\n\n<img src="https://uploads.linear.app/a/after.jpg">',
+          }),
+        ];
+      },
+      async fetchImage(url) {
+        requested.push(url);
+        return {
+          url,
+          mimeType: url.endsWith(".jpg") ? "image/jpeg" : "image/png",
+          dataBase64: `b64:${url}`,
+          byteLength: 3,
+        };
+      },
+    };
+    const ctx = buildCtx({
+      inputs: [],
+      step: { kind: "linear.triage.fetch", config: {} },
+      store,
+      linear,
+    });
+    await createLinearTriageFetchRunner().run(ctx);
+
+    expect(requested).toEqual([
+      "https://uploads.linear.app/a/before.png",
+      "https://uploads.linear.app/a/after.jpg",
+    ]);
+    const items = JSON.parse(JSON.parse(store.all()[0].content).body);
+    expect(items[0].images).toEqual([
+      {
+        url: "https://uploads.linear.app/a/before.png",
+        altText: "before",
+        mimeType: "image/png",
+        byteLength: 3,
+        dataBase64: "b64:https://uploads.linear.app/a/before.png",
+      },
+      {
+        url: "https://uploads.linear.app/a/after.jpg",
+        altText: "",
+        mimeType: "image/jpeg",
+        byteLength: 3,
+        dataBase64: "b64:https://uploads.linear.app/a/after.jpg",
+      },
+    ]);
+    expect(store.all()[0].metadata.imageCount).toBe("2");
+  });
+
+  it("keeps an error marker (and the run) when a single image download fails", async () => {
+    const store = createStubArtifactStore();
+    const warnings = [];
+    const linear = {
+      async fetchTriageTickets() {
+        return [
+          buildGatewayTicket({
+            identifier: "ENG-8",
+            description:
+              "![ok](https://uploads.linear.app/ok.png) ![bad](https://uploads.linear.app/bad.png)",
+          }),
+        ];
+      },
+      async fetchImage(url) {
+        if (url.includes("bad")) throw new Error("HTTP 404");
+        return { url, mimeType: "image/png", dataBase64: "ok", byteLength: 2 };
+      },
+    };
+    const ctx = buildCtx({
+      inputs: [],
+      step: { kind: "linear.triage.fetch", config: {} },
+      store,
+      linear,
+    });
+    ctx.deps.logger = { warn: (m) => warnings.push(m) };
+
+    const outcome = await createLinearTriageFetchRunner().run(ctx);
+    expect(outcome.kind).toBe("produced");
+    const items = JSON.parse(JSON.parse(store.all()[0].content).body);
+    expect(items[0].images).toEqual([
+      {
+        url: "https://uploads.linear.app/ok.png",
+        altText: "ok",
+        mimeType: "image/png",
+        byteLength: 2,
+        dataBase64: "ok",
+      },
+      {
+        url: "https://uploads.linear.app/bad.png",
+        altText: "bad",
+        error: "HTTP 404",
+      },
+    ]);
+    // Both images still counted (a failed download is a recorded item, not a drop).
+    expect(store.all()[0].metadata.imageCount).toBe("2");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("bad.png");
+  });
+});
+
+describe("extractDescriptionImageRefs", () => {
+  it("extracts markdown images, strips titles, and captures alt text", () => {
+    expect(
+      extractDescriptionImageRefs(
+        'text ![alt one](https://x/a.png) more ![](https://x/b.png "a title")',
+      ),
+    ).toEqual([
+      { url: "https://x/a.png", altText: "alt one" },
+      { url: "https://x/b.png", altText: "" },
+    ]);
+  });
+
+  it("extracts HTML <img> sources", () => {
+    expect(
+      extractDescriptionImageRefs('<img alt="x" src="https://x/c.gif" width="10">'),
+    ).toEqual([{ url: "https://x/c.gif", altText: "" }]);
+  });
+
+  it("de-duplicates by URL, preserving first-seen order", () => {
+    expect(
+      extractDescriptionImageRefs(
+        "![one](https://x/a.png) ![two](https://x/a.png)",
+      ),
+    ).toEqual([{ url: "https://x/a.png", altText: "one" }]);
+  });
+
+  it("returns [] for empty or non-string descriptions", () => {
+    expect(extractDescriptionImageRefs("")).toEqual([]);
+    expect(extractDescriptionImageRefs(undefined)).toEqual([]);
+    expect(extractDescriptionImageRefs(null)).toEqual([]);
   });
 });

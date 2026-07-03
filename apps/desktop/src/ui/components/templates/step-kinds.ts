@@ -19,6 +19,7 @@ import {
   Layers,
   ListChecks,
   ListTree,
+  MessageSquarePlus,
   Radio,
   Repeat,
   Replace,
@@ -247,6 +248,35 @@ export const STEP_KIND_CATALOG: ReadonlyArray<StepKindMeta> = [
     buildDefaultConfig: () => ({
       ticketRef: "",
       status: "",
+    }),
+  },
+  {
+    id: "linear.comment",
+    label: "Linear Comment",
+    description:
+      "Poste un commentaire Markdown dans le fil de commentaires natif d'un ticket Linear et ré-émet le Ticket mis à jour.",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: MessageSquarePlus,
+    family: "system",
+    category: "system",
+    buildDefaultConfig: () => ({
+      ticketRef: "",
+      body: "",
+    }),
+  },
+  {
+    id: "linear.triage.fetch",
+    label: "Linear Triage Fetch",
+    description:
+      "Récupère les N derniers tickets du triage Linear (N configurable) et les expose comme un tableau JSON.",
+    defaultActor: "Developer",
+    defaultHumanGateRequired: false,
+    icon: ListChecks,
+    family: "input",
+    category: "source",
+    buildDefaultConfig: () => ({
+      limit: 10,
     }),
   },
   {

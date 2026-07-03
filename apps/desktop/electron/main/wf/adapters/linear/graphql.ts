@@ -1,6 +1,7 @@
 import type {
   LinearComment,
   LinearGateway,
+  LinearImage,
   LinearTicket,
 } from "../../application/ports/outbound/linear-gateway";
 
@@ -18,6 +19,11 @@ type Deps = {
 };
 
 const DEFAULT_ENDPOINT = "https://api.linear.app/graphql";
+
+// Images dropped into a Linear description are uploaded to this host and served
+// behind the workspace API key; other hosts (external `![](…)` links) are public.
+const isLinearUploadUrl = (host: string): boolean =>
+  host === "uploads.linear.app" || host.endsWith(".linear.app");
 
 const PRIORITY_LABELS = ["No priority", "Urgent", "High", "Medium", "Low"];
 
@@ -79,6 +85,53 @@ ${ISSUE_FIELDS}
     }
   }
 `;
+
+// Resolves a ticket's internal UUID from a human identifier, since
+// `commentCreate` expects the issue's UUID in `issueId`.
+const ISSUE_ID_QUERY = `
+  query IssueId($id: String!) {
+    issue(id: $id) { id }
+  }
+`;
+
+// Posts a comment and re-reads the mutated issue (its `comments` now include
+// the new entry) so the caller gets a refreshed {@link LinearTicket}.
+const COMMENT_CREATE_MUTATION = `
+  mutation CommentCreate($issueId: String!, $body: String!) {
+    commentCreate(input: { issueId: $issueId, body: $body }) {
+      success
+      comment {
+        id
+        issue {
+${ISSUE_FIELDS}
+        }
+      }
+    }
+  }
+`;
+
+// Newest-first tickets sitting in a Triage state. Filtering on the canonical
+// `triage` state *type* (rather than a display name) matches every team's
+// triage column regardless of how it's labelled. `orderBy: createdAt` returns
+// them in descending order (Linear's default direction).
+const TRIAGE_ISSUES_QUERY = `
+  query TriageIssues($limit: Int!) {
+    issues(
+      first: $limit
+      filter: { state: { type: { eq: "triage" } } }
+      orderBy: createdAt
+    ) {
+      nodes {
+${ISSUE_FIELDS}
+      }
+    }
+  }
+`;
+
+// Linear caps a single page at 250 issues; keep the request inside that bound
+// and always ask for at least one.
+const clampLimit = (limit: number): number =>
+  Number.isFinite(limit) ? Math.min(Math.max(Math.trunc(limit), 1), 250) : 10;
 
 type CommentNode = {
   body: string;
@@ -229,6 +282,88 @@ export const createLinearGraphqlGateway = (deps: Deps = {}): LinearGateway => {
         );
       }
       return mapIssue(result.issueUpdate.issue);
+    },
+
+    async addComment(ref: string, body: string): Promise<LinearTicket> {
+      const trimmedRef = ref.trim();
+      if (!trimmedRef) throw new Error("linear.comment: empty ticket ref");
+      const trimmedBody = body.trim();
+      if (!trimmedBody) throw new Error("linear.comment: empty comment body");
+
+      // `commentCreate` keys on the issue UUID, so resolve it from the ref first.
+      const found = await callGraphql<{ issue: { id: string } | null }>(
+        ISSUE_ID_QUERY,
+        { id: trimmedRef },
+      );
+      const issue = found.issue;
+      if (!issue) throw new Error(`Linear ticket not found: ${trimmedRef}`);
+
+      const result = await callGraphql<{
+        commentCreate: {
+          success: boolean;
+          comment: { issue: IssueNode | null } | null;
+        };
+      }>(COMMENT_CREATE_MUTATION, { issueId: issue.id, body: trimmedBody });
+
+      if (!result.commentCreate.success || !result.commentCreate.comment?.issue) {
+        throw new Error(`Linear API rejected the comment for ${trimmedRef}`);
+      }
+      return mapIssue(result.commentCreate.comment.issue);
+    },
+
+    async fetchTriageTickets(
+      limit: number,
+    ): Promise<ReadonlyArray<LinearTicket>> {
+      const capped = clampLimit(limit);
+      const data = await callGraphql<{
+        issues: { nodes: ReadonlyArray<IssueNode> };
+      }>(TRIAGE_ISSUES_QUERY, { limit: capped });
+
+      const nodes = data.issues?.nodes ?? [];
+      // Defensive re-sort: guarantee a deterministic newest-first order for the
+      // emitted array even if the API's default direction ever changes.
+      return nodes
+        .map(mapIssue)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+        .slice(0, capped);
+    },
+
+    async fetchImage(url: string): Promise<LinearImage> {
+      const trimmed = url.trim();
+      if (!trimmed) throw new Error("linear.fetchImage: empty image URL");
+
+      let parsed: URL;
+      try {
+        parsed = new URL(trimmed);
+      } catch {
+        throw new Error(`linear.fetchImage: invalid image URL "${trimmed}"`);
+      }
+
+      // Attach the API key only for Linear-hosted uploads; external images are
+      // fetched anonymously (sending the key to a third-party host would leak it).
+      const headers: Record<string, string> = {};
+      if (isLinearUploadUrl(parsed.host)) {
+        headers.Authorization = resolveApiKey();
+      }
+
+      const res = await fetch(trimmed, { headers });
+      if (!res.ok) {
+        throw new Error(
+          `Linear image download HTTP ${res.status} for ${trimmed}`,
+        );
+      }
+
+      const contentType = res.headers.get("content-type");
+      const mimeType = contentType
+        ? (contentType.split(";")[0]?.trim() ?? null) || null
+        : null;
+      const bytes = Buffer.from(await res.arrayBuffer());
+      return {
+        url: trimmed,
+        mimeType,
+        dataBase64: bytes.toString("base64"),
+        byteLength: bytes.length,
+      };
     },
   };
 };
