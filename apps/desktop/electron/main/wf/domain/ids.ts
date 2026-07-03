@@ -60,3 +60,34 @@ export const asEventId = brand<"EventId">();
 export const asRunId = brand<"RunId">();
 /** Tag a raw string as a {@link LoopId}. */
 export const asLoopId = brand<"LoopId">();
+
+/**
+ * Separator between a template's id and version in a ref string
+ * (`"<id>@<version>"`). A raw `@` inside an id or version breaks this encoding:
+ * an id of `"transcriptor@v1"` with version `"v1"` yields the ref
+ * `"transcriptor@v1@v1"`, which {@link parseTemplateRef} can no longer split
+ * back into the original pair — the template becomes un-openable and
+ * un-deletable through the normal ref-based paths.
+ */
+export const TEMPLATE_REF_SEPARATOR = "@";
+
+/**
+ * Parse a `"<id>@<version>"` template ref into its branded parts.
+ *
+ * Stricter than a bare `ref.split("@")`: it requires *exactly* one separator,
+ * with a non-empty id and version on either side. A ref carrying extra `@`
+ * segments (`"id@v1@v1"`) is rejected outright instead of being silently
+ * truncated to the wrong `(id, version)` pair — the failure mode that made a
+ * malformed template both un-openable and un-deletable.
+ *
+ * @throws {Error} if `ref` is not a single `id@version` pair.
+ */
+export const parseTemplateRef = (
+  ref: string,
+): { id: TemplateId; version: TemplateVersion } => {
+  const parts = ref.split(TEMPLATE_REF_SEPARATOR);
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error(`invalid template ref: ${ref}`);
+  }
+  return { id: asTemplateId(parts[0]), version: asTemplateVersion(parts[1]) };
+};

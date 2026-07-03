@@ -1,5 +1,5 @@
 import type { TemplateRegistry } from "../ports/outbound/template-registry";
-import { asTemplateId, asTemplateVersion } from "../../domain/ids";
+import { parseTemplateRef } from "../../domain/ids";
 
 type Deps = { templates: TemplateRegistry };
 
@@ -12,9 +12,6 @@ export const makeRenameTemplate =
   async ({ templateRef, newName }) => {
     const name = newName.trim();
     if (!name) throw new Error("template name is required");
-    const [idPart, versionPart] = templateRef.split("@");
-    if (!idPart || !versionPart) {
-      throw new Error(`invalid template ref: ${templateRef}`);
-    }
-    await templates.rename(asTemplateId(idPart), asTemplateVersion(versionPart), name);
+    const { id, version } = parseTemplateRef(templateRef);
+    await templates.rename(id, version, name);
   };
