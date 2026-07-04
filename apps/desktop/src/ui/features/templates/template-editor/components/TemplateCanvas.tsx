@@ -70,6 +70,7 @@ type Handlers = {
   onNodeDoubleClick: CanvasHandlers["onNodeDoubleClick"];
   onEdgeClick: CanvasHandlers["onEdgeClick"];
   onPaneClick: CanvasHandlers["onPaneClick"];
+  onNodeDragStart: CanvasHandlers["onNodeDragStart"];
   onNodeDragStop: NodeReparentingControls["handleNodeDragStop"];
   onMoveEnd: NonNullable<ComponentProps<typeof ReactFlow>["onMoveEnd"]>;
   onDragOver: CanvasHandlers["onDragOver"];
@@ -144,6 +145,9 @@ const TemplateCanvas = ({
             onNodeDoubleClick={handlers.onNodeDoubleClick}
             onEdgeClick={handlers.onEdgeClick}
             onPaneClick={handlers.onPaneClick}
+            onNodeDragStart={
+              isViewRun ? undefined : handlers.onNodeDragStart
+            }
             onNodeDragStop={isViewRun ? undefined : handlers.onNodeDragStop}
             onMoveEnd={isViewRun ? undefined : handlers.onMoveEnd}
             // Tolérance de clic. React Flow câble la sélection d'une node ET le

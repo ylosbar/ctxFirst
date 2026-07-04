@@ -84,6 +84,8 @@ type Options = {
   setEntryStepId: Dispatch<SetStateAction<string | null>>;
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
   setSelectedEdgeId: Dispatch<SetStateAction<string | null>>;
+  /** Snapshot d'historique (undoable) — posé avant chaque mutation de document. */
+  commit: (opts?: { coalesceKey?: string }) => void;
 };
 
 /**
@@ -103,6 +105,8 @@ export const entryStepIdAfterRemoval = (
 export type CanvasHandlers = {
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
+  /** À brancher sur `<ReactFlow onNodeDragStart>` : commit unique en tête de geste. */
+  onNodeDragStart: () => void;
   isValidConnection: (conn: Connection | Edge) => boolean;
   addStep: (kind: StepKindMeta, dropPosition?: { x: number; y: number }) => void;
   onNodeClick: NodeMouseHandler;
@@ -135,11 +139,16 @@ export const useCanvasHandlers = ({
   setEntryStepId,
   setSelectedNodeId,
   setSelectedEdgeId,
+  commit,
 }: Options): CanvasHandlers => {
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     const filtered = changes.filter(
       (c) => !("id" in c) || !isSyntheticId(c.id),
     );
+    // Delete clavier de node(s) — un batch de `remove` = une entrée. On snapshote
+    // AVANT `applyNodeChanges` (état pré-suppression). Les autres changements
+    // (dimensions, select, positions de drag) ne committent pas.
+    if (filtered.some((c) => c.type === "remove")) commit();
     setNodes((nds) => applyNodeChanges(filtered, nds));
     // Réconciliation de l'entrée : si la node d'entrée est supprimée par le
     // chemin natif (Delete sur sélection unitaire **ou** au rectangle),
@@ -153,14 +162,23 @@ export const useCanvasHandlers = ({
     if (removedIds.length > 0) {
       setEntryStepId((cur) => entryStepIdAfterRemoval(removedIds, cur));
     }
-  }, []);
+  }, [commit]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     const filtered = changes.filter(
       (c) => !("id" in c) || !isSyntheticId(c.id),
     );
+    // Delete clavier d'edge(s) — snapshot avant application (cf. `onNodesChange`).
+    if (filtered.some((c) => c.type === "remove")) commit();
     setEdges((eds) => applyEdgeChanges(filtered, eds));
-  }, []);
+  }, [commit]);
+
+  // Un drag de node(s) = un seul geste = une seule entrée : on commit une fois au
+  // démarrage (avant tout mouvement) ; les `position` changes suivants et le
+  // `onNodeDragStop`/reparenting du même geste ne committent pas.
+  const onNodeDragStart = useCallback(() => {
+    commit();
+  }, [commit]);
 
   const isValidConnection = useCallback(
     (conn: Connection | Edge) => {
@@ -207,6 +225,7 @@ export const useCanvasHandlers = ({
 
   const addStep = useCallback(
     (kind: StepKindMeta, dropPosition?: { x: number; y: number }) => {
+      commit();
       const stepIds = nodes.filter((n) => n.type === "step").map((n) => n.id);
       const kindMax = highestCounterForKind(kind.id, stepIds);
       counterRef.current = Math.max(counterRef.current, kindMax) + 1;
@@ -262,7 +281,7 @@ export const useCanvasHandlers = ({
       setSelectedNodeId(id);
       setSelectedEdgeId(null);
     },
-    [nodes, screenToFlowPosition],
+    [nodes, screenToFlowPosition, commit],
   );
 
   // Handlers passed to <ReactFlow> are memoized so a re-render of the editor
@@ -366,6 +385,7 @@ export const useCanvasHandlers = ({
   return {
     onNodesChange,
     onEdgesChange,
+    onNodeDragStart,
     isValidConnection,
     addStep,
     onNodeClick,

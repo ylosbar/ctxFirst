@@ -21,12 +21,14 @@ import {
   Network,
   NotebookPen,
   Play,
+  Redo2,
   RefreshCw,
   Rocket,
   Save,
   SquareDashedMousePointer,
   StickyNote,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import { Menu } from "@base-ui/react/menu";
@@ -61,6 +63,10 @@ import type { VariableModalState } from "./variable-modal";
 type Props = {
   readonly nodes: readonly Node[];
   readonly edges: readonly Edge[];
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly undo: () => void;
+  readonly redo: () => void;
   readonly editingRef: string | null;
   readonly status: "draft" | "published";
   readonly busy: boolean;
@@ -99,6 +105,10 @@ type Props = {
 const TemplateEditorToolbar = ({
   nodes,
   edges,
+  canUndo,
+  canRedo,
+  undo,
+  redo,
   editingRef,
   status,
   busy,
@@ -175,6 +185,20 @@ const TemplateEditorToolbar = ({
               ? "bg-accent text-accent-foreground"
               : undefined
           }
+        />
+      </div>
+      <div className="flex items-center gap-0.5 border-l pl-2">
+        <ToolbarButton
+          icon={Undo2}
+          label={t("template.editor.toolbar.undo")}
+          onClick={undo}
+          disabled={!canUndo}
+        />
+        <ToolbarButton
+          icon={Redo2}
+          label={t("template.editor.toolbar.redo")}
+          onClick={redo}
+          disabled={!canRedo}
         />
       </div>
       <div className="flex items-center gap-0.5 border-l pl-2">

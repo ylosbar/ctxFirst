@@ -34,6 +34,8 @@ type Options = {
   setEntryStepId: Dispatch<SetStateAction<string | null>>;
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
   setSelectedEdgeId: Dispatch<SetStateAction<string | null>>;
+  /** Snapshot d'historique posé en tête de chaque mutation (undoable). */
+  commit: (opts?: { coalesceKey?: string }) => void;
 };
 
 export type StepMutationControls = {
@@ -57,6 +59,7 @@ export const useStepMutations = ({
   setEntryStepId,
   setSelectedNodeId,
   setSelectedEdgeId,
+  commit,
 }: Options): StepMutationControls => {
   const selectedStep = useMemo<TemplateStepDraft | null>(() => {
     if (!selectedNodeId) return null;
@@ -78,6 +81,8 @@ export const useStepMutations = ({
 
   const updateSelectedStep = useCallback(
     (next: TemplateStepDraft) => {
+      // Rafale d'édition inspecteur sur le même step → une seule entrée.
+      commit({ coalesceKey: `stepcfg:${selectedNodeId}` });
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id !== selectedNodeId) return n;
@@ -106,11 +111,12 @@ export const useStepMutations = ({
     },
     // Les setters (`setNodes`, `setEdges`, …) sont des props stables ; listés
     // pour satisfaire exhaustive-deps sans changer la fréquence de recréation.
-    [entryStepId, selectedNodeId, setNodes, setEdges, setEntryStepId, setSelectedNodeId],
+    [entryStepId, selectedNodeId, setNodes, setEdges, setEntryStepId, setSelectedNodeId, commit],
   );
 
   const deleteSelectedStep = useCallback(() => {
     if (!selectedNodeId) return;
+    commit();
     setNodes((nds) => nds.filter((n) => n.id !== selectedNodeId));
     setEdges((eds) =>
       eds.filter(
@@ -119,10 +125,11 @@ export const useStepMutations = ({
     );
     if (entryStepId === selectedNodeId) setEntryStepId(null);
     setSelectedNodeId(null);
-  }, [entryStepId, selectedNodeId, setNodes, setEdges, setEntryStepId, setSelectedNodeId]);
+  }, [entryStepId, selectedNodeId, setNodes, setEdges, setEntryStepId, setSelectedNodeId, commit]);
 
   const setSelectedAsEntry = useCallback(() => {
     if (!selectedNodeId) return;
+    commit();
     const next = entryStepId === selectedNodeId ? null : selectedNodeId;
     setEntryStepId(next);
     setNodes((nds) =>
@@ -131,10 +138,11 @@ export const useStepMutations = ({
         data: { ...(n.data as object), isEntry: n.id === next },
       })),
     );
-  }, [entryStepId, selectedNodeId, setEntryStepId, setNodes]);
+  }, [entryStepId, selectedNodeId, setEntryStepId, setNodes, commit]);
 
   const toggleSelectedEdgeLoop = useCallback(() => {
     if (!selectedEdgeId) return;
+    commit();
     setEdges((eds) =>
       eds.map((e) => {
         if (e.id !== selectedEdgeId) return e;
@@ -145,13 +153,14 @@ export const useStepMutations = ({
         return { ...e, data: { isLoop: next }, ...edgeStyle(next, isAutoLoop) };
       }),
     );
-  }, [selectedEdgeId, setEdges, nodes]);
+  }, [selectedEdgeId, setEdges, nodes, commit]);
 
   const deleteSelectedEdge = useCallback(() => {
     if (!selectedEdgeId) return;
+    commit();
     setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId));
     setSelectedEdgeId(null);
-  }, [selectedEdgeId, setEdges, setSelectedEdgeId]);
+  }, [selectedEdgeId, setEdges, setSelectedEdgeId, commit]);
 
   return {
     selectedStep,

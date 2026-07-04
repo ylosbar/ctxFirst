@@ -30,6 +30,8 @@ export type StickyNoteNodeData = {
 type StickyNoteActions = {
   onTextChange: (id: string, text: string) => void;
   onDelete: (id: string) => void;
+  /** Snapshot d'historique au début du resize (une entrée par geste). */
+  onResizeStart: (id: string) => void;
   /** Programme une sauvegarde après un resize (NodeResizer ne déclenche pas le drag-stop). */
   onResizeEnd: (id: string) => void;
   /** Flush immédiat (blur du textarea) pour ne pas perdre la dernière frappe au unmount. */
@@ -92,6 +94,7 @@ const StickyNoteNode = ({ id, data, selected }: NodeProps) => {
           color="var(--primary)"
           lineStyle={{ borderWidth: 1 }}
           handleStyle={{ width: 8, height: 8, borderRadius: 2 }}
+          onResizeStart={() => actions?.onResizeStart(id)}
           onResizeEnd={() => actions?.onResizeEnd(id)}
         />
       ) : null}

@@ -32,6 +32,8 @@ export type GroupNodeData = {
 type GroupActions = {
   onLabelChange: (id: string, label: string) => void;
   onDelete: (id: string) => void;
+  /** Snapshot d'historique au début du resize (une entrée par geste). */
+  onResizeStart: (id: string) => void;
 };
 
 const GroupActionsContext = createContext<GroupActions | null>(null);
@@ -90,6 +92,7 @@ const GroupNode = ({ id, data, selected }: NodeProps) => {
           color="var(--primary)"
           lineStyle={{ borderWidth: 1 }}
           handleStyle={{ width: 8, height: 8, borderRadius: 2 }}
+          onResizeStart={() => actions?.onResizeStart(id)}
         />
       ) : null}
       {!isDrawing ? (

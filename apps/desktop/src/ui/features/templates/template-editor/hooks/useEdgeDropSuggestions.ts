@@ -88,6 +88,8 @@ type Options = {
   setEntryStepId: Dispatch<SetStateAction<string | null>>;
   setSelectedNodeId: Dispatch<SetStateAction<string | null>>;
   setSelectedEdgeId: Dispatch<SetStateAction<string | null>>;
+  /** Snapshot d'historique (undoable) posé avant la création d'edge/step. */
+  commit: (opts?: { coalesceKey?: string }) => void;
 };
 
 export type EdgeDropControls = {
@@ -119,6 +121,7 @@ export const useEdgeDropSuggestions = ({
   setEntryStepId,
   setSelectedNodeId,
   setSelectedEdgeId,
+  commit,
 }: Options): EdgeDropControls => {
   const [pendingConnect, setPendingConnect] = useState<PendingConnect | null>(
     null,
@@ -131,6 +134,7 @@ export const useEdgeDropSuggestions = ({
 
   const onConnect = useCallback(
     (conn: Connection) => {
+      commit();
       const isSelfLoop = conn.source === conn.target;
       const sourceKind = nodes.find((n) => n.id === conn.source)?.data?.kind;
       const isAutoLoop =
@@ -149,7 +153,7 @@ export const useEdgeDropSuggestions = ({
         ),
       );
     },
-    [setEdges, nodes],
+    [setEdges, nodes, commit],
   );
 
   const onConnectStart = useCallback(
@@ -238,6 +242,7 @@ export const useEdgeDropSuggestions = ({
 
   const handleSuggestionPick = (suggestion: EdgeDropSuggestion) => {
     if (!pendingConnect) return;
+    commit();
     const { kind } = suggestion;
     const stepIds = nodes.filter((n) => n.type === "step").map((n) => n.id);
     const kindMax = highestCounterForKind(kind.id, stepIds);

@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -19,7 +20,10 @@ import "@xyflow/react/dist/style.css";
 import type { TemplateLayout } from "@shared/wf/layout";
 import { useT } from "../../i18n";
 import { useServices } from "../../di/services-provider";
-import { type TemplateStepDraft } from "../../../domain/workflow/types";
+import {
+  type TemplateStepDraft,
+  type TemplateVariableDraft,
+} from "../../../domain/workflow/types";
 import useNodeSpecs from "../../hooks/useNodeSpecs";
 import type { EditorUri, WorkbenchApi } from "../../workbench/types";
 import { useTemplateEditorGridSnap } from "../../workbench/store";
@@ -50,6 +54,8 @@ import {
 } from "./template-editor/hooks/useCanvasMode";
 import { useStepMutations } from "./template-editor/hooks/useStepMutations";
 import { useTemplateVariables } from "./template-editor/hooks/useTemplateVariables";
+import { useEditorHistory } from "./template-editor/hooks/useEditorHistory";
+import { useHistoryHotkeys } from "./template-editor/hooks/useHistoryHotkeys";
 import { useEdgeDropSuggestions } from "./template-editor/hooks/useEdgeDropSuggestions";
 import { useLaunchRun } from "./template-editor/hooks/useLaunchRun";
 import { useTemplateSave } from "./template-editor/hooks/useTemplateSave";
@@ -146,11 +152,13 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setSelectedNodeId,
     setSelectedEdgeId,
   } = useGraphSelection();
-  // État des variables + mutations avec cascade dans les nodes (un renommage
-  // se propage dans les `writesTo`/`readsFrom` ; une suppression purge les
-  // références). `setVariables` brut sert au chargement initial du template.
-  const { variables, setVariables, addVariable, updateVariable, deleteVariable } =
-    useTemplateVariables({ setNodes });
+  // Les variables du template — quatrième atome undoable, possédé ici avec les
+  // trois autres (nodes/edges/entryStepId). `setVariables` brut sert au
+  // chargement initial ; les mutateurs (cascade dans les nodes + `commit`
+  // d'historique) sont montés plus bas, une fois l'historique disponible.
+  const [variables, setVariables] = useState<readonly TemplateVariableDraft[]>(
+    [],
+  );
 
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState<boolean>(!isNew || Boolean(fromRef));
@@ -166,6 +174,78 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     null,
   );
   const [layoutSaveError, setLayoutSaveError] = useState<string | null>(null);
+
+  // Racine du scope focus des raccourcis d'historique : le pane React Flow
+  // (focusable) tombe dans ce div dès qu'on interagit avec CE canvas, ce qui
+  // scope proprement Ctrl/⌘+Z à l'onglet actif.
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const persistLayout = useCallback(
+    async (templateRef: string, layout: TemplateLayout) => {
+      await services.saveTemplateLayout(templateRef, layout);
+      setLayoutSaveError(null);
+    },
+    [services],
+  );
+  const layoutAutosave = useLayoutAutosave({
+    // editingRef est null pour un template "nouveau" (création ou
+    // duplication) tant que `handleSave` n'a pas créé la ligne — le hook
+    // skip alors silencieusement la sauvegarde.
+    // En mode view-run on désactive l'autosave : on ne veut pas que la
+    // visualisation d'un run écrive dans le layout du template.
+    templateRef: isViewRun ? null : editingRef,
+    busy,
+    nodes,
+    isSynthetic: isSyntheticId,
+    save: persistLayout,
+    onError: (e) => {
+      console.warn("[wf:templates] layout auto-save failed", e);
+      setLayoutSaveError(e instanceof Error ? e.message : String(e));
+    },
+  });
+
+  // Historique undo/redo (modèle « commit explicite ») — monté juste après les
+  // quatre atomes et l'autosave dont il déclenche le flush à la restauration.
+  // Dormant tant que les commandes ne l'appellent pas ; les hooks ci-dessous
+  // reçoivent `commit` / `begin` / `settle`.
+  const {
+    commit,
+    begin,
+    settle,
+    undo,
+    redo,
+    reset: resetHistory,
+    canUndo,
+    canRedo,
+  } = useEditorHistory({
+    nodes,
+    edges,
+    entryStepId,
+    variables,
+    setNodes,
+    setEdges,
+    setEntryStepId,
+    setVariables,
+    clearSelection,
+    scheduleLayoutSave: layoutAutosave.scheduleSave,
+    isViewRun,
+  });
+  useHistoryHotkeys({ rootRef, undo, redo, isViewRun });
+  // Remise à zéro de l'historique à l'ouverture / au reload / au changement de
+  // template : aucun redo d'un template précédent ne doit fuiter. `useTemplateLoad`
+  // repeuple l'état hors `commit`, donc les piles restent vides après reset.
+  useEffect(() => {
+    resetHistory();
+  }, [editingRef, reloadToken, resetHistory]);
+
+  // Mutations de variables (cascade dans les nodes : un renommage propage dans
+  // `writesTo`/`readsFrom`, une suppression purge les références). `commit` en
+  // tête rend chaque mutation annulable (modale = 1 appel discret).
+  const { addVariable, updateVariable, deleteVariable } = useTemplateVariables({
+    setNodes,
+    setVariables,
+    commit,
+  });
 
   const [notesVisible, setNotesVisible] = useState<boolean>(false);
   // Full-app maximize: when true, the editor portals itself just under the
@@ -192,6 +272,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     api,
     uri,
     setNodes,
+    commit,
   });
 
   // Available skill refs / artifact kinds — used to detect missing deps on
@@ -278,6 +359,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setEntryStepId,
     setSelectedNodeId,
     setSelectedEdgeId,
+    commit,
   });
 
   // Graphe d'affichage dérivé (pills variables, start node, overlay
@@ -293,30 +375,6 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     skillBodies,
     entryStepId,
     runOverlay,
-  });
-
-  const persistLayout = useCallback(
-    async (templateRef: string, layout: TemplateLayout) => {
-      await services.saveTemplateLayout(templateRef, layout);
-      setLayoutSaveError(null);
-    },
-    [services],
-  );
-  const layoutAutosave = useLayoutAutosave({
-    // editingRef est null pour un template "nouveau" (création ou
-    // duplication) tant que `handleSave` n'a pas créé la ligne — le hook
-    // skip alors silencieusement la sauvegarde.
-    // En mode view-run on désactive l'autosave : on ne veut pas que la
-    // visualisation d'un run écrive dans le layout du template.
-    templateRef: isViewRun ? null : editingRef,
-    busy,
-    nodes,
-    isSynthetic: isSyntheticId,
-    save: persistLayout,
-    onError: (e) => {
-      console.warn("[wf:templates] layout auto-save failed", e);
-      setLayoutSaveError(e instanceof Error ? e.message : String(e));
-    },
   });
 
   // Recharge le template depuis le disque (re-fetch via `useTemplateLoad`).
@@ -335,14 +393,15 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const handleClearAll = useCallback(() => {
     if (nodes.length === 0 && edges.length === 0) return;
     const ok = window.confirm(
-      "Effacer toutes les nodes et repartir de zéro ? Cette action n'est pas réversible tant que vous n'avez pas sauvegardé.",
+      "Effacer toutes les nodes et repartir de zéro ? Réversible via Annuler (Ctrl/⌘+Z) tant que vous n'avez pas rechargé.",
     );
     if (!ok) return;
+    commit();
     setNodes([]);
     setEdges([]);
     setEntryStepId(null);
     clearSelection();
-  }, [nodes.length, edges.length, clearSelection]);
+  }, [nodes.length, edges.length, clearSelection, commit]);
 
   // Auto-layout group-aware (deux passes : layout intra-groupe puis layout des
   // supernodes au niveau global) — détaillé dans le hook. Les groupes survivent
@@ -354,6 +413,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setNodes,
     layoutAutosave,
     rf,
+    commit,
   });
 
   // Outils de groupe : actions (renommage/suppression) + outil de dessin au
@@ -366,7 +426,14 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     onOverlayPointerDown,
     onOverlayPointerMove,
     onOverlayPointerUp,
-  } = useGroupTools({ setNodes, screenToFlowPosition, layoutAutosave });
+  } = useGroupTools({
+    setNodes,
+    screenToFlowPosition,
+    layoutAutosave,
+    commit,
+    begin,
+    settle,
+  });
 
   // Outil de canvas (drag/select). Les trois gestes de left-drag sur le pane
   // (pan / box-selection / dessin de groupe) sont mutuellement exclusifs :
@@ -405,6 +472,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     flowWrapperRef,
     layoutAutosave,
     isViewRun,
+    commit,
   });
 
   // Au drop d'un step : ré-évalue son parent selon le containment positionnel
@@ -447,6 +515,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   const {
     onNodesChange,
     onEdgesChange,
+    onNodeDragStart,
     isValidConnection,
     addStep,
     onNodeClick,
@@ -477,6 +546,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setEntryStepId,
     setSelectedNodeId,
     setSelectedEdgeId,
+    commit,
   });
 
   // Connexion d'edges + menu de suggestions au drop sur le vide. `counterRef`
@@ -505,6 +575,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     setEntryStepId,
     setSelectedNodeId,
     setSelectedEdgeId,
+    commit,
   });
 
   const isSelectedEntry =
@@ -610,12 +681,20 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
   }
 
   const editorContent = (
-    <div className="flex h-full min-w-0 flex-col" data-template-editor>
+    <div
+      ref={rootRef}
+      className="flex h-full min-w-0 flex-col"
+      data-template-editor
+    >
       <TemplateTitleBar />
       {isViewRun ? null : (
         <TemplateEditorToolbar
           nodes={nodes}
           edges={edges}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          undo={undo}
+          redo={redo}
           editingRef={editingRef}
           status={status}
           busy={busy}
@@ -705,6 +784,7 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           onNodeDoubleClick,
           onEdgeClick,
           onPaneClick,
+          onNodeDragStart,
           onNodeDragStop: handleNodeDragStop,
           onMoveEnd: layoutAutosave.onMoveEnd,
           onDragOver,
