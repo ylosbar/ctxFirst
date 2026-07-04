@@ -330,7 +330,9 @@
         "saveLocked": "Template published (immutable) — change the version to edit",
         "saving": "Saving…",
         "publish": "Publish the template (freezes it and makes it invocable as a sub-workflow)",
-        "published": "Template published (immutable — bump the version to iterate)"
+        "published": "Template published (immutable — bump the version to iterate)",
+        "undo": "Undo — Ctrl/⌘+Z",
+        "redo": "Redo — Ctrl/⌘+Shift+Z"
       },
       "publish": {
         "title": "Publish the template?",

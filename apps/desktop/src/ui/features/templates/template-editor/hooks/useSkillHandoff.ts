@@ -17,6 +17,8 @@ type Options = {
   api: WorkbenchApi;
   uri: EditorUri;
   setNodes: Dispatch<SetStateAction<Node[]>>;
+  /** Snapshot d'historique posé avant l'assignation du skill créé (undoable). */
+  commit: (opts?: { coalesceKey?: string }) => void;
 };
 
 export type SkillHandoffControls = {
@@ -30,6 +32,7 @@ export const useSkillHandoff = ({
   api,
   uri,
   setNodes,
+  commit,
 }: Options): SkillHandoffControls => {
   const [pendingSkillForStep, setPendingSkillForStep] = useState<string | null>(
     null,
@@ -48,6 +51,7 @@ export const useSkillHandoff = ({
   useEffect(() => {
     return onSkillCreated((ref) => {
       if (!pendingSkillForStep) return;
+      commit();
       setNodes((prev) =>
         prev.map((n) => {
           if (n.id !== pendingSkillForStep || n.type !== "step") return n;
@@ -62,7 +66,7 @@ export const useSkillHandoff = ({
       api.openEditor(uri, { focus: true });
       setPendingSkillForStep(null);
     });
-  }, [pendingSkillForStep, api, uri, setNodes]);
+  }, [pendingSkillForStep, api, uri, setNodes, commit]);
 
   return { pendingSkillForStep, handleRequestCreateSkill };
 };

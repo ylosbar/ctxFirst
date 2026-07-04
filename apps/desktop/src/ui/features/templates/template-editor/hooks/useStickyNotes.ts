@@ -16,6 +16,8 @@ import { STICKY_NODE_PREFIX, highestCounterForKind } from "../graph/ids";
 type StickyActions = {
   onTextChange: (id: string, text: string) => void;
   onDelete: (id: string) => void;
+  /** Snapshot d'historique en début de resize (une entrée par geste). */
+  onResizeStart: (id: string) => void;
   onResizeEnd: () => void;
   onCommit: () => void;
   readOnly: boolean;
@@ -28,6 +30,8 @@ type Options = {
   flowWrapperRef: RefObject<HTMLDivElement | null>;
   layoutAutosave: LayoutAutosaveControls;
   isViewRun: boolean;
+  /** Snapshot d'historique (undoable) posé avant chaque mutation de note. */
+  commit: (opts?: { coalesceKey?: string }) => void;
 };
 
 export type StickyNotesControls = {
@@ -44,8 +48,10 @@ export const useStickyNotes = ({
   flowWrapperRef,
   layoutAutosave,
   isViewRun,
+  commit,
 }: Options): StickyNotesControls => {
   const addStickyNote = useCallback(() => {
+    commit();
     // Id stable et unique parmi les notes existantes (pas de `Date.now()` —
     // garde l'idempotence et évite la collision avec une note rechargée).
     const maxNote = highestCounterForKind(
@@ -76,10 +82,12 @@ export const useStickyNotes = ({
     };
     setNodes((nds) => [...nds, newNote]);
     layoutAutosave.scheduleSave();
-  }, [nodes, screenToFlowPosition, flowWrapperRef, setNodes, layoutAutosave]);
+  }, [nodes, screenToFlowPosition, flowWrapperRef, setNodes, layoutAutosave, commit]);
 
   const onStickyTextChange = useCallback(
     (id: string, text: string) => {
+      // Rafale de frappe sur la même note → une seule entrée (coalescée).
+      commit({ coalesceKey: `sticky:${id}` });
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id ? { ...n, data: { ...(n.data ?? {}), text } } : n,
@@ -87,15 +95,26 @@ export const useStickyNotes = ({
       );
       layoutAutosave.scheduleSave();
     },
-    [setNodes, layoutAutosave],
+    [setNodes, layoutAutosave, commit],
   );
 
   const onStickyDelete = useCallback(
     (id: string) => {
+      commit();
       setNodes((nds) => nds.filter((n) => n.id !== id));
       layoutAutosave.scheduleSave();
     },
-    [setNodes, layoutAutosave],
+    [setNodes, layoutAutosave, commit],
+  );
+
+  // Une entrée par geste de resize : snapshot avant la première frame. Le
+  // NodeResizer émet ensuite des changements de dimensions (via `onNodesChange`)
+  // qui ne committent pas — ils sont capturés par ce snapshot de tête.
+  const onStickyResizeStart = useCallback(
+    (_id: string) => {
+      commit();
+    },
+    [commit],
   );
 
   const onStickyResizeEnd = useCallback(() => {
@@ -108,6 +127,7 @@ export const useStickyNotes = ({
     () => ({
       onTextChange: onStickyTextChange,
       onDelete: onStickyDelete,
+      onResizeStart: onStickyResizeStart,
       onResizeEnd: onStickyResizeEnd,
       // Flush au blur du textarea : si l'éditeur est fermé < 500 ms après la
       // dernière frappe, le timer debounce serait annulé au unmount sans ça.
@@ -117,6 +137,7 @@ export const useStickyNotes = ({
     [
       onStickyTextChange,
       onStickyDelete,
+      onStickyResizeStart,
       onStickyResizeEnd,
       layoutAutosave,
       isViewRun,

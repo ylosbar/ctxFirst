@@ -41,6 +41,8 @@ type Options = {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   layoutAutosave: LayoutAutosaveControls;
   rf: ReactFlowInstance;
+  /** Snapshot d'historique (undoable) posé avant le relayout global. */
+  commit: (opts?: { coalesceKey?: string }) => void;
 };
 
 export type AutoLayoutControls = {
@@ -55,11 +57,13 @@ export const useAutoLayout = ({
   setNodes,
   layoutAutosave,
   rf,
+  commit,
 }: Options): AutoLayoutControls => {
   const handleAutoLayout = useCallback(
     (mode: AutoLayoutMode) => {
       const allSteps = nodes.filter((n) => n.type === "step");
       if (allSteps.length === 0) return;
+      commit();
       const allGroups = nodes.filter((n) => n.type === "group");
       const groupIds = new Set(allGroups.map((g) => g.id));
 
@@ -232,7 +236,7 @@ export const useAutoLayout = ({
       // tire (~500 ms).
       layoutAutosave.scheduleSave();
     },
-    [nodes, edges, entryStepId, setNodes, layoutAutosave, rf],
+    [nodes, edges, entryStepId, setNodes, layoutAutosave, rf, commit],
   );
 
   return { handleAutoLayout };

@@ -330,7 +330,9 @@
         "saveLocked": "Template publié (immuable) — change la version pour éditer",
         "saving": "Sauvegarde…",
         "publish": "Publier le template (le fige et le rend invocable comme sous-workflow)",
-        "published": "Template publié (immuable — bumpe la version pour itérer)"
+        "published": "Template publié (immuable — bumpe la version pour itérer)",
+        "undo": "Annuler — Ctrl/⌘+Z",
+        "redo": "Rétablir — Ctrl/⌘+Maj+Z"
       },
       "publish": {
         "title": "Publier le template ?",
