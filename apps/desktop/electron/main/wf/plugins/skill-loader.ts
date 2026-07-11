@@ -70,9 +70,18 @@ const readSkillRef = (cfg: Readonly<Record<string, unknown>>): string => {
 
 const bodyOf = (input: RunContextInput): string => {
   const payload = input.payload;
-  if (payload && typeof payload === "object" && "body" in payload) {
-    const body = (payload as { body?: unknown }).body;
-    if (typeof body === "string") return body;
+  if (payload && typeof payload === "object") {
+    // Markdown/Json carry their value in `body`; a `Path` carries it in `path`.
+    // Without this branch a wired Path would hydrate as its raw `{"path":…}`
+    // envelope (the fallback `input.content`) rather than the bare path string.
+    if ("body" in payload) {
+      const body = (payload as { body?: unknown }).body;
+      if (typeof body === "string") return body;
+    }
+    if ("path" in payload) {
+      const path = (payload as { path?: unknown }).path;
+      if (typeof path === "string") return path;
+    }
   }
   return input.content;
 };
@@ -137,7 +146,7 @@ const resolveInputs = (
 
   const placeholderPorts: PortSpec[] = names.map((name) => ({
     name,
-    kinds: ["Markdown", "Json"],
+    kinds: ["Markdown", "Json", "Path"],
     optional: true,
   }));
   // A literal `{{in}}` placeholder shadows the chaining port (assumed limit).

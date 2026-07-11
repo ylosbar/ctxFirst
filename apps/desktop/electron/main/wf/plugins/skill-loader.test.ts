@@ -84,6 +84,14 @@ const json = (port: string, body: string): RunContextInput => ({
   artifactId: asArtifactId(`artifact-${port}`),
 });
 
+const path = (port: string, p: string): RunContextInput => ({
+  port,
+  kind: "Path",
+  content: JSON.stringify({ path: p }),
+  payload: { path: p },
+  artifactId: asArtifactId(`artifact-${port}`),
+});
+
 const buildCtx = (params: {
   config: Readonly<Record<string, unknown>>;
   inputs: ReadonlyArray<RunContextInput>;
@@ -129,15 +137,15 @@ const bodyOfStored = (stored: StoredArtifact): string =>
   (JSON.parse(stored.content) as { body: string }).body;
 
 describe("skill.loader — resolveSpec (dynamic ports)", () => {
-  it("derives one optional Markdown|Json input port per placeholder, in order, deduped", () => {
+  it("derives one optional Markdown|Json|Path input port per placeholder, in order, deduped", () => {
     const runner = createSkillLoaderRunner({
       getSkillBody: () => "Analyse {{spec}} selon {{style}} et {{spec}} encore.",
     });
     const spec = runner.resolveSpec({ config: { skillRef: "s@v1" } });
     expect(spec.inputs).toEqual([
       { name: "in", kinds: ["*"], optional: true },
-      { name: "spec", kinds: ["Markdown", "Json"], optional: true },
-      { name: "style", kinds: ["Markdown", "Json"], optional: true },
+      { name: "spec", kinds: ["Markdown", "Json", "Path"], optional: true },
+      { name: "style", kinds: ["Markdown", "Json", "Path"], optional: true },
     ]);
     expect(spec.outputs).toEqual([
       { name: "out", kind: "Markdown", primary: true },
@@ -164,8 +172,8 @@ describe("skill.loader — resolveSpec (dynamic ports)", () => {
     });
     expect(spec.inputs).toEqual([
       { name: "in", kinds: ["*"], optional: true },
-      { name: "spec", kinds: ["Markdown", "Json"], optional: true },
-      { name: "style", kinds: ["Markdown", "Json"], optional: true },
+      { name: "spec", kinds: ["Markdown", "Json", "Path"], optional: true },
+      { name: "style", kinds: ["Markdown", "Json", "Path"], optional: true },
     ]);
   });
 
@@ -179,8 +187,8 @@ describe("skill.loader — resolveSpec (dynamic ports)", () => {
     const runner = createSkillLoaderRunner({ getSkillBody: () => "{{in}} {{x}}" });
     const spec = runner.resolveSpec({ config: { skillRef: "s@v1" } });
     expect(spec.inputs).toEqual([
-      { name: "in", kinds: ["Markdown", "Json"], optional: true },
-      { name: "x", kinds: ["Markdown", "Json"], optional: true },
+      { name: "in", kinds: ["Markdown", "Json", "Path"], optional: true },
+      { name: "x", kinds: ["Markdown", "Json", "Path"], optional: true },
     ]);
   });
 });
@@ -213,6 +221,18 @@ describe("skill.loader — run (substitution)", () => {
     });
     await runner.run(ctx);
     expect(bodyOfStored(store.all()[0])).toBe('S :: {"tone":"dry"}');
+  });
+
+  it("hydrates a Path placeholder as its bare path string, not the raw envelope", async () => {
+    const store = createStubArtifactStore();
+    const ctx = buildCtx({
+      config: { skillRef: "s@v1" },
+      inputs: [path("target", "/repo/src/index.ts")],
+      store,
+      skills: createStubSkills({ "s@v1": "Review {{target}}." }),
+    });
+    await runner.run(ctx);
+    expect(bodyOfStored(store.all()[0])).toBe("Review /repo/src/index.ts.");
   });
 
   it("drops an unwired placeholder by default (onMissing=empty)", async () => {

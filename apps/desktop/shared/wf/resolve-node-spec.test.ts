@@ -408,14 +408,14 @@ describe("resolveNodeSpec — skill.loader", () => {
     outputs: [{ name: "out", kind: "Markdown", primary: true }],
   };
 
-  it("derives one Markdown|Json port per placeholder, after the `in` port", () => {
+  it("derives one Markdown|Json|Path port per placeholder, after the `in` port", () => {
     const spec = resolveNodeSpec("skill.loader", { skillRef: "s@v1" }, skillBase, {
       skillBodies: new Map([["s@v1", "Analyse {{spec}} selon {{style}}."]]),
     });
     expect(spec.inputs).toEqual([
       { name: "in", kinds: ["*"], optional: true },
-      { name: "spec", kinds: ["Markdown", "Json"], optional: true },
-      { name: "style", kinds: ["Markdown", "Json"], optional: true },
+      { name: "spec", kinds: ["Markdown", "Json", "Path"], optional: true },
+      { name: "style", kinds: ["Markdown", "Json", "Path"], optional: true },
     ]);
     expect(spec.outputs).toEqual(skillBase.outputs);
   });
@@ -437,8 +437,8 @@ describe("resolveNodeSpec — skill.loader", () => {
       skillBodies: new Map([["s@v1", "{{in}} {{x}}"]]),
     });
     expect(spec.inputs).toEqual([
-      { name: "in", kinds: ["Markdown", "Json"], optional: true },
-      { name: "x", kinds: ["Markdown", "Json"], optional: true },
+      { name: "in", kinds: ["Markdown", "Json", "Path"], optional: true },
+      { name: "x", kinds: ["Markdown", "Json", "Path"], optional: true },
     ]);
   });
 });

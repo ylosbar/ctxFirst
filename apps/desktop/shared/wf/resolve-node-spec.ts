@@ -488,9 +488,9 @@ export const resolveNodeSpec = (
     }
     case "skill.loader": {
       // Mirrors `createSkillLoaderRunner.resolveSpec` (plugins/skill-loader.ts):
-      // one optional `Markdown|Json` input port per `{{placeholder}}` in the
-      // referenced skill's body, plus the `in` chaining port (kept first unless
-      // a literal `{{in}}` placeholder shadows it). The body comes from
+      // one optional `Markdown|Json|Path` input port per `{{placeholder}}` in
+      // the referenced skill's body, plus the `in` chaining port (kept first
+      // unless a literal `{{in}}` placeholder shadows it). The body comes from
       // `ctx.skillBodies` (the editor supplies it from its cached skill list);
       // without it, or on an unknown ref, we fall back to the permissive base
       // (`in` only) — exactly like the runner on a cold snapshot.
@@ -500,7 +500,7 @@ export const resolveNodeSpec = (
       const names = extractPlaceholders(body);
       const placeholderPorts = names.map((name) => ({
         name,
-        kinds: ["Markdown", "Json"],
+        kinds: ["Markdown", "Json", "Path"],
         optional: true,
       }));
       const inputs = names.includes("in")
