@@ -104,6 +104,17 @@ The `BrowserWindow` uses `contextIsolation: true`, `sandbox: true`, `nodeIntegra
 - `electron-vite` picks its own renderer port; no fixed port contract between Vite and the main process (main reads `process.env.ELECTRON_RENDERER_URL`).
 - HMR applies to the renderer; changes to `electron/main/**` or `electron/preload/**` trigger a relaunch of the Electron process.
 
+## OpenWiki
+
+This repository has documentation located in the /openwiki directory.
+
+Start here:
+- [OpenWiki quickstart](openwiki/quickstart.md)
+
+OpenWiki includes repository overview, architecture notes, workflows, domain concepts, operations, integrations, testing guidance, and source maps.
+
+When working in this repository, read the OpenWiki quickstart first, then follow its links to the relevant architecture, workflow, domain, operation, and testing notes.
+
 ## Workspaces secondaires
 
 ### `apps/api` — serveur Hapi
