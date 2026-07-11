@@ -222,11 +222,7 @@
         "nameInvalid": "Nom invalide : commence par une lettre ou _, puis lettres/chiffres/_ uniquement.",
         "nameConflict": "La variable \"{{name}}\" existe déjà."
       },
-      "deleteConfirm": "Supprimer \"{{name}}\" ? {{producers}}, {{consumers}} seront déliés.",
-      "producerCount_one": "{{count}} producteur",
-      "producerCount_other": "{{count}} producteurs",
-      "consumerCount_one": "{{count}} consommateur",
-      "consumerCount_other": "{{count}} consommateurs"
+      "deleteBlocked": "Cette variable est utilisée par les steps ci-dessus — retirez d'abord ces liens pour la supprimer."
     },
     "variablesPicker": {
       "label": "Variables",
@@ -237,7 +233,9 @@
       "create": "Créer une variable",
       "empty": "Aucune variable déclarée.",
       "noResults": "Aucune variable ne correspond à « {{query}} ».",
-      "viewShapeAriaLabel": "Voir la shape de {{kind}}"
+      "viewShapeAriaLabel": "Voir la shape de {{kind}}",
+      "deleteAriaLabel": "Supprimer la variable {{name}}",
+      "deleteBlocked": "Utilisée par un step — retirez ses liens pour la supprimer."
     },
     "nodesPicker": {
       "label": "Nodes",

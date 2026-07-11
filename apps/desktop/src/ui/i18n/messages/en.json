@@ -222,11 +222,7 @@
         "nameInvalid": "Invalid name: must start with a letter or _, then letters/digits/_ only.",
         "nameConflict": "The variable \"{{name}}\" already exists."
       },
-      "deleteConfirm": "Delete \"{{name}}\"? {{producers}}, {{consumers}} will be unlinked.",
-      "producerCount_one": "{{count}} producer",
-      "producerCount_other": "{{count}} producers",
-      "consumerCount_one": "{{count}} consumer",
-      "consumerCount_other": "{{count}} consumers"
+      "deleteBlocked": "This variable is used by the steps above — remove those links first to delete it."
     },
     "variablesPicker": {
       "label": "Variables",
@@ -237,7 +233,9 @@
       "create": "Create a variable",
       "empty": "No variables declared.",
       "noResults": "No variable matches “{{query}}”.",
-      "viewShapeAriaLabel": "View the shape of {{kind}}"
+      "viewShapeAriaLabel": "View the shape of {{kind}}",
+      "deleteAriaLabel": "Delete the variable {{name}}",
+      "deleteBlocked": "Used by a step — remove its links to delete it."
     },
     "nodesPicker": {
       "label": "Nodes",

@@ -1,7 +1,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import { motion } from "motion/react";
-import { Plus, Variable } from "lucide-react";
+import { Plus, Trash2, Variable } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,10 @@ import { useT } from "@/ui/i18n";
 type Props = {
   readonly disabled: boolean;
   readonly variables: ReadonlyArray<TemplateVariableDraft>;
+  /** Variables référencées par au moins un step — leur corbeille est désactivée. */
+  readonly usedVariableNames: ReadonlySet<string>;
   readonly onPick: (variable: TemplateVariableDraft) => void;
+  readonly onDelete: (name: string) => void;
   readonly onRequestCreate: () => void;
 };
 
@@ -34,7 +37,9 @@ const itemClass =
 const VariablesPickerMenu = ({
   disabled,
   variables,
+  usedVariableNames,
   onPick,
+  onDelete,
   onRequestCreate,
 }: Props) => {
   const t = useT();
@@ -162,6 +167,43 @@ const VariablesPickerMenu = ({
                       </span>
                     ) : null}
                   </span>
+                  {/* Corbeille par ligne : activée seulement si la variable
+                      n'est référencée par aucun step. `stopPropagation` évite que
+                      le clic soit interprété par le Menu.Item comme « éditer »
+                      (même patron que KindBadgePopover). */}
+                  {usedVariableNames.has(variable.name) ? (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <span
+                            aria-disabled
+                            className="mt-[1px] shrink-0 cursor-not-allowed rounded p-0.5 text-muted-foreground/40"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </span>
+                        }
+                      />
+                      <TooltipContent>
+                        {t("templates.variablesPicker.deleteBlocked")}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={t(
+                        "templates.variablesPicker.deleteAriaLabel",
+                        { name: variable.name },
+                      )}
+                      className="mt-[1px] shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-colors hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(variable.name);
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
                 </Menu.Item>
               ))}
               {variables.length === 0 ? (

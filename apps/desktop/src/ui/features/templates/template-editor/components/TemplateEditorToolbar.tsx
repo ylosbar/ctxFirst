@@ -85,6 +85,8 @@ type Props = {
   readonly isMaximized: boolean;
   readonly setIsMaximized: Dispatch<SetStateAction<boolean>>;
   readonly variables: readonly TemplateVariableDraft[];
+  readonly usedVariableNames: ReadonlySet<string>;
+  readonly deleteVariable: (name: string) => void;
   readonly setVariableModal: Dispatch<SetStateAction<VariableModalState>>;
   readonly setMissingDepsModalOpen: Dispatch<SetStateAction<boolean>>;
   readonly setDepsModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -127,6 +129,8 @@ const TemplateEditorToolbar = ({
   isMaximized,
   setIsMaximized,
   variables,
+  usedVariableNames,
+  deleteVariable,
   setVariableModal,
   setMissingDepsModalOpen,
   setDepsModalOpen,
@@ -384,6 +388,8 @@ const TemplateEditorToolbar = ({
         <VariablesPickerMenu
           disabled={false}
           variables={variables}
+          usedVariableNames={usedVariableNames}
+          onDelete={deleteVariable}
           onPick={(v) =>
             setVariableModal({ open: true, mode: "edit", variable: v })
           }

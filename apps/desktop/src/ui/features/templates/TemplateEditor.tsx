@@ -70,6 +70,7 @@ import type { VariableModalState } from "./template-editor/components/variable-m
 import type { RunOverlay } from "./run-overlay";
 import { isSyntheticId } from "./template-editor/graph/ids";
 import { nodesToSteps } from "./template-editor/graph/nodes-to-steps";
+import { collectUsedVariableNames } from "./template-editor/graph/variable-usage";
 import { type ByKind } from "./template-editor/graph/step-spec";
 
 type Props = {
@@ -238,13 +239,20 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     resetHistory();
   }, [editingRef, reloadToken, resetHistory]);
 
-  // Mutations de variables (cascade dans les nodes : un renommage propage dans
-  // `writesTo`/`readsFrom`, une suppression purge les références). `commit` en
-  // tête rend chaque mutation annulable (modale = 1 appel discret).
+  // Lecture synchrone des steps courants pour la garde de `deleteVariable` :
+  // dérivée du mirror `nodesRef` (réassigné à chaque render) et non d'une
+  // capture périmée, pour refléter tout câblage tout juste appliqué.
+  const getSteps = useCallback(() => nodesToSteps(nodesRef.current), []);
+
+  // Mutations de variables : un renommage propage dans `writesTo`/`readsFrom`
+  // de chaque step ; une suppression n'est autorisée que pour une variable
+  // inutilisée (garde `isVariableUsed`, sinon no-op). `commit` en tête rend
+  // chaque mutation annulable (modale = 1 appel discret).
   const { addVariable, updateVariable, deleteVariable } = useTemplateVariables({
     setNodes,
     setVariables,
     commit,
+    getSteps,
   });
 
   const [notesVisible, setNotesVisible] = useState<boolean>(false);
@@ -586,6 +594,14 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
     [nodes],
   );
 
+  // Noms des variables référencées au moins une fois — pour griser la corbeille
+  // du menu Variables sur les variables utilisées (calculé une fois par diff des
+  // steps, partagé avec la garde de `deleteVariable`).
+  const usedVariableNames = useMemo(
+    () => collectUsedVariableNames(steps),
+    [steps],
+  );
+
   // Handle impérative publiée pour l'inspecteur (assemblage mémoïsé des dérivés
   // + mutateurs ci-dessus ; mutateurs neutralisés en view-run — cf. le hook).
   const handle = useTemplateCanvasHandle({
@@ -713,6 +729,8 @@ const TemplateEditorInner = ({ uri, api, runOverlay }: Props) => {
           isMaximized={isMaximized}
           setIsMaximized={setIsMaximized}
           variables={variables}
+          usedVariableNames={usedVariableNames}
+          deleteVariable={deleteVariable}
           setVariableModal={setVariableModal}
           setMissingDepsModalOpen={setMissingDepsModalOpen}
           setDepsModalOpen={setDepsModalOpen}

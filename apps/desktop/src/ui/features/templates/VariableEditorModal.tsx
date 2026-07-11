@@ -24,6 +24,7 @@ import {
 import KindPreviewBlock from "../../components/artifact-kinds/KindPreviewBlock";
 import { useServices } from "../../di/services-provider";
 import useArtifactSchemas from "../../hooks/useArtifactSchemas";
+import { collectVariableReferences } from "./template-editor/graph/variable-usage";
 import { useT } from "@/ui/i18n";
 
 const VAR_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -117,33 +118,6 @@ const decomposeKind = (
     if (inner) return { baseKind: inner as ArtifactKind, isList: true };
   }
   return { baseKind: kind, isList: false };
-};
-
-const collectReferences = (
-  steps: ReadonlyArray<TemplateStepDraft>,
-  variableName: string,
-): { producers: ReadonlyArray<string>; consumers: ReadonlyArray<string> } => {
-  const producers: string[] = [];
-  const consumers: string[] = [];
-  for (const s of steps) {
-    if (s.writesTo) {
-      for (const [, varName] of Object.entries(s.writesTo)) {
-        if (varName === variableName) {
-          producers.push(s.id);
-          break;
-        }
-      }
-    }
-    if (s.readsFrom) {
-      for (const [, varName] of Object.entries(s.readsFrom)) {
-        if (varName === variableName) {
-          consumers.push(s.id);
-          break;
-        }
-      }
-    }
-  }
-  return { producers, consumers };
 };
 
 const VariableEditorModal = ({
@@ -250,8 +224,11 @@ const VariableEditorModal = ({
 
   const refs = useMemo(() => {
     if (!isEdit) return { producers: [], consumers: [] };
-    return collectReferences(steps, previousName ?? "");
+    return collectVariableReferences(steps, previousName ?? "");
   }, [isEdit, steps, previousName]);
+  // Une variable référencée (lue ou écrite) ne peut pas être supprimée depuis
+  // l'UI : la retirer dé-câblerait silencieusement des steps.
+  const inUse = refs.producers.length > 0 || refs.consumers.length > 0;
 
   // Gate 1 (launch-input-variables.md §Contrainte) reflected before save: a
   // variable written by a step cannot be a launch input — last-writer-wins would
@@ -317,24 +294,9 @@ const VariableEditorModal = ({
   };
 
   const handleDelete = () => {
-    if (!onDelete) return;
-    const inUse = refs.producers.length > 0 || refs.consumers.length > 0;
-    if (
-      inUse &&
-      !confirm(
-        t("templates.variableEditor.deleteConfirm", {
-          name: previousName,
-          producers: t("templates.variableEditor.producerCount", {
-            count: refs.producers.length,
-          }),
-          consumers: t("templates.variableEditor.consumerCount", {
-            count: refs.consumers.length,
-          }),
-        }),
-      )
-    ) {
-      return;
-    }
+    // Ne supprime que si inutilisée. Le cas inutilisé est sans perte et
+    // annulable (Ctrl/⌘+Z) — pas de `confirm()`.
+    if (!onDelete || inUse) return;
     onDelete();
   };
 
@@ -551,6 +513,11 @@ const VariableEditorModal = ({
                       : refs.consumers.join(", ")}
                   </div>
                 </div>
+                {inUse ? (
+                  <p className="mt-2 text-2xs text-amber-600 dark:text-amber-400">
+                    {t("templates.variableEditor.deleteBlocked")}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -561,6 +528,12 @@ const VariableEditorModal = ({
                 variant="ghost"
                 size="sm"
                 className="mr-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+                disabled={inUse}
+                title={
+                  inUse
+                    ? t("templates.variableEditor.deleteBlocked")
+                    : undefined
+                }
                 onClick={handleDelete}
               >
                 <Trash2 data-icon="inline-start" className="size-3.5" />

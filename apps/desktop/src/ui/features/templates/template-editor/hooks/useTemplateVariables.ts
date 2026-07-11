@@ -9,8 +9,10 @@
  *   - `updateVariable` — édite une déclaration ; **seul** un renommage de `name`
  *     cascade dans les `writesTo` / `readsFrom` de chaque step (kind/description
  *     restent locaux à la déclaration) ;
- *   - `deleteVariable` — retire la déclaration et purge ses références dans les
- *     steps pour garder le template cohérent.
+ *   - `deleteVariable` — retire la déclaration, mais **refuse** (no-op) toute
+ *     variable encore référencée par un step. Supprimer une variable inutilisée
+ *     ne peut laisser aucune référence pendante ; on ne dé-câble donc jamais un
+ *     step silencieusement (défense en profondeur, indépendante de l'UI).
  */
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
@@ -20,11 +22,19 @@ import type {
   TemplateStepDraft,
   TemplateVariableDraft,
 } from "../../../../../domain/workflow/types";
+import { isVariableUsed } from "../graph/variable-usage";
 
 type Options = {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setVariables: Dispatch<SetStateAction<readonly TemplateVariableDraft[]>>;
   commit: (opts?: { coalesceKey?: string }) => void;
+  /**
+   * Lecture synchrone des steps courants au moment de l'appel — dérivée du
+   * mirror `nodesRef` de l'orchestrateur, pas d'une capture périmée en closure,
+   * pour que la garde ne juge jamais « inutilisée » une variable fraîchement
+   * câblée.
+   */
+  getSteps: () => ReadonlyArray<TemplateStepDraft>;
 };
 
 export type TemplateVariablesControls = {
@@ -40,6 +50,7 @@ export const useTemplateVariables = ({
   setNodes,
   setVariables,
   commit,
+  getSteps,
 }: Options): TemplateVariablesControls => {
   const addVariable = useCallback(
     (variable: TemplateVariableDraft) => {
@@ -101,46 +112,16 @@ export const useTemplateVariables = ({
 
   const deleteVariable = useCallback(
     (name: string) => {
+      // Garde autoritaire : ne JAMAIS supprimer une variable référencée, quel
+      // que soit l'appelant (sinon on dé-câblerait silencieusement des steps).
+      // No-op sans `commit()` pour ne pas polluer l'historique.
+      if (isVariableUsed(getSteps(), name)) return;
       commit();
       setVariables((vs) => vs.filter((v) => v.name !== name));
-      // Strip references to the deleted variable from all steps to keep the
-      // template consistent.
-      setNodes((nds) =>
-        nds.map((n) => {
-          const data = n.data as unknown as TemplateStepDraft & {
-            isEntry: boolean;
-          };
-          let writesTo = data.writesTo;
-          let readsFrom = data.readsFrom;
-          let mutated = false;
-          if (writesTo) {
-            const filtered: Record<string, string> = {};
-            for (const [port, varName] of Object.entries(writesTo)) {
-              if (varName === name) {
-                mutated = true;
-                continue;
-              }
-              filtered[port] = varName;
-            }
-            writesTo = Object.keys(filtered).length > 0 ? filtered : undefined;
-          }
-          if (readsFrom) {
-            const filtered: Record<string, string> = {};
-            for (const [port, varName] of Object.entries(readsFrom)) {
-              if (varName === name) {
-                mutated = true;
-                continue;
-              }
-              filtered[port] = varName;
-            }
-            readsFrom = Object.keys(filtered).length > 0 ? filtered : undefined;
-          }
-          if (!mutated) return n;
-          return { ...n, data: { ...data, writesTo, readsFrom } };
-        }),
-      );
+      // Plus de cascade dans les nodes : une variable inutilisée n'a, par
+      // définition, aucune référence `writesTo`/`readsFrom` à purger.
     },
-    [setNodes, setVariables, commit],
+    [getSteps, setVariables, commit],
   );
 
   return { addVariable, updateVariable, deleteVariable };
